@@ -2,6 +2,13 @@
 
 <h1>Wyntr</h1>
 
+## netlify .env
+
+```
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK
+DISCORD_WEBHOOK_URL_1=https://discord.com/api/webhooks/YOUR_WEBHOOK
+```
+
 ## firestore rules
 
 ```
