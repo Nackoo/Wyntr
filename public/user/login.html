@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta property="og:title" content="Wyntr - Login">
+  <meta property="og:description" content="From breaking news and entertainment to sports and politics.">
+  <meta property="og:image" content="/wyntr">
+  <link rel="icon" type="image/png" href="/image/icon.png">
+  <title>Wyntr - Login</title>
+  <link rel="stylesheet" href="style/login.css">
+</head>
+
+<body>
+  <div id="form">
+    <h1>Login</h1>
+    <p style="margin-top:0;text-align:left;line-height:1.5;">Login to continue using Wyntr.</p>
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+      <input type="checkbox" id="tosCheckbox">
+      <span>You agree to Wyntr <a href="tos" target="_blank">Terms of service</a> and our <a href="privacy" target="_blank">Privacy policy</a></span>
+    </div>
+    <br><br>
+    <p id="error" style="color: #db1d23; display: none; margin-top: 10px;">You must agree to above to log in.</p>
+    <button id="loginBtn" class="fill custom-btn btn-11" disabled>Google Login</button>
+  </div>
+
+  <script type="module" src="script/login.js"></script>
+</body>
+
+</html>

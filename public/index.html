@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta property="og:title" content="Wyntr - It's what's going on.">
+  <meta property="og:description" content="From breaking news and entertainment to sports and politics.">
+  <meta property="og:image" content="/image/icon.png">
+  <link rel="icon" type="image/png" href="/image/icon.png">
+  <title>Wyntr</title>
+  <link rel="stylesheet" href="/style/index.css">
+  <link rel="stylesheet" href="/style/user.css">
+  <link rel="stylesheet" href="/style/tweet.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+
+  <script src="/lib/script/twemoji.min.js" crossorigin="anonymous"></script>
+  <script src="/lib/script/base91.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script type="module">
+    import { log } from "./script/texts.js";
+
+    if (location.hash === '#debug') {
+      eruda.init();
+      log("green", "Debugging mode");
+    }
+  </script>
+</head>
+
+<div id="loadingO" class="overlay hidden" style="background:var(--dark)">
+  <img height="120" src="/image/icon.png">
+</div>
+
+<body>
+  <div id="bookmarkOverlay" class="useroverlay hidden">
+    <div class="user-box">
+      <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+        <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+          <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="hidebookmark()">
+            <img src="/image/leftArrow.svg">
+          </button>
+          <h2 style="margin:0;margin-left:Auto">Bookmarks</h2><img src="/image/bookmark-filled.svg" height="25">
+        </div>
+      </header>
+      <div id="bookmarkList"></div>
+      <div id="bookmarkLoadMore" style="margin-top:10px;font-size:16px;color:var(--color);text-decoration:underline;" class="link">Load more...</div>
+      <br><br><br><br><br><br>
+    </div>
+  </div>
+
+  <div id="main" style="display:flex;position:relative;display:flex;justify-content:center;">
+    <div style="flex-grow:1;max-width:260px;">
+      <div class="smallbar">
+        <div id="iconpng">
+          <img src="/image/w.png" style="margin-bottom:10px;height:45px;width:45px;">
+        </div>
+
+        <div id="homefilled" class="flexx active">
+          <div class="svg">
+            <img src="/image/home-filled.svg">
+          </div>
+          <div class="display">
+            <b>Home</b>
+          </div>
+        </div>
+
+        <div id="homesvg" class="flexx hidden">
+          <div class="svg">
+            <img src="/image/home.svg">
+          </div>
+          <div class="display">
+            Home
+          </div>
+        </div>
+
+        <div id="searchsvg" class="flexx">
+          <div class="svg">
+            <img src="/image/search.svg">
+          </div>
+          <div class="display">
+            Explore
+          </div>
+        </div>
+
+        <div id="searchfilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/search-filled.svg">
+          </div>
+          <div class="display">
+            <b>Explore</b>
+          </div>
+        </div>
+
+        <div id="notifsvg1" class="flexx">
+          <div class="svg">
+            <img src="/image/notification.svg" style="margin:0">
+            <div id="unread"></div>
+          </div>
+          <div class="display">
+            Notification
+          </div>
+        </div>
+
+        <div id="notiffilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/notification-filled.svg">
+          </div>
+          <div class="display">
+            <b>Notification</b>
+          </div>
+        </div>
+
+        <div id="comsvg" class="flexx">
+          <div class="svg">
+            <img src="/image/community.svg" style="margin:0">
+            <div id="unread"></div>
+          </div>
+          <div class="display">
+            Communities
+          </div>
+        </div>
+
+        <div id="comfilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/community-filled.svg">
+          </div>
+          <div class="display">
+            <b>Communities</b>
+          </div>
+        </div>
+
+        <div id="premiumsvg" class="flexx">
+          <div class=svg>
+            <img src="/image/shop.svg">
+          </div>
+          <div class=display>
+            Shop
+          </div>
+        </div>
+
+        <div id="premiumfilled" class="flexx hidden active">
+          <div class=svg>
+            <img src="/image/shop-filled.svg">
+          </div>
+          <div class=display>
+            <b>Shop</b>
+          </div>
+        </div>
+
+        <div id="usersvg" class="flexx">
+          <div class="svg">
+            <img src="/image/user.svg">
+          </div>
+          <div class="display">
+            Profile
+          </div>
+        </div>
+
+        <div id="userfilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/user-filled.svg">
+          </div>
+          <div class="display">
+            <b>Profile</b>
+          </div>
+        </div>
+
+        <div id="bookmarksvg" class="flexx">
+          <div class="svg">
+            <img src="/image/bookmark.svg">
+          </div>
+          <div class="display">
+            Bookmarks
+          </div>
+        </div>
+
+        <div id="bookmarkfilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/bookmark-filled.svg">
+          </div>
+          <div class="display">
+            <b>Bookmarks</b>
+          </div>
+        </div>
+
+        <div id="settingssvg" class="flexx">
+          <div class="svg">
+            <img src="/image/settings.svg">
+            <div id="unclaimed" style="background:#00ba7c"></div>
+          </div>
+          <div class="display">
+            More
+          </div>
+        </div>
+
+        <div id="settingsfilled" class="flexx hidden active">
+          <div class="svg">
+            <img src="/image/settings-filled.svg">
+          </div>
+          <div class="display">
+            <b>More</b>
+          </div>
+        </div>
+
+        <button id="tweetbtn" style="background:none;color:var(--color);display:flex;align-items:center;margin-top:10px;" onclick="document.getElementById('post').click()">
+          <div class="flexx" style="padding:13px 0;font-size:16px;background:white;width:100%;color:black;display:flex;justify-content:center;margin-bottom:5px;margin-top:0;border-radius:20px;">
+            <strong>Wynt</strong>
+          </div>
+        </button>
+      </div>
+
+      <div class="smallbar2 hidden">
+
+        <button style="background:none;color:var(--color);display:flex;align-items:center;margin:3px;" onclick="document.getElementById('logout').click()">
+          <div class="flexx" style="width:100%;display:flex;align-items:center;margin:0;border-radius:15px;border:1px solid #db1d23;color:#db1d23">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2" />
+            </svg>
+            <b>Logout</b>
+          </div>
+        </button>
+      </div>
+
+      <div class="smallbar1">
+        <div id="account" class="flexx" style="display:flex;align-items:center;gap:15px;">
+          <img class="account-avatar" src="/image/default-avatar.jpg" style="border-radius:10px;height:40px;width:40px;display:none">
+          <div style="font-size:16px;margin:0;width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+            <div class="account-name" style="font-size:16px;margin:0;text-overflow:ellipsis;white-space:nowrap;overflow: hidden;font-weight:bold;">
+              <div class="skeleton-card" style="margin:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div></div></div></div>
+            </div>
+            <div class="account-username" style="font-size:15px;color:grey;margin:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">        
+            </div>
+          </div>
+          <img src="/image/three-dots.svg" style="margin-left:auto;transition:transform 0.2s ease;">
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-grow:1;max-width:560px;">
+      <div id="profileOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <div id="user-profile-effect">
+          <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
+            <button onclick="hideprofile()" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0">You!</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+            </div>
+          </header>
+          <div id="my-banner" class="flex banner">
+            <div class="status"><div id="my-status">i'm cold...</div>
+              <div></div>
+              <div></div>
+            </div>
+            <div id="my-pfp"></div>
+            <button onclick="document.getElementById('profileMenuOverlay').classList.remove('hidden')"> 
+              <svg style="color:white;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 12h.01m6 0h.01m5.99 0h.01"/></svg>
+            </button>
+          </div>
+          <div class="flex" style="margin-top:80px;gap:7px;">
+            <h2 id="my-name" style="margin:0;"></h2>
+            <div id=my-iq class=iq1>0</div>
+            <img src="/image/check.svg" style="heigh:25px;width:25px;" id="user-admin">
+          </div>
+          <span style="color:grey" id="my-username"></span>
+          <p id="my-description"></p>
+          <div style="border-bottom:var(--border);padding-bottom:15px;margin-top:15px;display:flex;align-items:center;margin-bottom:0;gap:7px;"><img src="/image/calendar.svg" style="height:20px;"><span id="my-creation"></span>
+            <div style="display:flex;align-items:center;gap:5px;margin-left:auto;"><img src="/image/coin.svg"> <span id="my-balance">0</span></div>
+            <div style="display:flex;align-items:center;gap:5px;"><img src="/image/fire.svg"> <span id="my-streak">0</span></div>
+          </div>
+          <div style="align-items: center; margin-bottom: 0;display: flex; gap: 8px;"><span id="my-ers"><span id="my-followers" style="font-weight:bold;">0</span> <span style="color:grey">followers</span></span> <span id="my-ing"><span id="my-following" style="font-weight:bold;">0</span> <span style="color:grey">following</span></span>
+            <p style="margin-lefT:auto;display:flex;align-items:center;gap:5px;"><span id="my-posts" style="font-weight:bold;">0</span> <span style="color:grey">Wynts</span></p>
+          </div>
+          <div class="tab-container" style="border-bottom: var(--border);">
+            <button class="tab2 active" data-target="youList" style="margin:0">Wynts</button>
+            <button class="tab2" data-target="replyList1" style="margin:0">Replies</button>
+            <button class="tab2" data-target="mentionedList" style="margin:0">Tagged</button>
+            <button class="tab2" data-target="highlightedList" style="margin:0;">Spotlight</button>
+          </div>
+          </div>
+          <div id="youList" class="tab-content"></div>
+          <div id="replyList1" class="tab-content"></div>
+          <div id="mentionedList" class="tab-content"></div>
+          <div id="highlightedList" class="tab-content"></div>
+          <br><br><br>
+        </div>
+      </div>
+
+      <div id="profileMenuOverlay" class="overlay hidden">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Actions</h3>
+            <div class="menu-item close-profile-menu" style="margin-left:auto;">
+              <img src="/image/x.svg">
+            </div>
+          </div>
+
+          <div class="menu-item copy-link-btn" id="copyMyLinkBtn" data-uid="">
+            <img src="/image/link.svg"> Copy user link
+          </div>
+
+          <div class="menu-item" id="openMe">
+            <img src="/image/pen.svg"> Edit profile
+          </div>
+
+          <div class="menu-item copy-uid-btn" id="copyMyIdBtn" data-uid="">
+            <img src="/image/link.svg"> Copy user ID
+          </div>
+        </div>
+      </div>
+
+      <div id="meOverlay" class="useroverlay hidden">
+        <div class="sub-user-box">
+          <header class="flex">
+            <button onclick="hidesettings()" class="close-btn">
+              <img src="/image/x.svg" alt="Close">
+            </button>
+          </header>
+
+          <div class="banner-preview">
+            <div id="banner-preview"></div>
+            <div id="group">
+              <label class="button" id="banner-label" for="banner-input"><img src="/image/upload.svg"></label>
+              <button class="button" id="banner-delete"><img src="/image/x.svg"></label>
+            </div>
+          </div>
+
+          <div class="ava-preview">
+            <div id="ava-preview"></div>
+            <label class="button" id="ava-label" for="ava-input"><img src="/image/upload.svg"></label>
+          </div>
+
+          <input type="file" id="ava-input" class="hidden-input" accept="image/*" />
+          <input type="file" id="banner-input" class="hidden-input" accept="image/*" />
+
+          <br><br><br><br><br><br><br><br><br><br><br>
+
+          <div class="container1">
+            <span>Status</span>
+            <input style="border:none;padding:0;" type="text" id="status-edit">
+          </div>
+
+          <div class="container1">
+            <span>Display name</span>
+            <input style="border:none;padding:0;" type="text" id="name-edit">
+          </div>
+
+          <div class="container1">
+            <span>Username</span>
+            <input style="border:none;padding:0;" type="text" id="username-edit">
+          </div>
+
+          <div class="container1">
+            <span>Description</span>
+            <textarea style="border:none;padding:0;" id="description-edit"></textarea>
+          </div>
+
+          <div style="margin-bottom:25px;padding:10px;border-radius:10px;border:var(--border);">
+              <span style="color:grey">Equipped effect</span>
+              <div id="effect-equipped">none</div>
+              <button id="change-effect" style="margin-top:10px;border-radius:7px;background:none;border:1px solid grey;color:grey">change</button>
+          </div>
+
+          <button id="save-profile-changes">save changes</button>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="effectOverlay" class="hidden overlay">
+        <div class="effect-container" style="background:var(--dark);border-radius:15px;border:var(--border);padding:20px;height:500px;width:700px;position:Relative;overflow:auto;padding-top:0;">
+          <header class="flex" style="margin:0 -20px;padding:0 20px;position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin-bottom:20px;">          <button style="padding:0;" onclick="document.getElementById('effectOverlay').classList.add('hidden')" class="close-btn">
+            <img src="/image/leftArrow.svg">
+          </button><h3 style="margin:15px 0;margin-left:-15px;">Select Profile Effect</h3>
+          <button id="saveEffect" class="save-btn" style="width:100px;border-radius:10px;margin-left:auto;">Select</button>
+          </header>
+          <div id="effectOptions" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+          <div style="margin-top:15px;display:flex;justify-content:flex-end;gap:10px;">
+          </div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="profileSubOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;margin-bottom:14px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" id="hideProfile">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">More</h2><img src="/image/settings-filled.svg" height="27">
+            </div>
+          </header>
+          <div id="sek">
+            <button class="settingsbtns" id="bookmarkBtn" onclick="document.getElementById('bookmarkOverlay').classList.remove('hidden')">
+              <img style="height:25px;" src="/image/bookmark.svg">
+              <span style="color:var(--color)">Bookmarks</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+            </button>
+            <button class="settingsbtns" id="shopBtn" onclick="document.getElementById('premiumOverlay1').classList.remove('hidden')" id="getpremium">
+              <img style="height:25px;" src="/image/shop.svg">
+              <span style="color:var(--color);">Shop</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+            </button>
+            <button class="settingsbtns" id="prize"><img style="height:20px;width:20px;" src="/image/gift.svg"><span>Claim Daily Wcoins</span></button>
+            <button id="logout"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2" />
+            </svg> <span>logout</span>
+          </button>
+          </div>
+
+          <div style="border-radius:12px;border:var(--border);padding:20px 15px;background:var(--normal)">
+            <div style="display:flex;align-items:center;">
+              <h2 style="margin-top:0;margin-bottom:15px;">Settings</h2>
+              <button class="close-btn" id="setD" style="margin-left:auto;margin-bottom:15px;transform:rotate(180deg);padding:0;"><img src="/image/leftArrow.svg" height="25"></button>
+            </div>
+
+            <span id="C" style="color:grey;font-size:16px;margin-top:-10px">Expand settings to see more</span>
+
+            <div id="B" style="display:none">
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
+                <span>Translator</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="isT" type="checkbox">
+                  <label for="isT" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="lp" style="display: block;">
+                
+                <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
+                  <option value="en">English</option>
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="zh">中文 (Chinese)</option>
+                  <option value="ja">日本語</option>
+                  <option value="ko">한국어</option>
+                  <option value="de">Deutsch</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          <div id="sek1">
+            <button class="settingsbtns" id="tosBtn" onclick="window.open('/user/tos', '_blank', 'noopener')">
+              <img src="/image/arrow-up.svg">
+              <span style="color:var(--color);">Terms of Service</span>
+              <svg style="color:var(--color);margin-left:auto" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"></path></svg>
+            </button>
+            <button class="settingsbtns" id="privBtn" onclick="window.open('/user/privacy', '_blank', 'noopener')">
+              <img src="/image/arrow-up.svg">
+              <span style="color:var(--color);">Privacy Policy</span>
+              <svg style="color:var(--color);margin-left:auto" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"></path></svg>
+            </button>
+            <button class="settingsbtns" id="dcBtn" onclick="window.open('https://discord.gg/2VAgzE7HZR', '_blank', 'noopener')">
+              <img src="/image/discord.svg">
+              <span style="color:var(--color);">Discord server</span>
+              <svg style="color:var(--color);margin-left:auto" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function resetComSearch() {
+          document.getElementById('communitySearch').classList.add('hidden');
+          document.getElementById('wyntsView').innerHTML = 
+            `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+              <div style="max-width:300px;text-align:left;">
+                <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
+                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
+              </div>
+            </div>`; 
+          document.querySelector('#communitySearch input').value = '';
+        }
+        function resetCommentSearch() {
+          document.getElementById('commentSearch').classList.add('hidden');
+          document.getElementById('appendCommentSearch').innerHTML = 
+            `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+              <div style="max-width:300px;text-align:left;">
+                <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Replies</h2>
+                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search replies.</p>
+              </div>
+            </div>`; 
+          document.querySelector('#commentSearch input').value = '';    
+          window.previousCommentTerm = "";     
+        }
+      </script>
+
+      <div id="communitySearch" style="z-index:7;" class="useroverlay hidden">
+        <div class="user-box">
+          <br>
+          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:0;margin-top:-12px;">
+            <button onclick="resetComSearch()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
+            <input style="margin-right:20px;" type="text" placeholder="search anything">
+          </header>
+          <div id="wyntsView">
+            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+              <div style="max-width:300px;text-align:left;">
+                <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
+                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
+              </div>
+            </div>
+          </div>
+          <br><br><br>
+        </div>
+      </div>
+
+
+      <div id="userOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <br>
+          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:0;margin-top:-12px;">
+            <button onclick="hideuser()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
+            <input style="margin-right:20px;" type="text" placeholder="search anything">
+          </header>
+          <div class="tab-container" style="margin-top:10px">
+            <button class="tab1 active" data-target="tweetsView">Wynts</button>
+            <button class="tab1" data-target="usersView">Users</button>
+            <button class="tab1" data-target="tagsView">tags</button>
+          </div>
+          <div id="tweetsView" class="tab-content">
+
+          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+            <div style="max-width:300px;text-align:left;">
+              <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
+              <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
+            </div>
+          </div>
+
+          </div>
+          <div id="usersView" class="tab-content hidden">
+            <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+          </div>
+          <div id="usersSearch" class="tab-content hidden">
+            <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+          </div>
+          <div id="tagsView" class="tab-content hidden">
+            <div style="margin:0 -10px"><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div><div style="margin:0 -10px"><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+          </div>
+          <br><br><br>
+        </div>
+      </div>
+
+      <div id="notificationOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <br>
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:25px;margin-top:-30px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="hidenotif()">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">Notifications</h2><img height="30" src="/image/notification-filled.svg">
+            </div>
+          </header>
+          <div id="notifications" class="tab-content"></div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="tagSubOverlay" class="useroverlay hidden suboverlay">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('tagSubOverlay').classList.add('hidden');">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:auto;" class="skibidi-link" id="tagId"></h2>
+              <h2 style="margin:0;color:grey">tag</h2>
+            </div>
+          </header>
+          <div id="tagstweet"></div>
+          <br><br><br>
+        </div>
+      </div>
+
+      <div id="userSubOverlay" class="useroverlay hidden suboverlay">
+        <div class="user-box">
+          <div id="profile-effect">
+           <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
+            <button onclick="history.pushState({}, '', '/'); closeUser();" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0">A user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+            </div>
+          </header>
+          <div id="user-banner" class="flex banner">
+            <div class="status"><div id="user-status">i'm cold...</div>
+              <div></div>
+              <div></div>
+            </div>
+            <div id="user-pfp"></div>
+            <button onclick="document.getElementById('userMenuOverlay').classList.remove('hidden')"> 
+              <svg style="color:white;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 12h.01m6 0h.01m5.99 0h.01"/></svg>
+            </button>
+            <button id="followBtn" style="margin-right:-13px;background:none;margin-bottom:-10px;" class="follow-btn"><img height="30" src="/image/loader.svg"></button>
+          </div>
+          <div class="flex" style="margin-top:80px;gap:7px;">
+            <h2 id="user-name" style="margin:0"></h2>
+            <div id=iq class=iq1>0</div>
+            <img src="/image/check.svg" style="height:25px;width:25px;" class="user-admin">
+          </div>
+          <span style="color:grey" id="username"></span> <span id="followsBadge" style="font-size:16px;color:#00ba7c;">Follows you</span>
+          <p id="user-description"></p>
+          <div style="border-bottom:var(--border);padding-bottom:15px;margin-top:15px;display:flex;align-items:center;margin-bottom:0;gap:7px;"><img src="/image/calendar.svg" style="height:20px;"><span id="user-creation"></span>
+            <div id="sujdiqu" style="display:flex;align-items:center;gap:5px;margin-left:auto;display:none;"><img src="/image/coin.svg"> <span id="user-balance">0</span></div>
+            <div id="bruhhh" style="display:flex;align-items:center;gap:5px;margin-left:auto;"><img src="/image/fire.svg"> <span id="streak">0</span></div>
+          </div>
+          <div style="align-items: center;display: flex; gap: 8px;"><span id="ers"><span id="followers" style="font-weight:bold;">0</span> <span style="color:grey">followers</span></span> <span id="ing"><span id="following" style="font-weight:bold;">0</span> <span style="color:grey">following</span></span>
+            <p style="margin-left:auto;display:flex;align-items:center;gap:5px;"><span id="posts" style="font-weight:bold;">0</span> <span style="color:grey">Wynts</span></p>
+          </div>
+          <div class="tab-container" style="border-bottom: var(--border);">
+            <button class="tab3 active" data-target="userList" style="margin:0;">Wynts</button>
+            <button class="tab3" data-target="userReplyList" style="margin:0;">Replies</button>
+            <button class="tab3" data-target="usermentionedList" style="margin:0;">Tagged</button>
+            <button class="tab3" data-target="userHighlights" style="margin:0;">Spotlight</button>
+          </div>
+          </div>
+          <div id="userList"></div>
+          <div id="userReplyList"></div>
+          <div id="usermentionedList"></div>
+          <div id="userHighlights"></div>
+          <br><br><br>
+        </div>
+      </div>
+
+      <div id="comMenuOverlay" class="overlay hidden">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Actions</h3>
+            <div class="menu-item close-com-menu" style="margin-left:auto;cursor:pointer;">
+              <img src="/image/x.svg">
+            </div>
+          </div>
+          <div class="menu-item copy-com-link" style="cursor:pointer;">
+            <img src="/image/link.svg"> Copy community link
+          </div>
+          <div class="menu-item" id="editCom" style="cursor:pointer;">
+            <img src="/image/pen.svg"> Edit community
+          </div>
+          <div class="menu-item disbandCom" style="cursor:pointer">
+            <img src="/image/ban.svg"> disband community as admin
+          </div>
+          <div class="menu-item reportCom" style="cursor:pointer">
+            <img src="/image/report.svg"> Report community
+          </div>
+          <div class="menu-item inviteCom" style="cursor:pointer;display:none;">
+            <img src="/image/link.svg"> Generate an invite key
+          </div>
+        </div>
+      </div>
+
+      <div id="memberMenuOverlay" class="overlay hidden" style="z-index:8">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Member actions</h3>
+            <div class="menu-item close-member-menu" style="margin-left:auto;cursor:pointer;">
+              <img src="/image/x.svg">
+            </div>
+          </div>
+
+          <div class="menu-item member-kick" style="cursor:pointer;display:none;">
+            <img src="/image/ban.svg"> Kick
+          </div>
+
+          <div class="menu-item member-ban" style="cursor:pointer;display:none;">
+            <img src="/image/ban.svg"> Ban
+          </div>
+
+          <div class="menu-item member-admin-toggle" style="cursor:pointer;display:none;">
+            <img src="/image/pen.svg"> Make admin
+          </div>
+        </div>
+      </div>
+
+      <div class="useroverlay hidden" id="banOverlay" style="z-index:7">
+        <div class="user-box">
+          <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
+            <button onclick="document.getElementById('banOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;">
+                <h2 style="margin:0">Banned Members</h2>
+                <img src="/image/ban.svg" style="height:30px;">
+              </div>
+            </div>
+          </header>
+          <input style="padding:13px 10px;margin:20px 0;" id="banSearch" type="text" placeholder="search members by their exact uid">
+          <div id="banList"></div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div class="useroverlay hidden" id="memberOverlay" style="z-index:7">
+        <div class="user-box">
+          <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
+            <button onclick="document.getElementById('memberOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;">
+                <h2 style="margin:0">Members</h2>
+                <img src="/image/community-filled.svg" style="height:30px;">
+              </div>
+            </div>
+          </header>
+          <input style="padding:13px 10px;margin:20px 0;" id="memberSearch" type="text" placeholder="search members by their exact uid">
+          <div id="memberList"></div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="userMenuOverlay" class="overlay hidden">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Actions</h3>
+            <div class="menu-item close-user-menu" style="margin-left:auto;">
+              <img src="/image/x.svg">
+            </div>
+          </div>
+
+          <div class="menu-item copy-link-btn" id="copyUserLinkBtn" data-uid="">
+            <img src="/image/link.svg"> Copy user link
+          </div>
+
+          <div class="menu-item" id="banBtn">
+            <img src="/image/ban.svg"> Ban this user
+          </div>
+
+          <div class="menu-item" id="reportUser">
+            <img src="/image/report.svg"> Report this user
+          </div>
+
+          <div class="menu-item copy-uid-btn" id="copyUserIdBtn" data-uid="">
+            <img src="/image/link.svg"> Copy user ID
+          </div>
+        </div>
+      </div>
+
+      <div id="flex" class="cont" style="min-height:100vh;border-left:var(--border);border-right:var(--border);border-top:var(--border);border-top-left-radius:15px;border-top-right-radius:15px;">
+        <div class="container" style="max-width:555px;position:relative;">
+          <button id="post"><img src="/image/write.svg"></button>
+          <header style="z-index: 3; position: sticky; transition: top 0.4s ease;border-top-left-radius:15px;border-top-right-radius:15px;border-bottom: var(--border);background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);" id="timeline-header">
+            <div class="tab-container" style="padding: 0 15px;padding-top:5px;" id="tab-container-header">
+              <button style="margin-top:0;border-top-left-radius:15px;" class="tab active" data-target="timeline" style="margin:10px 0">All</button>
+              <button style="margin-top:0;border-top-right-radius:15px;" class="tab" data-target="following1" style="margin: 10px 0;">Following</button>
+              <button style="margin-top:0;border-top-right-radius:15px;" class="tab" data-target="new" style="margin: 10px 0;">New</button>
+            </div>
+          </header>
+          <div id="timeline">
+            <div id="loading">
+                <div class="skeleton-card">
+                  <div class="skeleton-header">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-header-lines">
+                      <div class="skeleton-line short"></div>
+                    </div>
+                    <div class="skeleton-dot"></div>
+                  </div>
+                  <div class="skeleton-body">
+                    <div class="skeleton-line long"></div>
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line medium"></div>
+                  </div>
+                  <div class="skeleton-footer">
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="invisible skeleton-pill small"></div>
+                    <div class="skeleton-pill small last"></div>
+                  </div>
+                </div>
+                <div class="skeleton-card">
+                  <div class="skeleton-header">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-header-lines">
+                      <div class="skeleton-line short"></div>
+                    </div>
+                    <div class="skeleton-dot"></div>
+                  </div>
+                  <div class="skeleton-body">
+                    <div class="skeleton-line medium"></div>
+                    <div class="skeleton-line long"></div>
+                    <div class="skeleton-line short"></div>
+                  </div>
+                  <div class="skeleton-footer">
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="invisible skeleton-pill small"></div>
+                    <div class="skeleton-pill small last"></div>
+                  </div>
+                </div>
+                <div class="skeleton-card">
+                  <div class="skeleton-header">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-header-lines">
+                      <div class="skeleton-line short"></div>
+                    </div>
+                    <div class="skeleton-dot"></div>
+                  </div>
+                  <div class="skeleton-body">
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line long"></div>
+                    <div class="skeleton-line medium"></div>
+                  </div>
+                  <div class="skeleton-footer">
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="skeleton-pill small"></div>
+                    <div class="invisible skeleton-pill small"></div>
+                    <div class="skeleton-pill small last"></div>
+                  </div>
+                </div>
+            </div>
+          </div>
+          <div id="following1" class="hidden"></div>
+          <div id="new" class="hidden"></div>
+          <br><br><br>
+        </div>
+
+        <div id="editOverlay" class="overlay hidden">
+          <div class="comment-box" style="padding-top: 0 !important;">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('editOverlay').classList.add('hidden')">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">Edit post</h2><img src="/image/write.svg" height="25">
+            </div>
+          </header>
+
+            <div id="appendEdit"></div>
+
+            <div class="flex">
+              <button id="saveEdit" style="border-radius:10px;padding:9px 25px;margin-top:10px;margin-left:auto">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="sidebar">
+          <div id="retweetOverlay" class="overlay hidden">
+            <div class="comment-box" style="padding-top:0 !important">
+              <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <button style="padding:0;padding-right:-10px;" class="close-btn" id="cancelretweet">
+                    <img src="/image/leftArrow.svg">
+                  </button>
+                  <h2 style="margin:0;margin-left:Auto">ReWynt</h2>
+                </div>
+              </header>
+              <div id="retweetOriginal" style=""></div>
+              <div style="display:flex;gap:10px;">
+                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=retweetAvatar></img>
+                <div>
+                  <input type="text" id="retweetTitle" style="border-radius:0;margin-bottom:10px;padding:0;font-weight:bold;border:none;font-size:20px;margin-top:10px;" placeholder="optional Wynt title">
+                  <textarea id="retweetText" placeholder="what do you think...?" style="width:100%;height:100px;padding-left:0;padding-top:0;border-radius:0;"></textarea>
+                </div>
+              </div>
+              <div class="attachment" id="retweetPreview-TWEETID"></div>
+              <div id="pollOptionsRetweet" style="padding:15px;padding-bottom:7px;border-radius:10px;border:var(--border);margin-bottom:15px;" class="hidden">
+                <p style="font-size:17px;margin:0;margin-bottom:15px;">Add Choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1">
+                <input type="text" class="poll-option" placeholder="Option 2">
+                <button type="button" style="font-size:15px;color:var(--color);text-decoration:underline;margin: 0px 0px 10px; display: inline-block;" class="link" id="addPollOptionRetweet">Add more</button>
+                <select id="pollDurationRetweet" style="margin:5px 0 10px 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border-radius:15px;border:var(--border)">
+                  <option value="8h">Duration: 8 Hours</option>
+                  <option value="24h">Duration: 24 Hours</option>
+                  <option value="3d">Duration: 3 Days</option>
+                  <option value="1w">Duration: 1 Week</option>
+                  <option value="3w">Duration: 3 Weeks</option>
+                </select>
+              </div>
+              <select id="replyPermission1" style="margin-top:5px;background:var(--normal);">
+                <option value="everyone">Everyone can comment</option>
+                <option value="following">People you follow can comment</option>
+                <option value="mentioned">people you mention can comment</option>
+              </select>
+              <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox1">
+                <input type="checkbox" style="width:15px;" id="shareToFollowers1">
+                also post to main timeline
+              </div>
+              <div class="flex" style="margin:0 -20px;padding:0 20px;display: flex; padding-top: 20px; margin-top: 10px; border-top:var(--border)">
+                <button style="border-radius:12px;padding:10px 20px;;" id="sendRetweet">Post</button>
+                <label class="custom-file-btn" for="retweetMedia-TWEETID"><img src="/image/upload.svg"></label>
+                <input type="file" id="retweetMedia-TWEETID" class="hidden-input" accept="image/*,video/*" multiple>
+                <div class="char-counter">0/1000</div>
+                <label style="margin-left:auto;font-size:16px;">
+                  <input type="checkbox" style="width:15px;" id="includePollRetweet">
+                </label>
+              </div>
+              <br><br><br>
+            </div>
+          </div>
+
+          <div id="tweetViewer" class="useroverlay hidden">
+            <div class="user-box">
+              <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;"> 
+                  <button style="padding:0;padding-right:-10px;" class="close-btn" id="tweetviewerclose">
+                    <img src="/image/leftArrow.svg">
+                  </button>
+                  <button style="background:none;border:none;padding:0;margin:0;margin-left:Auto;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
+                    <img height="24" src="/image/search.svg">
+                  </button>
+                  <h2 style="margin:0;">post</h2>
+                </div>
+              </header>
+              <div id="appendTweet"></div>
+              <div id="commentList"></div>
+              <br><br><br>
+            </div>
+          </div>
+
+          <div id="commentSearch" style="z-index:7;" class="useroverlay hidden">
+            <div class="user-box">
+              <br>
+              <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:0;margin-top:-12px;">
+                <button onclick="resetCommentSearch()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
+                <input style="margin-right:20px;" type="text" placeholder="search anything">
+              </header>
+              <div id="appendCommentSearch">
+                <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+                  <div style="max-width:300px;text-align:left;">
+                    <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Replies</h2>
+                    <p style="color:grey;margin:7px 0;">enter at least 3 characters to search replies.</p>
+                  </div>
+                </div>
+              </div>
+              <br><br><br>
+            </div>
+          </div>
+
+          <div id="commentViewer" class="useroverlay hidden">
+            <div class="user-box">
+              <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <button style="padding:0;padding-right:-10px;" class="close-btn" id="commentviewerclose">
+                    <img src="/image/leftArrow.svg">
+                  </button>
+                  <button style="background:none;border:none;padding:0;margin:0;margin-left:Auto;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
+                    <img height="24" src="/image/search.svg">
+                  </button>
+                  <h2 style="margin:0">post</h2>
+                </div>
+              </header>
+              <div id="appendComment" style="margin-top:20px"></div>
+              <div id="replyList"></div>
+              <br><br><br>
+            </div>
+          </div>
+          
+          <div id="commentOverlay" class="overlay hidden">
+            <div class="comment-box" style="padding-top:0 !important;">
+              <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <button style="padding:0;padding-right:-10px;" class="close-btn" id="closeComment">
+                    <img src="/image/leftArrow.svg">
+                  </button>
+                  <h2 style="margin:0;margin-left:Auto">Reply</h2>
+                </div>
+              </header>
+              <div class="tweet" id="commentTweet"></div>
+              <div style="display:flex;margin-top:-15px;" class=skibidi>
+                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=commentAvatar></img>
+                <textarea id="commentInput" style="font-size:16px;" placeholder="hmm...?"></textarea>
+              </div>
+              <div class="attachment" id="commentPreview"></div>
+              <div class="flex" id="comment-status"></div>
+              <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
+                <button id="sendComment" style="border-radius:12px;padding:10px 20px;;">Post</button>
+                <label class="custom-file-btn" for="commentMediaInput"><img src="/image/upload.svg"></label>
+                <label id="giftLabel" class="custom-file-btn" for="giftBtn"><img src="/image/gift.svg"></label>
+                <button class="hidden" id="giftBtn"></button>
+                <input type="file" id="commentMediaInput" class="comment-media-input hidden-input" accept="image/*, video/*" multiple>
+                <div class=char-counter>0/1000</div>
+              </div>
+              <br><br><br>
+            </div>
+          </div>
+
+          <div id="replyOverlay" class="overlay hidden">
+            <div class="comment-box">
+              <header style="display:flex;align-items:center;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;top:-20px;">
+                  <button onclick="document.getElementById('replyOverlay').classList.add('hidden')" id="closeReply" class="close-btn"><img src="/image/x.svg"></button>
+                  <div style="margin-left:auto;padding:7px 12px;background:var(--light);border:var(--border);border-bottom:none;border-top-right-radius:15px;border-top-left-radius:15px;margin-top:15px;">            
+                  <h3 style="margin:0">Reply</h3>
+                  </div>
+              </header>
+              <div class="tweet" style="border:none !important;padding:20px 0 0 0" id="replyComment"></div>
+              <div style="display:flex;margin-top:-15px;">
+                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=replyAvatar></img>
+                <textarea id="replyInput" style="background:none;font-size:16px;border:none;min-height:65px;" placeholder="hmm...?"></textarea>
+              </div>
+              <div class="attachment" id="replyPreview"></div>
+              <div class="flex" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
+                <button style="border-radius:12px;padding:10px 20px;;" id="sendReply">Post</button>
+                <label class="custom-file-btn" for="replyMediaInput"><img src="/image/upload.svg"></label>
+                <input type="file" id="replyMediaInput" class="comment-media-input hidden-input" accept="image/*, video/*" multiple>
+                <div class=char-counter>0/1000</div>
+              </div>
+              <br><br><br>
+            </div>
+          </div>
+
+          <div id="giftOverlay" class="overlay hidden">
+            <div class="comment-box">
+              <div class="flex">
+                <h3 style="margin:0px;margin-bottom:15px;display:flex;align-items:center;gap:10px;"><img src="/image/gift.svg"> Gift Wcoins</h3>
+                <button style="margin-left:auto;" id="closeGift" class="close-btn"><img src="/image/x.svg"></button>
+              </div>
+              <p style="font-size:16px;margin:0;margin-bottom:5px;">Enter the amount of Wcoins you want to gift:</p>
+              <input type="number" id="giftAmount" min="1" style="width:100%; padding:10px; margin:15px 0;">
+              <div style="display:flex;align-items:center;gap:7px;color:grey;font-size:15px;"><img src="/image/exclamation.svg"> the receiver will only get 80% of the donation.</div>
+              <div class="flex"><button id="confirmGift" style="background: linear-gradient(135deg, rgb(0, 179, 119), rgb(5, 123, 197)); color: white; margin-top: 20px; display: flex; align-items: center; gap: 7px; margin-left:auto;padding: 7px 20px;"><img style="height:20px;width:20px;" src="/image/gift.svg">Send Gift</button>
+              </div>
+            </div>
+          </div>
+
+
+          <div id="tweetOverlay" class="overlay hidden">
+            <div class="comment-box" style="padding-top:0 !important">
+              <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <button style="padding:0;padding-right:-10px;" class="close-btn" id="canceltweet">
+                    <img src="/image/leftArrow.svg">
+                  </button>
+                  <h2 style="margin:0;margin-left:Auto">Wynt</h2>
+                </div>
+              </header>
+              <input type="text" id="tweetTitle" style="border-radius:0;padding:0;font-weight:bold;border:none;font-size:20px;" placeholder="optional Wynt title">
+              <div style="display:flex;gap:10px;margin-top:20px;margin-bottom:10px;">
+                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=tweetAvatar></img>
+                <textarea id="tweetInput" style="height:150px;" placeholder="What's cookin'?"></textarea>
+              </div>
+              <div class="attachment" id="tweetPreview"></div>
+              <div id="pollOptions" style="padding:15px;padding-bottom:7px;border-radius:10px;border:var(--border);margin-bottom:15px;" class="hidden">
+                <p style="font-size:17px;margin:0;margin-bottom:15px;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1">
+                <input type="text" class="poll-option" placeholder="Option 2">
+                <button type="button" style="font-size:15px;color:var(--color);text-decoration:underline;margin: 0px 0px 10px; display: inline-block;" class="link" id="addPollOption">Add more</button>
+                <select id="pollDuration" style="margin:5px 0 10px 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border-radius:15px;border:var(--border)">
+                  <option value="8h">Duration: 8 Hours</option>
+                  <option value="24h">Duration: 24 Hours</option>
+                  <option value="3d">Duration: 3 Days</option>
+                  <option value="1w">Duration: 1 Week</option>
+                  <option value="3w">Duration: 3 Weeks</option>
+                </select>
+              </div>
+              <select id="replyPermission" style="margin-top:5px;background:var(--normal)">
+                <option value="everyone">Everyone can comment</option>
+                <option value="following">People you follow can comment</option>
+                <option value="mentioned">people you mention can comment</option>
+              </select>
+              <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox">
+                <input type="checkbox" style="width:15px;" id="shareToFollowers">
+                also post to main timeline
+              </div>
+              <div class="flex" style="margin:0 -20px;padding:0 20px;padding-top: 20px; margin-top: 10px; border-top:var(--border)">
+                <button id="postBtn" style="padding:10px 20px;;border-radius:12px;padding:10px 20px;;">Wynt</button>
+                <label class="custom-file-btn" for="mediaInput"><img src="/image/upload.svg"></label>
+                <input type="file" id="mediaInput" class="hidden-input" accept="image/*,video/*" multiple>
+                <div class=char-counter>0/1000</div>
+                <label style="margin-left:auto;font-size:16px;">
+                  <input type="checkbox" style="width:15px;" id="includePoll">
+                </label>
+              </div>
+              <br><br><br><br><br><br>
+            </div>
+            <br><br><br>
+          </div>
+        </div>
+      </div>
+
+      <div class="mediaOverlay hidden">
+        <div id="overlayContent"></div>
+        <button id="closeOverlay">✕</button>
+      </div>
+
+      <div id="tweetMenuOverlay" class="overlay hidden">
+        <div class="menu-box"></div>
+      </div>
+
+      <div id="cMenuOverlay" class="overlay hidden">
+        <div class="menu-box"></div>
+      </div>
+
+      <div id="premiumOverlay1" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" id="closePremium">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">Wyntr shop</h2><img src="/image/shop-filled.svg">
+            </div>
+          </header>
+
+          <div class="shop" style="margin-top:20px;">
+            <div class="item-shop" id="nanat">
+              <div class="item-shop-img" style="background: url('https://media.tenor.com/gRNhbdpYwxcAAAAj/picardia-thumbsup.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Premium</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>500 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buy-premium">Purchase</button>
+              </div>
+            </div>
+          </div>
+          <div class="shop">
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/flame.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Flame - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>90 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buyFlameEffect">Purchase</button>
+              </div>
+            </div>
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/wave.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Wave - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>150 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buyWaveEffect">Purchase</button>
+              </div>
+            </div>
+          </div>
+          <div class="shop">
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/earth.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Earth - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>120 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buyEarthEffect">Purchase</button>
+              </div>
+            </div>
+
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/rain.webp') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Rain - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>110 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buyRainEffect">Purchase</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="shop">
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/fih.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Fih - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>90 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buyFihEffect">Purchase</button>
+              </div>
+            </div>
+            <div class="item-shop">
+              <div class="item-shop-img" style="background: url('/image/effects/sakura.gif') no-repeat center / cover;filter: brightness(0.7)">
+              </div>
+              <h3 style="margin:0">Sakura - profile effect</h3>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>90 WC</span></div>
+              <div class="buy-btn">
+                  <button id="buySakuraEffect">Purchase</button>
+              </div>
+            </div>
+          </div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="premiumOverlay" class="overlay hidden">
+        <div id="premiumbox" style="padding:20px;padding-bottom:30px;background:linear-gradient(to bottom, #004e34, black, black);" class="menu-box">
+          <div style="display:flex;align-items:center;">
+            <h2 style="color:white">Upgrade to premium.</h2>
+            <button id="closePremium1" class="close-btn" style="margin-left:auto;"><img src="/image/x.svg"></button>
+          </div>
+          <div style="display:flex;justify-content:center;">
+            <div style="background:var(--light);padding:20px;width:100%;max-width:300px;border-radius:15px;">
+              <h2 style="margin-top:10px;">500 Wcoins/29 days</h2>
+              <div class="checkp"><img src="/image/check1.svg">verified badge</div>
+              <div class="checkp"><img src="/image/check1.svg">1 minute Wynt cooldown</div>
+              <div class="checkp"><img src="/image/check1.svg">50 minutes reply with video cooldown</div>
+              <div class="checkp"><img src="/image/check1.svg">5.10MB file limit</div>
+              <div class="checkp"><img src="/image/check1.svg">2000 characters text limit</div>
+              <div class="checkp"><img src="/image/check1.svg">highlights</div>
+              <div class="checkp"><img src="/image/check1.svg">categorized bookmarks</div>
+              <button id="buypremium" style="background:rgba(0,179,119, 0.7);color:white;padding:12px 20px;margin-top:15px;width:100%;">Get for 500 Wcoins</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="welcomeOverlay" style="display:flex;flex-direction:column;" class="overlay hidden">
+        <div class="user-box" style="box-shadow: 0 0 25px rgba(255, 255, 255, 0.6);max-height:300px;padding:30px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);">
+          <h2>Welcome to premium.</h2>
+          <p>Sit back, relax, and enjoy the VIP perks. Your journey just leveled up. With Wyntr Premium, the sky isn’t the limit—it’s only the beginning.</p>
+          <div style="display:flex;justify-content:center;">
+            <button class="close-btn" id="closeWelcome" style="text-decoration:underline;">Dismiss</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="bookmarkFolderOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('bookmarkFolderOverlay').classList.add('hidden')">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">Save to folder</h2><img src="/image/bookmark-filled.svg" height="25">
+            </div>
+          </header>
+          <div id="folderList"></div>
+          <button style="margin-top:10px;font-size:16px;color:var(--color);text-decoration:underline;" class="link" id="boLoadMore">Load more...</button>
+          <div style="display:flex;justify-content:center;"><button id="addFolder" style="display:flex;align-items:center;gap:10px;margin-top:20px;border-radius:12px"><img src="/image/plus.svg"> Add New Folder</button></div>
+          <p style="font-size:15px;color:grey;display:none" id="hh">Upgrade to premium to create multiple bookmark folders.</p>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="communityOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">communities</h2><img src="/image/community-filled.svg">
+            </div>
+          </header>
+          <div class="tab-container" style="width:100%;border-bottom:var(--border);margin:0 -20px;padding:0 20px;padding-top:12px;margin-top:-30px;">
+            <button class="tab5 active" data-target="myCommunities">my communities</button>
+            <button class="tab5" data-target="communityList">Discover</button>
+          </div>
+          <input style="padding:13px 10px;margin-top:25px;" id="searchCom" type="text" placeholder="search community or paste invite key">
+          <div id="communityList" class="tab-content hidden">
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+          </div>
+          <div id="myCommunities" class="tab-content">
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+            <div class="skeleton-skibidi">
+              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:center;margin-top:5px;border-radius:12px"><button class="create-community-btn" style="padding:10px;border-radius:12px">+ Create Community</button></div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="bookmarkTweetOverlay" class="useroverlay hidden">
+        <div class="user-box">
+<header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);
+        backdrop-filter:blur(10px);border-bottom:var(--border);
+        margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
+        <h2 style="display:flex;align-items:center;margin:12px 0;">
+          <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('bookmarkTweetOverlay').classList.add('hidden')" class="close-btn">
+            <img src="/image/leftArrow.svg">
+          </button>
+          <div style="margin:0;display:flex;align-items:center;gap:10px;" id="folderName"></div>
+        </h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button style="margin-left:auto;" id="changeFolderName" class="link"><img src="/image/edit1.svg"></button>
+        </div>
+      </header>
+          <div id="TweetList"></div>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="folderActionOverlay" class="overlay hidden">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Actions</h3>
+            <div class="menu-item" id="closeFolderAction" style="margin-left:auto;"><img src="/image/x.svg"></div>
+          </div>
+          <div class="menu-item" id="deleteFolder"><img src="/image/trash.svg"> Delete this folder</div>
+          <div class="menu-item" id="editFolder"><img src="/image/edit1.svg"> Edit this folder name</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="skibidicome" style="z-index:7" class="useroverlay hidden">
+    <div class="user-box">
+      <header class="flex" style="position:sticky;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+        <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+          <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com-rule">
+            <img src="/image/leftArrow.svg">
+          </button>
+          <h2 style="margin:0;margin-left:Auto">Community rules</h2>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+          <path fill-rule="evenodd" d="M6 2a2 2 0 0 0-2 2v15a3 3 0 0 0 3 3h12a1 1 0 1 0 0-2h-2v-2h2a1 1 0 0 0 1-1V4a2 2 0 0 0-2-2h-8v16h5v2H7a1 1 0 1 1 0-2h1V2H6Z" clip-rule="evenodd"></path></svg>
+        </div>
+      </header>
+      <div id="were">
+      </div>
+      <br><br><br><br><br><br>
+    </div>
+    </div>
+
+    <div id="whofollow" style="width:260px;">
+      <div id="nanat1" style="margin-left:10px;position:fixed;top:22px;height:100vh;overflow-y:auto;margin-top:-20px;padding: 20px 0;padding-bottom:35px;">
+        <div id="prizebox" style="width:280px;height:fit-content;border-radius:15px;margin:15px 0;margin-top:0;border:var(--border);padding-bottom:15px;padding:20px;padding-top:0;padding-bottom:25px;display:none"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, profile effect, gifts, and many other things.</p> <button onclick="document.getElementById('prize').click()" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;">claim</button> </div>
+        <div style="width:320px;height:fit-content;border-radius:15px;border:var(--border);padding-bottom:15px;margin-bottom:15px;display:none;" id="comRule">
+          <h2 style="font-size:21px;margin-top:20px;margin-left:20px;">community rules</h2>
+          <div id="communityRules" style="margin:0 20px">
+          </div>
+        </div>
+        <div style="width:320px;height:fit-content;border-radius:15px;border:var(--border);padding-bottom:15px;">
+          <h2 style="font-size:21px;margin-top:20px;margin-left:20px;">Communities for you</h2>
+          <div id="whatshappening">
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+          </div>
+        </div>
+        <div style="width:320px;height:fit-content;border-radius:15px;margin-top:15px;border:var(--border);padding-bottom:15px;">
+          <h2 style="font-size:21px;margin-top:20px;margin-left:20px;">Shared Interests</h2>
+          <div id="whotofollow">
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+            <div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+          </div>
+        </div>
+        <div style="margin-top:15px;margin-bottom:100px;max-width:320px" class="i">
+          <a href="user/tos" target="_blank" class="i">Terms of service</a>
+          <m>|</m>
+          <a href="user/privacy" target="_blank" class="i">Privacy policy</a>
+          <m>|</m>
+          <a href="https://discord.gg/2VAgzE7HZR" target="_blank" class="i">Discord server</a>
+          <m>|</m>
+          <span class="i">© Wyntr 2025</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loadingOverlay">
+    <div class="popup-box">
+      <img height="60" src="/image/loader.svg">
+    </div>
+  </div>
+
+  <div id="log" class="overlay">
+    <div class="popup-box">
+      <p style="margin:0"></p>
+    </div>
+  </div>
+
+  <div id="info" class="overlay">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div class="box" style="display:flex;gap:17px;margin-bottom:10px;">
+        <img height="32" style="margin-top:5px;" src="">
+        <div>
+          <h2 style="margin:0;"></h2>
+          <p style="color:grey;margin:7px 0;"></p>
+        </div>
+      </div>
+      <div style="margin-top:auto;display:flex;">
+        <button style="margin-left:auto;height:35px;width:80px;border-radius:12px;" onclick="
+          document.getElementById('info').classList.remove('show');
+          document.body.classList.remove('no-scroll');
+          history.pushState({}, '', '/');
+        ">Okay</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm" class="overlay">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div class="box" style="display:flex;gap:17px;margin-bottom:10px;">
+        <div>
+          <h2 style="margin:0;"></h2>
+          <p style="color:grey;margin:7px 0;"></p>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="confirmCancel" style="height:35px;width:80px;border-radius:10px;background:none;border:1px solid grey;color:var(--color);">
+          Cancel
+        </button>
+        <button id="confirmOk" style="height:35px;width:90px;border-radius:10px;">
+          Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="inputDialog" class="overlay">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div style="margin-bottom:12px;">
+        <h2 style="margin:0;"></h2>
+        <p style="color:grey;margin:6px 0;"></p>
+      </div>
+
+      <input
+        id="inputDialogValue"
+        type="text"
+        placeholder="text"
+        style="height:45px;border-radius:10px;padding:0 10px;"
+      />
+
+      <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="inputCancel" style="height:35px;width:80px;border-radius:10px;background:none;border:1px solid grey;color:var(--color);">
+          Cancel
+        </button>
+        <button id="inputOk" style="height:35px;width:90px;border-radius:10px;">
+          Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="deleteReasonOverlay" class="overlay hidden">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div style="margin-bottom:12px;">
+        <h2 style="margin:0;">Provide reason</h2>
+        <p style="color:grey;margin:6px 0;">Please state why you're proceeding this action.</p>
+      </div>
+
+      <input id="deleteReasonInput" type="text" placeholder="text" style="height:45px;border-radius:10px;padding:0 10px;"/>
+      <div style="margin-right:auto;margin-top:12px" class="char-counter">0/1000</div>
+
+      <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="deleteReasonCancel" style="height:35px;width:80px;border-radius:10px;background:none;border:1px solid grey;color:var(--color);">
+          Cancel
+        </button>
+        <button id="deleteReasonSubmit" style="color:white;background:#d22d39;height:35px;width:90px;border-radius:10px;">
+          Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dropOverlay" class="drop-overlay hidden">
+    <div class="drop-box">
+      <h2>Add anything</h2>
+      <p>Drop any media file here to add it to your post</p>
+    </div>
+  </div>
+
+  <div id="user-hover-card" class="hidden">
+    <div id="hover-iq" style="position: absolute; top: 15px; right: 10px; display: inline;background:none;bordeR:var(--border);color:var(--color)" class="iq1">10.11</div>
+    <div class="hover-header">
+      <img id="hover-avatar">
+      <div>
+        <h3 id="hover-title"></h3>
+        <strong id="hover-name"></strong>
+        <span id="hover-username"></span>
+      </div>
+    </div>
+
+    <p id="hover-bio"></p>
+
+    <div class="hover-meta">
+      <span id="hover-followers"></span>
+      <span id="hover-following"></span>
+      <span id="hover-joined"></span>
+    </div>
+  </div>
+
+  <div id="community-hover-card" class="hidden"></div>
+
+  <script type="module" src="/script/main.js"></script>
+  <script type="module" src="/script/index.js"></script>
+  <script type="module" src="/script/bookmark.js"></script>
+  <script type="module" src="/script/profile.js"></script>
+  <script type="module" src="/script/user.js"></script>
+  <script type="module" src="/script/tweetViewer.js"></script>
+  <script type="module" src="/script/notification.js"></script>
+  <script type="module" src="/script/nonsense.js"></script>
+  <script type="module" src="/script/attachments.js"></script>
+  <script type="module" src="/script/settings.js"></script>
+  <script type="module" src="/script/premium.js"></script>
+  <script type="module" src="/script/commentviewer.js"></script>
+  <script type="module" src="/script/community.js"></script>
+  <script src="/lib/script/ffmpeg.min.js"></script>
+  <script src="/lib/script/html2canvas.min.js"></script>
+
+  <script type="module">
+    document.addEventListener("DOMContentLoaded", () => {
+      twemoji.parse(document.body, {
+        folder: 'svg',
+        ext: '.svg',
+        base: 'https://ox7jbzyn-13kwt53x-purp2e2u.netlify.app/twemoji/'   
+      });
+
+      const observer = new MutationObserver(mutations => {
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType === 1) { 
+              twemoji.parse(node, {
+                folder: 'svg',
+                ext: '.svg',
+                base: 'https://ox7jbzyn-13kwt53x-purp2e2u.netlify.app/twemoji/'  
+              });
+            }
+          }
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+    
+    window.onerror = function(message, source, lineno, colno, error) {
+      if (message && message.includes("net::ERR_NAME_NOT_RESOLVED")) {
+        location.reload();
+      }
+    };
+
+    import { log } from "./script/texts.js";
+    
+    window.addEventListener("online", () => { 
+      log("green", "you're back online");
+    }); 
+    window.addEventListener("offline", () => { 
+      log("red", "you're offline");
+    });
+ </script>
+</body>
+</html>
+
