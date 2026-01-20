@@ -653,7 +653,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                   <img src="/image/message.svg"> ${c.replyCount > 0 ? formatNumber(c.replyCount) : ""}
                 </span>
 
-                ${c.isPrivate ? "" :
+                ${c.isPrivate || c.isPrivateParent ? "" :
                   `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${commentId}">
                     <img src="/image/rewint.svg"> ${c.retweetCount > 0 ? formatNumber(c.retweetCount) : ""}
                   </span>`

@@ -276,7 +276,10 @@ onAuthStateChanged(auth, async (user) => {
         createdAt: new Date(),
         posts: 0,
         photoURL: "/image/default-avatar.jpg",
+        banner: "/image/default-banner.png",
+        IQ: 0,
       });
+      location.reload();
     } else {
       const data = snap.data();
       const updateData = {};
@@ -292,6 +295,7 @@ onAuthStateChanged(auth, async (user) => {
       }
       if (!data.createdAt) updateData.createdAt = new Date();
       if (!data.photoURL) updateData.photoURL = "/image/default-avatar.jpg";
+      if (!data.banner) updateData.banner = "/image/default-banner.png";
       if (!("posts" in data)) updateData.posts = 0;
       if (Object.keys(updateData).length > 0) {
         await setDoc(ref, updateData, {
@@ -703,6 +707,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     document.getElementById("tweetTitle").value = "";
     document.getElementById("mediaInput").value = "";
     document.getElementById("tweetPreview").innerHTML = "";
+    log("green", "Wynt posted");
   } catch (error) {
     console.error("Tweet failed:", error);
     info("x", "Wynt failed:", error)
@@ -2129,7 +2134,7 @@ document.body.addEventListener("click", async (e) => {
             edited: new Date(),
             language: detectedLanguage
           });
-          log("green", "Post updated successfully");
+          log("green", "Post updated");
           overlay.classList.add("hidden");
           if (typeof renderTweet === "function") {
             const currentUser = auth.currentUser;
@@ -2196,12 +2201,21 @@ document.body.addEventListener("click", async (e) => {
       snap = await getDoc(commentRef);
       commentSnap = snap;
     }
-    if (!commentSnap.exists()) return log("red", "reply doesn't exist");
+    if (!commentSnap.exists()) {
+      log("red", "reply doesn't exist");
+      loading.classList.remove("show");
+      return;
+    }
+    if (!tweetSnap.exists()) { 
+      log("red", "Wynt doesn't exist");
+      loading.classList.remove("show");
+      return;
+    }
+
     const commentData = commentSnap.data();
     const data = snap.data();
     const isOwner = auth.currentUser.uid === data.uid;
     const isAdmin = currentUserRole === "admin";
-    if (!tweetSnap.exists()) return log("red", "Wynt doesn't exist");
     const tweetData = tweetSnap.data();
     const isTweetOwner = auth.currentUser.uid === tweetData.uid;
     const commentUserRef = doc(db, "users", data.uid);
@@ -2224,7 +2238,7 @@ document.body.addEventListener("click", async (e) => {
         </div>
       </div>
 
-      ${isPrivate != true && isPrivate != 'true' && !commentData.isHidden ?
+      ${isPrivate != true && isPrivate != 'true' && !commentData.isHidden && !commentData.isPrivateParent ?
         `<div class="c-menu-item reply-share" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
           <img loading='lazy' src="/image/share.svg"> Share this reply
         </div>` : ""
@@ -2254,7 +2268,7 @@ document.body.addEventListener("click", async (e) => {
            </div>`
         : ""}
 
-      ${hasMedia && !commentData.isHidden
+      ${hasMedia && !commentData.isHidden && isPrivate != true && isPrivate != 'true'
         ? `<div class="c-menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}" data-comment="${commentId}">
             <img loading='lazy' src="/image/download.svg"> Download attachment
           </div>`
@@ -2286,7 +2300,11 @@ document.body.addEventListener("click", async (e) => {
       tweetRef = doc(db, "tweets", tweetId);
     }
     const tweetSnap = await getDoc(tweetRef);
-    if (!tweetSnap.exists()) return log("red", "Wynt doesn't exist");
+    if (!tweetSnap.exists()) {
+      log("red", "Wynt doesn't exist");
+      loading.classList.remove("show");
+      return;
+    }
     const data = tweetSnap.data();
     const isOwner = offenderId === data.uid;
     let screenshotBase64 = null;
@@ -2905,7 +2923,11 @@ document.body.addEventListener("click", async (e) => {
       await runTransaction(db, async (transaction) => {
         const voteSnap = await transaction.get(voteRef);
         const tweetSnap = await transaction.get(tweetRef);
-        if (!tweetSnap.exists()) return log("red", "Wynt doesn't exist");
+        if (!tweetSnap.exists()) {
+          log("red", "Wynt doesn't exist");
+          loading.classList.remove("show");
+          return;
+        }
         const poll = tweetSnap.data().poll;
         if (!poll || !Array.isArray(poll.options)) return log("red", "invalid poll");
         if (poll.expiresAt) {
@@ -3374,6 +3396,7 @@ document.body.addEventListener("click", async (e) => {
           clearcomment();
           await loadComments(tweetId);
         }
+        log("green", "reply posted");
       } catch (err) {
         console.error("Error sending comment:", err);
         log("red", "error sending reply");
@@ -3702,7 +3725,20 @@ document.body.addEventListener("click", async (e) => {
       if (window.communityID) {
         bumpCommunityOrder(window.communityID);
       }
+
+      let hasCommentedBefore = false;
+
       const detectedLanguage = await detectLanguage(processedText);
+      const parentCommentRef = doc(db, ...basePath, commentId);
+      const parentCommentSnap = await getDoc(parentCommentRef);
+      const commentData = parentCommentSnap.data();
+      const tweetText = commentData.text;
+
+      let isPrivateParent = false;
+      if (commentData.isPrivate || commentData.isPrivateParent) {
+        isPrivateParent = true;
+      }
+
       const payload = {
         text: processedText,
         communityId: window.communityID || null,
@@ -3717,13 +3753,10 @@ document.body.addEventListener("click", async (e) => {
         mentions: mentions || [],
         likeCount: 0,
         replyCount: 0,
-        parentId: commentId
+        parentId: commentId,
+        isPrivateParent
       };
-      let hasCommentedBefore = false;
-      const parentCommentRef = doc(db, ...basePath, commentId);
-      const parentCommentSnap = await getDoc(parentCommentRef);
-      const commentData = parentCommentSnap.data();
-      const tweetText = commentData.text;
+
       if (commentData.uid != auth.currentUser.uid) {
         if (window.communityID) {
           const q = query(collection(db, "communities", window.communityID, "posts", tweetId, "comments"), where("uid", "==", auth.currentUser.uid), where("parentId", "==", commentId), limit(1));
@@ -3754,6 +3787,7 @@ document.body.addEventListener("click", async (e) => {
       }
       const replyRef = await addDoc(collection(db, ...basePath), payload);
       const replyId = replyRef.id;
+
       if (hasCommentedBefore === false) {
         if (window.communityID) {
           const communityName = await getCommunityNameById(window.communityID);
@@ -3821,6 +3855,7 @@ document.body.addEventListener("click", async (e) => {
       fileInput.value = "";
       document.getElementById("replyPreview").innerHTML = "";
       document.getElementById("replyOverlay").classList.add("hidden");
+      log("green", "replied sent")
     } catch (err) {
       console.error("Error sending reply:", err);
       log("red", "error sending reply");
@@ -3891,7 +3926,7 @@ function resolveScrollBox(container) {
   return null;
 }
 
-async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid) {
+async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, ownerPrivate) {
   const el = document.getElementById(`${id}`);
   el.innerHTML = `
     <div id="${id}" class="ownerr">
@@ -4023,18 +4058,20 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid) {
         `}
         <div class="flex" style="margin:0;gap:13px;">
           ${data.isHidden ? "" :`
-          <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="comment-like-btn" data-id="${ownerReplied}" data-tweet="${tweetId}">
-            <div id="${likeId}" style="height:20px">
-                <img loading='lazy' src="/image/heart.svg">
-            </div>
-            ${data.likeCount > 0 ? `<span style="color:#757779;" id="comment-like-count-${ownerReplied}">${data.likeCount > 0 ? data.likeCount : ""}</span>` : ""}
-          </span>
-          <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${ownerReplied}" data-tweet="${tweetId}">
-            <img loading='lazy' src="/image/message.svg"> ${data.replyCount > 0 ? data.replyCount : ""}
-          </span>
-          <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${ownerReplied}">
-            <img loading='lazy' src="/image/rewint.svg"> ${data.retweetCount > 0 ? data.retweetCount : ""}
-          </span>`}
+            <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="comment-like-btn" data-id="${ownerReplied}" data-tweet="${tweetId}">
+              <div id="${likeId}" style="height:20px">
+                  <img loading='lazy' src="/image/heart.svg">
+              </div>
+              ${data.likeCount > 0 ? `<span style="color:#757779;" id="comment-like-count-${ownerReplied}">${data.likeCount > 0 ? data.likeCount : ""}</span>` : ""}
+            </span>
+            <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${ownerReplied}" data-tweet="${tweetId}">
+              <img loading='lazy' src="/image/message.svg"> ${data.replyCount > 0 ? data.replyCount : ""}
+            </span>
+            ${ownerPrivate ? "" :
+            `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${ownerReplied}">
+              <img loading='lazy' src="/image/rewint.svg"> ${data.retweetCount > 0 ? data.retweetCount : ""}
+            </span>`}
+          `}
           <span class="cmenubtn" data-private="${data.isPrivate || false}" data-community-id="${data.communityId || null}" data-id="${ownerReplied}" data-tweet="${tweetId}" data-author="${data.uid}">
             <img loading='lazy' src="/image/three-dots.svg">
           </span>
@@ -4180,7 +4217,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       ownerHTML = `
         <div id="${id}" class="ownerr">
           <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;align-items:center;font-size:12px;border:var(--border)" onclick="
-            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID}', '${id}', '${d.communityId}')
+            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID}', '${id}', '${d.communityId}', ${d.isPrivateParent})
           ">
             <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
             Wynt author replied
@@ -4329,7 +4366,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
               <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${commentId}" data-tweet="${tweetId}">
                 <img loading='lazy' src="/image/message.svg"> ${(d.replyCount ?? 0) > 0 ? d.replyCount : ""}
               </span>
-              ${d.isPrivate ? "" :
+              ${d.isPrivate || d.isPrivateParent ? "" :
                 `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${commentId}">
                   <img loading='lazy' src="/image/rewint.svg"> ${(d.retweetCount ?? 0) > 0 ? d.retweetCount : ""}
                 </span>`
@@ -4612,7 +4649,11 @@ document.body.addEventListener("click", async (e) => {
       commentRef = doc(db, "tweets", tweetId, "comments", commentId);
     }
     const commentSnap = await getDoc(commentRef);
-    if (!commentSnap.exists()) return log("reply doesn't exist");
+    if (!commentSnap.exists()) {
+      log("reply doesn't exist");
+      loading.classList.remove("show");
+      return;
+    }
     const data = commentSnap.data();
     const offenderId = auth.currentUser.uid;
     const isOwner = offenderId === data.uid;
@@ -5374,13 +5415,10 @@ sendRetweet.onclick = async () => {
     const preview = document.getElementById(`retweetPreview-${originalId}`) || document.getElementById("retweetPreview-TWEETID");
     if (preview) preview.innerHTML = "";
     document.getElementById("retweetOverlay").classList.add("hidden");
+    log("green", "reWynt posted");
   } catch (error) {
-    if (error.message?.includes('The value of property "media" is longer than')) {
-      log("red", "insert only images lower than 1MB")
-    } else {
       console.error("Retweet failed:", error);
       info("x", "ReWynt failed", error);
-    }
   } finally {
     sendRetweet.disabled = false;
     sendRetweet.classList.remove('disabled');

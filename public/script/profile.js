@@ -88,7 +88,6 @@ document.getElementById('usersvg').addEventListener("click", async () => {
   const data = docSnap.data();
 
   const banner = base91ToImageSrc(data.banner);
-  const myBanner = document.getElementById("my-banner");
 
   if (banner) {
     myBanner.style.backgroundImage = `url('${banner}')`;
@@ -117,7 +116,7 @@ document.getElementById('usersvg').addEventListener("click", async () => {
   const myFollowing = userData?.following || 0;
   const balance = formatNumber(userData?.balance || 0);
   const streak = userData?.streak || 0;
-  const iq = userData?.IQ.toFixed(2) || 0;
+  const iq = userData.IQ ? userData?.IQ.toFixed(2) : 0;
   const status = userData?.status || "i'm cold";
 
   document.getElementById("my-posts").textContent = postCount;

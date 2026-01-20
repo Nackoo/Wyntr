@@ -163,6 +163,11 @@ searchInput.addEventListener("keydown", async (e) => {
       const communityReplyMatch = url.match(/^\/community\/([^/]+)\/wynt\/([^/]+)\/reply\/([^/]+)$/);
       const replyMatch          = url.match(/^\/wynt\/([^/]+)\/reply\/([^/]+)$/);
       const communityMatch      = url.match(/^\/community\/([^/]+)$/);
+
+      if (userMatch || tweetMatch || communityMatch || replyMatch || communityTweetMatch || communityReplyMatch) {
+        searchInput.value = "";
+        previousTerm = "";
+      }
  
       if (communityMatch) {
         const communityId = communityMatch[1];
@@ -1960,15 +1965,13 @@ profileScrollBox.addEventListener("scroll", async () => {
   const activeTab = document.querySelector(".tab3.active")?.dataset.target;
   const uid = document.getElementById("user-name").dataset.uid;
 
-  // TWEETS TAB
   if (activeTab === "userList") {
     if (tweetLoading) return;
     tweetLoading = true;
     await loadTweets(uid);
     tweetLoading = false;
   }
-
-  // MENTIONED TAB
+  
   if (activeTab === "usermentionedList") {
     if (mentionLoading) return;
     mentionLoading = true;
@@ -1976,7 +1979,6 @@ profileScrollBox.addEventListener("scroll", async () => {
     mentionLoading = false;
   }
 
-  // HIGHLIGHTS TAB
   if (activeTab === "userHighlights") {
     if (highlightLoading) return;
     highlightLoading = true;
@@ -1992,7 +1994,7 @@ document.addEventListener("contextmenu", (e) => {
   const uid = btn.dataset.uid;
   if (!uid) return;
 
-  e.preventDefault(); // stop default right-click menu
+  e.preventDefault(); 
 
   const url = `https://wyntr.netlify.app/user/${uid}`;
   window.open(url, "_blank", "noopener");
