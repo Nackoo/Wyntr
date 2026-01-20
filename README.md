@@ -201,16 +201,6 @@ service cloud.firestore {
       match /notifications/{notificationId} {
         allow create, read, delete, update: if true;
       }
-    
-      //warnings
-      match /warnings/{warningId} {
-        allow create: if request.auth != null &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
-        allow update, delete: if false;
-        allow read: if request.auth != null && (
-          request.auth.uid == userId ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin");
-      }
 
       // Bookmarks
       match /bookmarks/{folderId} {
