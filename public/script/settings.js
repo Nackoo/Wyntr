@@ -244,9 +244,10 @@ statusInput.addEventListener("input", () => {
 bannerInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  loading.classList.add("show");
   const result = await quickImageNSFWCheck(file);
   logNSFWResult("image", result);
-  if (result.isNSFW) {
+  if (result.finalNSFW) {
     log("red", "image cannot contain NSFW");
     loading.classList.remove("show");
     e.target.value = "";
@@ -255,14 +256,16 @@ bannerInput.addEventListener("change", async (e) => {
   const url = URL.createObjectURL(file);
   bannerPreview.style.background = `url("${url}") center / cover`;
   bannerPreview.dataset.file = file; 
+  loading.classList.remove("show");
 });
 
 avaInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  loading.classList.add("show");
   const result = await quickImageNSFWCheck(file);
   logNSFWResult("image", result);
-  if (result.isNSFW) {
+  if (result.finalNSFW) {
     log("red", "image cannot contain NSFW");
     e.target.value = "";
     loading.classList.remove("show");
@@ -271,6 +274,7 @@ avaInput.addEventListener("change", async (e) => {
   const url = URL.createObjectURL(file);
   avaPreview.style.background = `url("${url}") center / cover`;
   avaPreview.dataset.file = file;
+  loading.classList.remove("show");
 });
 
 saveButton.addEventListener("click", async () => {
@@ -378,7 +382,7 @@ saveButton.addEventListener("click", async () => {
 
   myName.textContent = newDisplayName;
   if (newBanner) {
-    myBanner.style.backgroundImage = `url('${newBanner}')`;
+    myBanner.style.backgroundImage = `url('${base91ToImageSrc(newBanner)}')`;
   } else {
     myBanner.style.background = "url('/image/default-banner.png')";
   }
@@ -393,9 +397,9 @@ saveButton.addEventListener("click", async () => {
   myBanner.style.backgroundSize = "cover";
   myBanner.style.backgroundColor = "unset";
 
-  myPfp.style.background = `url('${newAvatar || auth.currentUser.photoURL}') no-repeat center / cover`;
+  myPfp.style.background = `url('${base91ToImageSrc(newAvatar) || auth.currentUser.photoURL}') no-repeat center / cover`;
 
-  document.querySelector(".account-avatar").src = newAvatar || auth.currentUser.photoURL;
+  document.querySelector(".account-avatar").src = base91ToImageSrc(newAvatar) || auth.currentUser.photoURL;
   document.querySelector(".account-name").textContent = newDisplayName;
   myUsername.textContent = `@${newUsername}`;
 });

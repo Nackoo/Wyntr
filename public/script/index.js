@@ -176,39 +176,42 @@ function monitorUrlChanges(user) {
     }
   }, 500);
 }
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    const bannedRef = doc(db, "banned", user.uid);
-    const bannedSnap = await getDoc(bannedRef);
-    if (bannedSnap.exists()) {
-      const banData = bannedSnap.data();
-      const banReason = banData.reason || "Violation of Wyntr community guidelines.";
-      document.body.innerHTML = `
+
+async function checkBans(user) {
+  const bannedRef = doc(db, "banned", user.uid);
+  const bannedSnap = await getDoc(bannedRef);
+  if (bannedSnap.exists()) {
+    const banData = bannedSnap.data();
+    const banReason = banData.reason || "Violation of Wyntr community guidelines.";
+    document.body.innerHTML = `
         <h2 style='text-align:center;margin-top:100px;'>This account is suspended.</h2>
         <p style="text-align:center;margin:0 20px;">Our team has detected activity from this account that goes against the Wyntr guidelines:</p>
         <p style="text-align:center;margin:10px 20px;font-weight:bold;">"${banReason}"</p>
         <p style="text-align:center"><a href="/user/login">Logout</a></p>
         <p style="text-align:center;color:grey;">If you think we made a mistake, please contact us on <a target="_blank" href="https://discord.gg/9SsDWAjfVV">Discord</a></p>
       `;
-      return;
-    }
+    return;
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    checkBans(user);
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
+    const data = snap.data();
     const path = window.location.pathname;
     if (shouldRunFeatures(path)) {
       initMainFeatures(user);
     }
     monitorUrlChanges(user);
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
     const avatarEl = document.querySelector(".account-avatar");
     const nameEl = document.querySelector(".account-name");
     const usernameEl = document.querySelector(".account-username");
     let displayName = user.displayName || "Anonymous";
     let photoURL = "/image/default-avatar.jpg";
     let username = user.username || "unknown";
-    if (userSnap.exists()) {
-      const data = userSnap.data();
+    if (snap.exists()) {
       if (data.IQ === undefined) {
         await updateDoc(userRef, {
           IQ: 0.00
@@ -281,7 +284,6 @@ onAuthStateChanged(auth, async (user) => {
       });
       location.reload();
     } else {
-      const data = snap.data();
       const updateData = {};
       if (!data.displayName) {
         updateData.displayName = user.displayName || "Anonymous";
@@ -303,8 +305,7 @@ onAuthStateChanged(auth, async (user) => {
         });
       }
     }
-    if (userSnap.exists()) {
-      const data = userSnap.data();
+    if (snap.exists()) {
       let lastSeen = data.lastSeen ? data.lastSeen.toDate() : null;
       let streak = data.streak || 0;
       const today = new Date();
@@ -345,9 +346,8 @@ onAuthStateChanged(auth, async (user) => {
             prizeBtn.classList.add("disabled");
             document.querySelector("#prizebox button").disabled = true;
             document.querySelector("#prizebox button").classList.add("disabled");
-            const freshSnap = await getDoc(userRef);
-            if (!freshSnap.exists()) return log("red", "Couldn't find your user data");
-            const freshData = freshSnap.data();
+            if (!snap.exists()) return log("red", "Couldn't find your user data");
+            const freshData = snap.data();
             const lastSeenServer = freshData.lastSeen ? freshData.lastSeen.toDate() : null;
             const lastSeenDay = lastSeenServer ? new Date(lastSeenServer).setHours(0, 0, 0, 0) : 0;
             const todayStart = new Date().setHours(0, 0, 0, 0);
@@ -359,7 +359,7 @@ onAuthStateChanged(auth, async (user) => {
               return;
             }
             const reward = Math.min(10 + (newStreak - 1) * 1, 15);
-            await updateDoc(userRef, {
+            await updateDoc(ref, {
               balance: increment(reward),
               lastSeen: new Date(todayStart),
               streak: newStreak,
@@ -507,33 +507,13 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         mediaType = "video";
         mediaPath = upload.path || "";
       } else if (images.length > 0) {
-        for (const img of images) {
-          if (img.size > maxSize) {
-            log("red", "image exceeds 1MB");
-            btn.disabled = false;
-            btn.classList.remove("disabled");
-            return;
-          }
-        }
-        const compressedBase64s = await Promise.all(images.map(f => compressImageTo480(f)));
-        let finalFile;
+        let encodedBase91;
         if (images.length > 1) {
-          const collageBase64 = await makeCollage(compressedBase64s);
-          const res = await fetch(collageBase64);
-          finalFile = await res.blob();
-          finalFile = new File([finalFile], "collage.jpg", {
-            type: "image/jpeg"
-          });
+          const collageBase64 = await makeCollage(images);
+          encodedBase91 = await compressImageTo480(collageBase64);
         } else {
-          const res = await fetch(compressedBase64s[0]);
-          finalFile = await res.blob();
-          finalFile = new File([finalFile], "image.jpg", {
-            type: "image/jpeg"
-          });
+          encodedBase91 = await compressImageTo480(images[0]);
         }
-        const arrayBuffer = await finalFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        const encodedBase91 = base91.encode(bytes);
         mediaURL = encodedBase91;
         mediaType = "image";
         mediaPath = "";
@@ -689,9 +669,10 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       return Promise.all(ops);
     }));
     if (!window.communityID) await handleTags(text.toLowerCase(), tweetRef.id);
+    /*
     await setDoc(doc(db, "users", user.uid, "posts", tweetRef.id), {
       exists: true
-    });
+    });*/
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     const data = snap.data();
@@ -733,6 +714,62 @@ async function getMyVoteIndex(tweetId, uid) {
     return snap.data().optionIndex;
   }
   return null;
+}
+
+export function renderPoll1(t, tweetId, commentid, myVoteIndex) { 
+  const totalVotes = (t.poll.votes || []).reduce((a, b) => a + b, 0);
+  let expiryText = "";
+  const now = new Date();
+  const end = t.poll.expiresAt?.toDate ? t.poll.expiresAt.toDate() : new Date(t.poll.expiresAt);
+  const diff = end - now;
+  if (diff <= 0) {
+    expiryText = "final votes";
+  } else {
+    const mins = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) expiryText = `${days} day${days > 1 ? "s" : ""} left`;
+    else if (hours > 0) expiryText = `${hours} hour${hours > 1 ? "s" : ""} left`;
+    else expiryText = `${mins} min${mins > 1 ? "s" : ""} left`;
+  }
+  return `
+  <div class="poll poll1" id="poll-${tweetId}-${commentid}">
+    ${t.poll.options.map((opt, i) => {
+      const count = t.poll.votes?.[i] || 0;
+      const percent = totalVotes > 0
+        ? Math.round((count / totalVotes) * 100)
+        : 0;
+      const isMine = myVoteIndex === i;
+
+      return `
+      <div class="vote-btn1 ${isMine ? "selected" : ""}"
+           data-id="${tweetId}"
+           data-commentid="${commentid}"
+           data-index="${i}">
+
+        ${myVoteIndex !== null || diff <= 0 ? `
+          <div class="bar" style="width:${percent}%;"></div>
+        ` : ``}
+
+        <div class="content">
+          <span class="opt-text">${opt}</span>
+
+          ${myVoteIndex !== null || diff <= 0 ? `
+            <span class="percent">${percent}%</span>
+          ` : ``}
+        </div>
+      </div>
+      `;
+    }).join("")}
+
+    <div style="color:grey;display:flex;align-items:center;gap:5px;margin-top:5px;">
+      <span style="font-size:14px;margin:0;" class="poll-submits">
+        ${totalVotes} submits
+      </span>
+      <span style="font-size:14px;" class="poll-expiry">• ${expiryText}</span>
+    </div>
+  </div>
+  `;
 }
 
 function renderPoll(t, tweetId, myVoteIndex) {
@@ -819,7 +856,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
     path = `tweets/${tweetId}/likes/${auth.currentUser.uid}`;
   }
 
-  const likeId = `like-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const likeId = randomString(14);
 
   const authorUID = t.uid;
   const {
@@ -833,7 +870,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
     const retweetDoc = await getDoc(doc(db, "tweets", t.retweetOf));
     if (retweetDoc.exists()) {
       const rt = retweetDoc.data();
-      const rDate = formatDate(rt.createdAt);
+      const rDate = rt.createdAt;
       try {
         const rtUserDoc = await getDoc(doc(db, "users", rt.uid));
         if (rtUserDoc.exists()) {
@@ -854,7 +891,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
   const viewCount = t.viewsCount || 0;
   const commentCount = t.commentCount || 0;
   const retweetCount = t.retweetCount || 0;
-  const donationCount = t.donations || 0;
   const dateStr = formatDate(t.createdAt);
   let mediaHTML = "";
   const containsSpoiler = /\|\|.+?\|\|/.test(t.text);
@@ -947,14 +983,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
       const now = new Date();
       const isPremium = premiumExpiry && premiumExpiry > now;
 
-      let donationHTML = "";
-      if (comment.donationReceived) {
-        donationHTML = `
-        <div style="border-radius:7px;background: var(--dark);display:flex;align-items:center;width:150px;padding:7px 10px;margin-bottom:10px;gap:7px;font-size:15px;color:var(--color);border:1px solid var(--color)">
-            🎁 Gifted ${formatNumber(comment.donationReceived)} Wcoins
-        </div>`;
-      }
-
       let editHTML2 = "";
       if (comment.edited) {
         editHTML2 = `
@@ -963,6 +991,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           ${formatTime(comment.edited)}
         </span>`
       }
+
       let communityHTML2 = "";
       let communityName = "";
       if (t.sharedFromCommunity && window.communityID == null) {
@@ -1007,6 +1036,26 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           </div>
         `;
       }
+
+      let pollHTML = "";
+      if (comment.poll && Array.isArray(comment.poll.options)) {
+        const uid = auth.currentUser?.uid;
+        let myVoteIndex = null;
+        if (uid) {
+          let voteRef;
+          if (window.communityID != null) {
+            voteRef = doc(db, "communities", window.communityID, "posts", parentId, "comments", commentId, "votes", uid);
+          } else {
+            voteRef = doc(db, "tweets", parentId, "comments", commentId, "votes", uid);
+          }
+          const voteSnap = await getDoc(voteRef);
+          if (voteSnap.exists()) {
+            myVoteIndex = voteSnap.data().optionIndex;
+          }
+        }
+        pollHTML = renderPoll1(comment, parentId, commentId, myVoteIndex);
+      }
+
       if (hasImage && hasText) {
         const containsSpoiler = /\|\|.+?\|\|/.test(comment.text);
         const src = base91ToImageSrc(comment.media.url);
@@ -1022,14 +1071,14 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <strong class="user-link" data-uid="${comment.uid}" style="cursor:pointer">${escapeHTML(displayName || 'Unknown')}</strong>
               <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img loading='lazy' src="/image/check.svg" style="margin:0;margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(comment.createdAt)} </span>
               <div style="margin-left:auto">
-                <span class="cmenubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
+                <span class="cmenubtn" data-text="${comment.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
             </div>
             <div class="quoted-body">
               ${communityHTML2}
-              <p style="margin: 0;margin-bottom:10px;">${parsedCommentText}</p> ${translateHTML5} ${editHTML2} ${donationHTML} 
+              <p style="margin: 0;margin-bottom:10px;">${parsedCommentText}</p> ${translateHTML5} ${editHTML2}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -1041,6 +1090,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                     <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
                   </div>`
               }
+              ${pollHTML}
             </div>
           </div>
           `;
@@ -1059,7 +1109,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <strong class="user-link" data-uid="${comment.uid}" style="cursor:pointer">${escapeHTML(displayName || 'Unknown')}</strong>
               <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img loading='lazy' src="/image/check.svg" style="margin:0;margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(comment.createdAt)} </span>
               <div style="margin-left:auto;">
-                <span class="cmenubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
+                <span class="cmenubtn" data-text="${comment.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
@@ -1069,7 +1119,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <p style="margin: 0;margin-bottom:10px;">${parsedCommentText}</p> 
               ${translateHTML5} 
               ${editHTML2} 
-              ${donationHTML} 
               ${containsSpoiler ?
                 `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                   <div class="spoiler-overlay">
@@ -1085,11 +1134,13 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                     </video>
                   </div>`
               }
+              ${pollHTML}
             </div>
           </div>
           `;
         getSupabaseVideo(comment.media.url, vidId);
       } else if (hasImage) {
+        const src = base91ToImageSrc(comment.media.url);
         quotedHTML = `
           <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1105,7 +1156,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 ${formatDate(comment.createdAt)}
               </span>
               <div style="margin-left:auto">
-                <span class="cmenubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
+                <span class="cmenubtn" data-text="${comment.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
@@ -1113,9 +1164,9 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             <div class="quoted-body">
             ${communityHTML2}
             <div class="attachment">
-              <img loading="lazy" src="${comment.media.url}" data-src="${comment.media.url}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';">
+              <img loading="lazy" src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';">
             </div>
-            ${donationHTML}
+            ${pollHTML}
           </div>
         </div>`;
       } else if (hasVideo) {
@@ -1134,7 +1185,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <span class="usernamee">@${username} •</span> ${formatDate(comment.createdAt)}
             </span>
             <div style="margin-left:auto">
-              <span class="cmenubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
+              <span class="cmenubtn" data-text="${comment.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${commentId}" data-author="${comment.uid}" data-tweet="${parentId}">
                 <img loading='lazy' src="/image/three-dots.svg">
               </span>
             </div>
@@ -1146,7 +1197,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               Your browser does not support the video tag.
               </video>
             </div>
-            ${donationHTML}
+            ${pollHTML}
           </div>
         </div>`;
         getSupabaseVideo(comment.media.url, vidId);
@@ -1166,7 +1217,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               ${formatDate(comment.createdAt)}
             </span>
             <div style="margin-left:auto">
-              <span data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="cmenubtn" data-id="${commentId}" data-tweet="${parentId}" data-author="${comment.uid}">
+              <span data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="cmenubtn" data-text="${comment.text}" data-id="${commentId}" data-tweet="${parentId}" data-author="${comment.uid}">
                 <img loading='lazy' src="/image/three-dots.svg">
               </span>
             </div>
@@ -1176,7 +1227,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;">${parsedCommentText}</p> 
             ${translateHTML5} 
             ${editHTML2}
-            ${donationHTML}
+            ${pollHTML}
           </div>
         </div>`;
       }
@@ -1205,7 +1256,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
     }
     if (retweetDoc.exists()) {
       const rt = retweetDoc.data();
-      const rDate = formatDate(rt.createdAt);
+      const rDate = rt.createdAt;
       let hasText;
       if (t.retweettext) {
         hasText = t.retweettext?.trim()?.length > 0;
@@ -1281,6 +1332,26 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           </div>
         `;
       }
+
+      let pollHTML2 = "";
+      if (rt.poll && Array.isArray(rt.poll.options)) {
+        const uid = auth.currentUser?.uid;
+        let myVoteIndex = null;
+        if (uid) {
+          let voteRef;
+          if (window.communityID != null) {
+            voteRef = doc(db, "communities", window.communityID, "posts", t.retweetOf || t.originalId, "votes", uid);
+          } else {
+            voteRef = doc(db, "tweets", t.retweetOf || t.originalId, "votes", uid);
+          }
+          const voteSnap = await getDoc(voteRef);
+          if (voteSnap.exists()) {
+            myVoteIndex = voteSnap.data().optionIndex;
+          }
+        }
+        pollHTML2 = renderPoll(rt, t.retweetOf || t.originalId, myVoteIndex);
+      }
+
       if (hasImage && hasText) {
         let parsedText;
         if (t.retweettext) {
@@ -1301,7 +1372,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
               <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img loading='lazy' src="/image/check.svg" style="margin:0;margin-left:-5px">` : ""} <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} </span>
               <div style="margin-left:auto">
-                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
@@ -1312,6 +1383,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
               ${translateHTML6} 
               ${editHTML1}
+              ${pollHTML2}
               ${rtcontainsSpoiler ?
                 `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                   <div class="spoiler-overlay">
@@ -1346,7 +1418,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
               <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img loading='lazy' src="/image/check.svg" style="margin:0;margin-left:-5px">` : ""} <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} </span>
               <div style="margin-left:auto">
-                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
@@ -1357,6 +1429,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
               ${translateHTML6} 
               ${editHTML1}
+              ${pollHTML2}
               ${rtcontainsSpoiler ?
                 `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                   <div class="spoiler-overlay">
@@ -1395,7 +1468,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
               <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img loading='lazy' src="/image/check.svg" style="margin:0;margin-left:-5px">` : ""} <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} </span>
               <div style="margin-left:auto">
-                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
                   <img loading='lazy' src="/image/three-dots.svg">
                 </span>
               </div>
@@ -1406,6 +1479,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
               ${translateHTML6} 
               ${editHTML1}
+              ${pollHTML2}
             </div>
           </div>
           `;
@@ -1520,7 +1594,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
                 ${isPremium ? `<img loading='lazy' src="/image/check.svg" style="margin:0 -5px;">` : ""}
                 <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr}</span>
-                <span style="cursor:pointer;margin-left:auto" data-shared="${t.sharedFromCommunity || null}" data-community-id="${t.communityId || null}" data-author="${t.uid}" class="menubtn"><img loading='lazy' src="/image/three-dots.svg"></span>
+                <span style="cursor:pointer;margin-left:auto" data-shared="${t.sharedFromCommunity || null}" data-community-id="${t.communityId || null}" data-author="${t.uid}" data-text="${t.text}" class="menubtn"><img loading='lazy' src="/image/three-dots.svg"></span>
               </div>
               ${communityHTML}
               ${titleHTML}
@@ -1533,7 +1607,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               ${pollHTML}
               <div class="flex">
                 <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="like-btn" id="likeBtn-${tweetId}">
-                  <div id="${likeId}" style="height:20px">
+                  <div id="${likeId}" class="likeicon" style="height:20px">
                     <img loading='lazy' src="/image/heart.svg">
                   </div>
                   ${likeCount > 0 ? `<span id="likeCount-${tweetId}">${likeCount}</span>` : ""}
@@ -1543,12 +1617,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 </span>
                 <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}">
                   <img loading='lazy' src="/image/rewint.svg"> ${retweetCount > 0 ? retweetCount : ""}
-                </span>
-                <span style="cursor:pointer;color:#757779;font-size:14px;" class="donate-btn" data-id="${tweetId}">
-                  <svg style="color:#757779;margin-top:-3px;" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 21v-9m3-4H7.5a2.5 2.5 0 1 1 0-5c1.5 0 2.875 1.25 3.875 2.5M14 21v-9m-9 0h14v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8ZM4 8h16a1 1 0 0 1 1 1v3H3V9a1 1 0 0 1 1-1Zm12.155-5c-3 0-5.5 5-5.5 5h5.5a2.5 2.5 0 0 0 0-5Z" />
-                  </svg>
-                  ${donationCount > 0 ? `${formatNumber(donationCount)}` : ""}
                 </span>
                 <div style="margin-left:auto;">
                   <span class="viewbtn" style="margin-left:10px;color:#757779"><img loading='lazy' src="/image/chart.svg"> ${viewCount > 0 ? viewCount : ""}</span>
@@ -1646,6 +1714,9 @@ function closeReportOverlay() {
   overlay.classList.add("hidden");
   document.getElementById("deleteReasonInput").value = "";
   currentReportTarget = null;
+}
+async function getAll(...docRefs) {
+  return Promise.all(docRefs.map(ref => getDoc(ref)));
 }
 document.getElementById("deleteReasonCancel").addEventListener("click", () => {
   closeReportOverlay();
@@ -1772,7 +1843,10 @@ document.body.addEventListener("click", async (e) => {
     const communityId = btn.dataset.communityId;
     const shared = btn.dataset.shared;
     const author = btn.dataset.author;
+    const text = btn.dataset.text;
+
     const yes = shared === "true";
+
     let hascom;
     if (communityId && communityId != null && communityId != "null") {
       hascom = communityId;
@@ -1816,6 +1890,8 @@ document.body.addEventListener("click", async (e) => {
     const editUntil = data.editUntil?.toDate ? data.editUntil.toDate() : null;
     const canStillEdit = editUntil && now < editUntil;
     const showEditBtn = isOwner && canStillEdit;
+    const hastext = text && text != "null" && text != null && text != undefined && text != "undefined";
+
     box.innerHTML = `
           <div class="flex" style="margin-bottom:5px;">
             <h3 style="margin:0;margin-left:5px;">Actions</h3>
@@ -1846,7 +1922,7 @@ document.body.addEventListener("click", async (e) => {
 
           ${showDeleteBtn
           ? `<div class="menu-item delete-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
-            <img loading='lazy' src="/image/trash.svg"> Delete this Wynt
+            <img loading='lazy' src="/image/trash.svg"> Delete this Wynt ${(isAdmin && tweetUserRole !== "admin") ? "as admin" : ""}
             </div>`
           : ""}
 
@@ -1871,9 +1947,17 @@ document.body.addEventListener("click", async (e) => {
             : `<img loading='lazy' src="/image/highlight.svg"> highlight to your profile`}
           </div>`}
 
+          <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
+
           <div class="menu-item author-share" data-author="${author}">
             <img loading='lazy' src="/image/copy.svg"> copy user ID
           </div>
+
+          ${hastext ? `
+            <div class="menu-item text-copy" data-text="${text}">
+              <img loading='lazy' src="/image/copy.svg"> copy text
+              </div>
+            ` : ""}
           `;
     overlay.classList.remove("hidden");
     loading.classList.remove("show");
@@ -2172,6 +2256,8 @@ document.body.addEventListener("click", async (e) => {
     const communityId = cmenubtn.dataset.communityId;
     const isPrivate = cmenubtn.dataset.private;
     const author = cmenubtn.dataset.author;
+    const text = cmenubtn.dataset.text;
+
     let hascom;
     let snap;
     let commentSnap;
@@ -2184,22 +2270,38 @@ document.body.addEventListener("click", async (e) => {
       return;
     }
     if (hascom) {
+      const tweetRef = doc(db, "communities", hascom, "posts", tweetId);
       const commentRef = doc(db, "communities", hascom, "posts", tweetId, "comments", commentId);
-      tweetSnap = await getDoc(doc(db, "communities", hascom, "posts", tweetId));
-      snap = await getDoc(commentRef);
-      commentSnap = snap;
-      if (!snap.exists()) {
-        console.warn(`db/communities/${hascom}/posts/${tweetId}/comments/${commentId} not found, trying /tweets`);
-        const fallbackRef = doc(db, "tweets", tweetId, "comments", commentId);
-        tweetSnap = await getDoc(doc(db, "tweets", tweetId));
-        snap = await getDoc(fallbackRef);
-        commentSnap = snap;
+
+      const [tSnap, cSnap] = await getAll(tweetRef, commentRef);
+
+      if (cSnap.exists()) {
+        tweetSnap = tSnap;
+        commentSnap = cSnap;
+        snap = commentSnap;
+      } else {
+        console.warn(
+          `db/communities/${hascom}/posts/${tweetId}/comments/${commentId} not found, trying /tweets`
+        );
+
+        const fallbackTweetRef = doc(db, "tweets", tweetId);
+        const fallbackCommentRef = doc(db, "tweets", tweetId, "comments", commentId);
+
+        const [ftSnap, fcSnap] = await getAll(fallbackTweetRef, fallbackCommentRef);
+
+        tweetSnap = ftSnap;
+        commentSnap = fcSnap;
+        snap = commentSnap;
       }
     } else {
+      const tweetRef = doc(db, "tweets", tweetId);
       const commentRef = doc(db, "tweets", tweetId, "comments", commentId);
-      tweetSnap = await getDoc(doc(db, "tweets", tweetId));
-      snap = await getDoc(commentRef);
-      commentSnap = snap;
+
+      const [tSnap, cSnap] = await getAll(tweetRef, commentRef);
+
+      tweetSnap = tSnap;
+      commentSnap = cSnap;
+      snap = commentSnap;
     }
     if (!commentSnap.exists()) {
       log("red", "reply doesn't exist");
@@ -2230,6 +2332,8 @@ document.body.addEventListener("click", async (e) => {
     const editUntil = commentData.editUntil?.toDate ? commentData.editUntil.toDate() : null;
     const canStillEdit = editUntil && now < editUntil;
     const showEditBtn = isOwner && canStillEdit;
+    const hastext = text && text != "null" && text != null && text != undefined && text != "undefined";
+
     box.innerHTML = `
       <div class="flex" style="margin-bottom:5px;">
         <h3 style="margin:0;margin-left:5px;">Actions</h3>
@@ -2246,13 +2350,13 @@ document.body.addEventListener("click", async (e) => {
 
       ${showDeleteBtn
         ? `<div class="c-menu-item comment-delete-btn"  data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img loading='lazy' src="/image/trash.svg"> Delete this reply
+            <img loading='lazy' src="/image/trash.svg"> Delete this reply ${(isAdmin && commentUserRole !== "admin") ? "as admin" : ""}
           </div>`
         : ""}
 
       ${showHideBtn && isPrivate != true && isPrivate != 'true' && !isPinned
         ? `<div class="c-menu-item comment-hide-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img src="/image/eye.svg"> ${commentData.isHidden ? `Unhide this reply` : `Hide this reply`}
+            <img src="/image/eye.svg"> ${commentData.isHidden ? `Unhide this reply` : `Hide this reply`} as Wynt author
           </div>`
         : ""}
 
@@ -2279,6 +2383,12 @@ document.body.addEventListener("click", async (e) => {
         : `<div class="c-menu-item report-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}" data-comment="${commentId}">
             <img loading='lazy' src="/image/report.svg"> Report this reply
           </div>`}
+
+      <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
+
+      <div class="c-menu-item text-copy" data-text="${text}">
+        <img loading='lazy' src="/image/copy.svg"> copy text
+      </div>
 
       <div class="c-menu-item author-share" data-author="${author}">
         <img loading='lazy' src="/image/copy.svg"> copy user ID
@@ -2379,6 +2489,7 @@ document.body.addEventListener("click", async (e) => {
         return;
       }
     }
+
     if (data.retweetOf) {
       let originalRef;
       if (window.communityID) {
@@ -2397,6 +2508,7 @@ document.body.addEventListener("click", async (e) => {
         console.warn("Original tweet already deleted, skipping retweetCount decrement");
       }
     }
+
     if (data.connectedWynt) {
       let wsref, wssnap;
       if (data.sharedFromCommunity) {
@@ -2409,11 +2521,9 @@ document.body.addEventListener("click", async (e) => {
         }
       }
     }
+
     if (data.retweetOfComment) {
-      const {
-        tweetId: parentId,
-        commentId
-      } = data.retweetOfComment;
+      const { tweetId: parentId, commentId } = data.retweetOfComment;
       try {
         let commentRef;
         if (window.communityID) {
@@ -2431,6 +2541,7 @@ document.body.addEventListener("click", async (e) => {
         console.warn("Failed to decrement retweet count for comment:", err);
       }
     }
+
     if (data.mediaType === "video" && data.mediaPath) {
       try {
         const {
@@ -2442,6 +2553,7 @@ document.body.addEventListener("click", async (e) => {
         console.error("Failed to delete video:", err);
       }
     }
+
     if (Array.isArray(data.mentions) && data.mentions.length > 0) {
       if (!window.communityID) {
         for (const uid of data.mentions) {
@@ -2449,6 +2561,7 @@ document.body.addEventListener("click", async (e) => {
         }
       }
     }
+
     if (Array.isArray(data.tags)) {
       for (const tagId of data.tags) {
         const tagRef = doc(db, "tags", tagId);
@@ -2471,11 +2584,13 @@ document.body.addEventListener("click", async (e) => {
         }
       }
     }
+
     const ownerId = data.uid;
     await deleteDoc(doc(db, "users", ownerId, "posts", tweetId));
     await updateDoc(doc(db, "users", ownerId), {
       posts: increment(-1)
     });
+
     if (data.WS && data.WS > 0) {
       const userRef = doc(db, "users", ownerId);
       const userSnap = await getDoc(userRef);
@@ -2495,28 +2610,49 @@ document.body.addEventListener("click", async (e) => {
         });
       }
     }
+
     await deleteDoc(tweetRef);
     if (window.communityID) {
       try {
         await updateDoc(doc(db, "communities", window.communityID), {
           posts: increment(-1)
         });
-        console.log(`Decremented community ${window.communityID} post count`);
       } catch (err) {
         console.warn(`Failed to decrement post count for community ${window.communityID}:`, err);
       }
     }
+
     document.querySelectorAll(`#tweet-${tweetId}`).forEach(el => el.remove());
+
+    const pl1 = document.querySelector(`.profilePinned-${tweetId}`);
+    const pl2 = document.querySelector(`.userPinned-${tweetId}`);
+    const pl3 = document.querySelector(`.communityPinned-${tweetId}`);
+
+    if (pl1) pl1.style.opacity = "0";
+    if (pl2) pl2.style.opacity = "0";
+    if (pl3) pl3.style.opacity = "0";
+
     log("green", "Wynt deleted");
     loading.classList.remove("show");
   }
+
   const pinBtn = e.target.closest(".pin-btn");
   if (pinBtn) {
+    const textContent = document.querySelector(".pin-btn").textContent;
+
+    if (textContent.includes("Unpin")) {
+      if (!(await confirmDialog("unpin from profile?", "you may re-pin it anytime."))) return log("var(--light)", "canceled");    
+    } else {
+      if (!(await confirmDialog("pin to profile?", "This will replace the current pinned Wynt on your profile."))) return log("var(--light)", "canceled");
+    }
+
     loading.classList.add("show");
+
     const tweetId = pinBtn.dataset.id;
     const userRef = doc(db, "users", auth.currentUser.uid);
     const userSnap = await getDoc(userRef);
     const pinnedId = userSnap.exists() ? userSnap.data().pinned : null;
+
     if (pinnedId === tweetId) {
       await updateDoc(userRef, {
         pinned: deleteField()
@@ -2526,10 +2662,18 @@ document.body.addEventListener("click", async (e) => {
         pinned: tweetId
       });
     }
+
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
     loading.classList.remove("show");
+
+    if (textContent.includes("Unpin")) {
+      log("green", "unpinned from profile");
+    } else {
+      log("green", "pinned to profile");
+    }
   }
 });
+
 const _viewObservers = new Map();
 
 function _getObserverForRoot(root) {
@@ -2664,8 +2808,10 @@ function unobserveTweet(el) {
     wrapper.observer.unobserve(el);
   } catch (e) {}
 }
+
 window.observeTweet = observeTweet;
 window.unobserveTweet = unobserveTweet;
+
 let removedCount = 0;
 let topRemovedCount = 0;
 let newestSnapshotMostLiked = null;
@@ -2697,6 +2843,7 @@ function scoreTweet(t, currentUserFollowing) {
   score += Math.random();
   return score;
 }
+
 const mainContainer = document.getElementById("timeline");
 const newBanner = document.createElement("div");
 newBanner.style.cssText = `display:none;margin-top:20px;background:none;pointer-events:none;z-index:3;`;
@@ -2864,6 +3011,9 @@ function setupPoll(checkboxId, containerId, addBtnId) {
 }
 setupPoll("includePoll", "pollOptions", "addPollOption");
 setupPoll("includePollRetweet", "pollOptionsRetweet", "addPollOptionRetweet");
+setupPoll("includePollComment", "pollOptionsComment", "addPollOptionComment");
+setupPoll("includePollReply", "pollOptionsReply", "addPollOptionReply");
+
 const giftBtn = document.getElementById("giftBtn");
 const giftOverlay = document.getElementById("giftOverlay");
 const closeGift = document.getElementById("closeGift");
@@ -2900,10 +3050,70 @@ if (confirmGift) {
     giftOverlay.classList.add("hidden");
     giftAmountInput.value = "";
     const commentStatus = document.getElementById("comment-status");
-    commentStatus.innerHTML = `<div class="donation-preview" style="display:flex;align-items:center;gap:5px;color:#0485b7;font-size:15px;"><img loading='lazy' src="/image/gift.svg"> You will donate <span style="color:#f91880;font-size:16px;">${formatNumber(pendingDonation * 0.8)}</span> Wcoins with this reply</div>`;
+    commentStatus.innerHTML = `<div class="donation-preview" style="display:flex;align-items:center;gap:5px;color:#0485b7;font-size:15px;"><img loading='lazy' src="/image/gift.svg"> You will donate <span style="color:#f91880;font-size:15px;font-weight:bold;">${formatNumber(Math.floor(pendingDonation * 0.8))}</span> Wcoins with this reply</div>`;
   };
 }
 document.body.addEventListener("click", async (e) => {
+  const voteBtn1 = e.target.closest(".vote-btn1");
+  if (voteBtn1) {
+    loading.classList.add("show");
+    const tweetId = voteBtn1.dataset.id;
+    const commentId = voteBtn1.dataset.commentid;
+    const optionIndex = parseInt(voteBtn1.dataset.index, 10);
+    const uid = auth.currentUser.uid;
+    let voteRef;
+    let tweetRef;
+    if (window.communityID) {
+      voteRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId, "votes", uid);
+      tweetRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId)
+    } else {
+      voteRef = doc(db, "tweets", tweetId, "comments", commentId, "votes", uid);
+      tweetRef = doc(db, "tweets", tweetId, "comments", commentId);
+    }
+    try {
+      await runTransaction(db, async (transaction) => {
+        const voteSnap = await transaction.get(voteRef);
+        const tweetSnap = await transaction.get(tweetRef);
+        if (!tweetSnap.exists()) {
+          log("red", "Wynt doesn't exist");
+          loading.classList.remove("show");
+          return;
+        }
+        const poll = tweetSnap.data().poll;
+        if (!poll || !Array.isArray(poll.options)) return log("red", "invalid poll");
+        if (poll.expiresAt) {
+          if (poll.expiresAt.toDate && poll.expiresAt.toDate() < new Date()) {
+            log("red", "This poll has ended");
+            return;
+          }
+        }
+        if (voteSnap.exists()) {
+          log("red", "You already voted on this poll");
+          loading.classList.remove("show");
+          return;
+        }
+        poll.votes[optionIndex] = (poll.votes[optionIndex] || 0) + 1;
+        transaction.update(tweetRef, {
+          poll
+        });
+        transaction.set(voteRef, {
+          votedAt: new Date(),
+          optionIndex
+        });
+      });
+      const tweetSnap = await getDoc(tweetRef);
+      const voteSnap = await getDoc(voteRef);
+      const myVoteIndex = voteSnap.exists() ? voteSnap.data().optionIndex : null;
+      document.querySelectorAll(`#poll-${tweetId}-${commentId}`).forEach(el => {
+        el.outerHTML = renderPoll1(tweetSnap.data(), tweetId, commentId, myVoteIndex);
+      });
+    } catch (err) {
+      console.error("Error submitting vote:", err);
+      log("red", "error submitting vote");
+    }
+    loading.classList.remove("show");
+  }
+
   const voteBtn = e.target.closest(".vote-btn");
   if (voteBtn) {
     loading.classList.add("show");
@@ -2997,10 +3207,6 @@ document.body.addEventListener("click", async (e) => {
           <div class="flex" style="display:Flex;gap:5px;">
             <strong>System</strong>
             <img loading='lazy' src="/image/icon.png" height="20" width="20" style="margin:0;">
-            <span style="opacity:0.7;font-size:12px;">
-              <span class="usernamee">@system •</span> 
-              0s
-            </span>
           </div>
           <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
             <p style="margin-bottom:15px !important;color:grey;">Post is not available or you don't have permission to reply</p>
@@ -3196,33 +3402,18 @@ document.body.addEventListener("click", async (e) => {
             commentVideoCooldown: Timestamp.fromDate(new Date(Date.now() + cooldownDuration)),
           });
         } else if (images.length > 0) {
-          for (const img of images) {
-            if (img.size > maxSize) {
-              log("red", "image exceeds 1MB");
-              btn.disabled = false;
-              btn.classList.remove("disabled");
-              return;
-            }
-          }
-          const compressedBase64s = await Promise.all(images.map(f => compressImageTo480(f)));
-          let finalFile;
+
+          let encodedBase91;
+
           if (images.length > 1) {
-            const collageBase64 = await makeCollage(compressedBase64s);
-            const res = await fetch(collageBase64);
-            finalFile = await res.blob();
-            finalFile = new File([finalFile], "collage.jpg", {
-              type: "image/jpeg"
-            });
+            // collage → compress → base91
+            const collageBase64 = await makeCollage(images);
+            encodedBase91 = await compressImageTo480(collageBase64);
           } else {
-            const res = await fetch(compressedBase64s[0]);
-            finalFile = await res.blob();
-            finalFile = new File([finalFile], "image.jpg", {
-              type: "image/jpeg"
-            });
+            // single image → compress → base91
+            encodedBase91 = await compressImageTo480(images[0]);
           }
-          const arrayBuffer = await finalFile.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          const encodedBase91 = base91.encode(bytes);
+
           mediaType = "image";
           media = {
             url: encodedBase91,
@@ -3301,6 +3492,27 @@ document.body.addEventListener("click", async (e) => {
           } else {
             REALTEXT = processedText;
           }
+          let poll = null;
+          if (document.getElementById("includePollComment").checked) {
+            const options = Array.from(document.querySelectorAll("#pollOptionsComment .poll-option")).map(inp => inp.value.trim()).filter(Boolean);
+            if (options.length >= 2) {
+              const duration = document.getElementById("pollDurationComment")?.value || "8h";
+              let expiresAt = null;
+              const now = new Date();
+              if (duration === "8h") now.setHours(now.getHours() + 8);
+              if (duration === "24h") now.setDate(now.getDate() + 1);
+              if (duration === "3d") now.setDate(now.getDate() + 3);
+              if (duration === "1w") now.setDate(now.getDate() + 7);
+              if (duration === "3w") now.setDate(now.getDate() + 21);
+              expiresAt = now;
+              poll = {
+                options,
+                votes: Array(options.length).fill(0),
+                duration,
+                expiresAt
+              };
+            }
+          }
           const detectedLanguage = await detectLanguage(REALTEXT);
           const commentRef = await addDoc(commentsRef, {
             text: REALTEXT,
@@ -3316,6 +3528,7 @@ document.body.addEventListener("click", async (e) => {
             editUntil,
             createdAt: serverTimestamp(),
             mentions,
+            poll,
             parentId: replyingToId || null,
             isPrivate,
             canReadPrivate: tweetOwnerId,
@@ -3348,9 +3561,13 @@ document.body.addEventListener("click", async (e) => {
             }
             pendingDonation = 0;
           }
-          await updateDoc(postRef, {
-            commentCount: increment(1)
-          });
+
+          if (!isPrivate) {
+            await updateDoc(postRef, {
+              commentCount: increment(1)
+           });
+          }
+
           let tweetSnap;
           if (window.communityID) {
             tweetSnap = await getDoc(doc(db, "communities", window.communityID, "posts", tweetId));
@@ -3405,6 +3622,11 @@ document.body.addEventListener("click", async (e) => {
         sendBtn.disabled = false;
         sendBtn.classList.remove("disabled");
         document.getElementById('commentOverlay').classList.add('hidden');
+        document.querySelectorAll(".poll-option").forEach(inp => {
+          inp.value = "";
+        });
+        document.getElementById("includePollComment").checked = false;
+        document.getElementById("pollOptionsComment").classList.add("hidden");
       }
     };
   }
@@ -3494,10 +3716,6 @@ document.body.addEventListener("click", async (e) => {
           <div class="flex" style="display:Flex;gap:5px;">
             <strong>System</strong>
             <img loading='lazy' src="/image/icon.png" height="20" width="20" style="margin:0;">
-            <span style="opacity:0.7;font-size:12px;">
-              <span class="usernamee">@system •</span> 
-              0s
-            </span>
           </div>
           <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
             <p style="margin-bottom:15px !important;color:grey;">Post is not available or you don't have permission to reply</p>
@@ -3659,50 +3877,25 @@ document.body.addEventListener("click", async (e) => {
           lastVideoReply: serverTimestamp()
         });
       } else if (images.length > 0) {
-        for (const img of images) {
-          if (img.size > maxSize) {
-            log("red", "please insert only images lower than 1MB");
-            return;
-          }
+
+        let encodedBase91;
+
+        if (images.length > 1) {
+          // collage → compress → base91
+          const collageBase64 = await makeCollage(images);
+          encodedBase91 = await compressImageTo480(collageBase64);
+        } else {
+          // single image → compress → base91
+          encodedBase91 = await compressImageTo480(images[0]);
         }
-        const compressed = await Promise.all(images.map(f => compressImageTo480(f)));
-        let finalFile;
-        if (images.length > 0) {
-          for (const img of images) {
-            if (img.size > maxSize) {
-              log("red", "image exceeds 1MB");
-              btn.disabled = false;
-              btn.classList.remove("disabled");
-              return;
-            }
-          }
-          const compressedBase64s = await Promise.all(images.map(f => compressImageTo480(f)));
-          let finalFile;
-          if (images.length > 1) {
-            const collageBase64 = await makeCollage(compressedBase64s);
-            const res = await fetch(collageBase64);
-            finalFile = await res.blob();
-            finalFile = new File([finalFile], "collage.jpg", {
-              type: "image/jpeg"
-            });
-          } else {
-            const res = await fetch(compressedBase64s[0]);
-            finalFile = await res.blob();
-            finalFile = new File([finalFile], "image.jpg", {
-              type: "image/jpeg"
-            });
-          }
-          const arrayBuffer = await finalFile.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          const encodedBase91 = base91.encode(bytes);
-          mediaType = "image";
-          media = {
-            url: encodedBase91,
-            type: "image",
-            path: null
-          };
-          mediaPath = null;
-        }
+
+        mediaType = "image";
+        media = {
+          url: encodedBase91,
+          type: "image",
+          path: null
+        };
+        mediaPath = null;
       }
       if (!text && !media) {
         return;
@@ -3735,15 +3928,38 @@ document.body.addEventListener("click", async (e) => {
       const tweetText = commentData.text;
 
       let isPrivateParent = false;
-      if (commentData.isPrivate || commentData.isPrivateParent) {
+      if (commentData.isPrivate || commentData.isPrivateParent || commentData.isHidden) {
         isPrivateParent = true;
       }
+
+          let poll = null;
+          if (document.getElementById("includePollReply").checked) {
+            const options = Array.from(document.querySelectorAll("#pollOptionsReply .poll-option")).map(inp => inp.value.trim()).filter(Boolean);
+            if (options.length >= 2) {
+              const duration = document.getElementById("pollDurationReply")?.value || "8h";
+              let expiresAt = null;
+              const now = new Date();
+              if (duration === "8h") now.setHours(now.getHours() + 8);
+              if (duration === "24h") now.setDate(now.getDate() + 1);
+              if (duration === "3d") now.setDate(now.getDate() + 3);
+              if (duration === "1w") now.setDate(now.getDate() + 7);
+              if (duration === "3w") now.setDate(now.getDate() + 21);
+              expiresAt = now;
+              poll = {
+                options,
+                votes: Array(options.length).fill(0),
+                duration,
+                expiresAt
+              };
+            }
+          }
 
       const payload = {
         text: processedText,
         communityId: window.communityID || null,
         media,
         mediaType,
+        poll,
         mediaPath,
         language: detectedLanguage,
         uid: auth.currentUser.uid,
@@ -3791,7 +4007,7 @@ document.body.addEventListener("click", async (e) => {
       if (hasCommentedBefore === false) {
         if (window.communityID) {
           const communityName = await getCommunityNameById(window.communityID);
-          await sendCommunityReplyNotification(tweetId, commentId, text, window.communityID, communityName, tweetText);
+          await sendCommunityReplyNotification(tweetId, commentId, text, window.communityID, communityName, tweetText, replyId);
         } else {
           await sendReplyNotification(tweetId, commentId, text, tweetText, replyId);
         }
@@ -3855,7 +4071,12 @@ document.body.addEventListener("click", async (e) => {
       fileInput.value = "";
       document.getElementById("replyPreview").innerHTML = "";
       document.getElementById("replyOverlay").classList.add("hidden");
-      log("green", "replied sent")
+      document.querySelectorAll(".poll-option").forEach(inp => {
+        inp.value = "";
+      });
+      document.getElementById("includePollReply").checked = false;
+      document.getElementById("pollOptionsReply").classList.add("hidden");
+      log("green", "reply sent")
     } catch (err) {
       console.error("Error sending reply:", err);
       log("red", "error sending reply");
@@ -3950,7 +4171,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
     likeref = `tweets/${tweetId}/comments/${ownerReplied}/likes/${auth.currentUser.uid}`
   }
 
-  const likeId = `like-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const likeId = randomString(14);
 
   let ownerHTML1 = "";
   let mediaHTML1 = "";
@@ -4059,7 +4280,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
         <div class="flex" style="margin:0;gap:13px;">
           ${data.isHidden ? "" :`
             <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="comment-like-btn" data-id="${ownerReplied}" data-tweet="${tweetId}">
-              <div id="${likeId}" style="height:20px">
+              <div id="${likeId}" class="clikeicon" style="height:20px">
                   <img loading='lazy' src="/image/heart.svg">
               </div>
               ${data.likeCount > 0 ? `<span style="color:#757779;" id="comment-like-count-${ownerReplied}">${data.likeCount > 0 ? data.likeCount : ""}</span>` : ""}
@@ -4072,7 +4293,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
               <img loading='lazy' src="/image/rewint.svg"> ${data.retweetCount > 0 ? data.retweetCount : ""}
             </span>`}
           `}
-          <span class="cmenubtn" data-private="${data.isPrivate || false}" data-community-id="${data.communityId || null}" data-id="${ownerReplied}" data-tweet="${tweetId}" data-author="${data.uid}">
+          <span class="cmenubtn" data-text="${data.text}" data-private="${data.isPrivate || false}" data-community-id="${data.communityId || null}" data-id="${ownerReplied}" data-tweet="${tweetId}" data-author="${data.uid}">
             <img loading='lazy' src="/image/three-dots.svg">
           </span>
         </div>
@@ -4126,12 +4347,14 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       list.innerHTML = `<div class="comment-scrollbox" id="commentWrapper"></div>`;
     }
   }
-  const hasSearch = searchTerm && searchTerm.trim().length >= 2;
+  const hasSearch = searchTerm && searchTerm.trim().length >= 3;
   const words = hasSearch ? tokenize(searchTerm.toLowerCase()) : [];
   const searchList = words.slice(0, 10);
   let baseQ;
   const baseCollection = communityId || window.communityID ? collection(db, "communities", communityId || window.communityID, "posts", tweetId, "comments") : collection(db, "tweets", tweetId, "comments");
+
   const baseWhere = parentId === null ? where("parentId", "==", null) : where("parentId", "==", parentId);
+
   if (hasSearch) {
     baseQ = query(baseCollection, baseWhere, where("searchTokens", "array-contains-any", searchList), orderBy("createdAt", "desc"), limit(10));
   } else {
@@ -4198,18 +4421,18 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       path = `tweets/${tweetId}/comments/${commentId}/likes/${auth.currentUser.uid}`;
     }
 
-    const likeId = `like-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const likeId = randomString(14);
 
     const commentLikeCount = d.likeCount || 0;
     const vidId = `vid-${commentId}-${Math.random().toString(36).slice(2,8)}`;
     const parsedText = await parseMentionsToLinks(d.text, d.mentions || []);
     let donationHTML = "";
     let ownerHTML = "";
+
     if (d.donationReceived) {
-      donationHTML = `<div style="border-radius:7px;
-        background: linear-gradient(135deg, #ff9d6c, #ff6cab);display:flex;align-items:center;width:150px;padding:7px 10px;margin-bottom:10px;gap:7px;font-size:15px;color:black;">
-        🎁 Gifted ${d.donationReceived} Wcoins
-      </div>`;
+      donationHTML = `<span style="color:#0485b7;font-size:15px;padding-bottom:10px;display:block">
+        <img draggable="false" class="emoji" alt="🎁" src="https://ox7jbzyn-13kwt53x-purp2e2u.netlify.app/twemoji/svg/1f381.svg"> Gifted <span style="color:#f91880;font-weight:bold;">${formatNumber(d.donationReceived)}</span> Wcoins
+      </span>`;
     }
 
     if (d.ownerReplied) {
@@ -4248,7 +4471,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
     let editHTML3 = "";
     if (d.edited) {
       editHTML3 = `
-        <span style="color:grey;font-size:14px;display:flex;align-items:center;gap:5px;">
+        <span style="color:grey;font-size:14px;display:flex;align-items:center;gap:5px;margin-bottom:7px">
           ${editicon} 
           ${formatTime(d.edited)}
         </span>
@@ -4317,6 +4540,26 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
           </div>
         `;
     }
+
+      let pollHTML = "";
+      if (d.poll && Array.isArray(d.poll.options)) {
+        const uid = auth.currentUser?.uid;
+        let myVoteIndex = null;
+        if (uid) {
+          let voteRef;
+          if (window.communityID != null) {
+            voteRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId, "votes", uid);
+          } else {
+            voteRef = doc(db, "tweets", tweetId, "comments", commentId, "votes", uid);
+          }
+          const voteSnap = await getDoc(voteRef);
+          if (voteSnap.exists()) {
+            myVoteIndex = voteSnap.data().optionIndex;
+          }
+        }
+        pollHTML = renderPoll1(d, tweetId, commentId, myVoteIndex);
+      }
+
     commentHTML.innerHTML = `
       ${pinnedBanner}
       <div style="display:flex;gap:10px;">
@@ -4345,6 +4588,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
                 ${editHTML3}
                 ${mediaHTML}
                 ${donationHTML}
+                ${pollHTML}
                 ${privateHTML}
               </div>        
               ` : `
@@ -4353,13 +4597,14 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
               ${editHTML3}
               ${mediaHTML}
               ${donationHTML}
+              ${pollHTML}
               ${privateHTML}
             `}
             <div class="flex" style="margin:0;gap:13px;">
               ${d.isHidden ? "" : `
               <span class="comment-like-btn" data-id="${commentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
-                <div id="${likeId}" style="height:20px">
-                  <img loading='lazy' src="/image/heart.svg" style="width:16px;height:16px;">
+                <div id="${likeId}" class="clikeicon" style="height:20px">
+                  <img loading='lazy' src="/image/heart.svg">
                 </div>
                 <span style="color:#757779;" id="comment-like-count-${commentId}">${commentLikeCount > 0 ? commentLikeCount : ""}</span>
               </span>
@@ -4372,7 +4617,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
                 </span>`
                 }
               `}
-              <span class="cmenubtn" data-private="${d.isPrivate || false}" data-community-id="${d.communityId || null}" data-id="${commentId}" data-tweet="${tweetId}"
+              <span class="cmenubtn" data-text="${d.text}" data-private="${d.isPrivate || false}" data-community-id="${d.communityId || null}" data-id="${commentId}" data-tweet="${tweetId}"
                 data-author="${d.uid}">
                 <img loading='lazy' src="/image/three-dots.svg">
               </span>
@@ -4472,7 +4717,8 @@ document.body.addEventListener("click", async (e) => {
   if (commentLikeBtn) {
     const tweetId = commentLikeBtn.dataset.tweet;
     const commentId = commentLikeBtn.dataset.id;
-    const icon = commentLikeBtn.querySelector("img");
+    const icon1 = commentLikeBtn.querySelector(".clikeicon");
+
     const countSpan = document.getElementById(`comment-like-count-${commentId}`);
     let commentRef;
     let likeDocRef;
@@ -4485,6 +4731,7 @@ document.body.addEventListener("click", async (e) => {
     }
     commentLikeBtn.style.pointerEvents = "none";
     try {
+      icon1.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
       await runTransaction(db, async (transaction) => {
         const likeSnap = await transaction.get(likeDocRef);
         const commentSnap = await transaction.get(commentRef);
@@ -4494,7 +4741,11 @@ document.body.addEventListener("click", async (e) => {
           transaction.update(commentRef, {
             likeCount: Math.max(currentCount - 1, 0)
           });
-          if (icon) icon.src = "/image/heart.svg";
+          icon1.innerHTML = `
+            <div class="likeicon" style="height:20px">
+              <img loading='lazy' height="20" src="/image/heart.svg">
+            </div>
+          `;
           if (countSpan) countSpan.textContent = currentCount - 1 > 0 ? currentCount - 1 : "";
         } else {
           transaction.set(likeDocRef, {
@@ -4503,7 +4754,11 @@ document.body.addEventListener("click", async (e) => {
           transaction.update(commentRef, {
             likeCount: currentCount + 1
           });
-          if (icon) icon.src = "/image/filled-heart.svg";
+          icon1.innerHTML = `
+            <div class="likeicon" style="height:20px">
+              <img loading='lazy' height="20" src="/image/filled-heart.svg">
+            </div>
+          `;
           if (countSpan) countSpan.textContent = currentCount + 1;
         }
       });
@@ -4516,6 +4771,7 @@ document.body.addEventListener("click", async (e) => {
   }
   if (e.target.closest(".like-btn")) {
     const btn = e.target.closest(".like-btn");
+    const icon = e.target.closest(".likeicon");
     const tweetId = btn.id.replace("likeBtn-", "");
     const communityId = btn.dataset.communityId;
     const user = auth.currentUser;
@@ -4530,6 +4786,7 @@ document.body.addEventListener("click", async (e) => {
     }
     btn.style.pointerEvents = "none";
     try {
+      icon.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
       await runTransaction(db, async (transaction) => {
         const postSnap = await transaction.get(postRef);
         const likeSnap = await transaction.get(likeRef);
@@ -4539,9 +4796,12 @@ document.body.addEventListener("click", async (e) => {
           transaction.update(postRef, {
             likeCount: Math.max(newCount - 1, 0)
           });
-          btn.innerHTML = `<img loading='lazy' src="/image/heart.svg">${
-            newCount - 1 > 0 ? `<span id="likeCount-${tweetId}">${newCount - 1}</span>` : ""
-          }`;
+          btn.innerHTML = `
+            <div class="likeicon" style="height:20px">
+              <img loading='lazy' src="/image/heart.svg">
+            </div>
+            ${newCount - 1 > 0 ? `<span id="likeCount-${tweetId}">${newCount - 1}</span>` : ""}
+          `;
         } else {
           transaction.set(likeRef, {
             likedAt: new Date()
@@ -4549,7 +4809,11 @@ document.body.addEventListener("click", async (e) => {
           transaction.update(postRef, {
             likeCount: newCount + 1
           });
-          btn.innerHTML = `<img loading='lazy' src="/image/filled-heart.svg"><span id="likeCount-${tweetId}">${newCount + 1}</span>`;
+          btn.innerHTML = `
+            <div class="likeicon" style="height:20px">
+              <img loading='lazy' src="/image/filled-heart.svg">
+            </div>
+            <span id="likeCount-${tweetId}">${newCount + 1}</span>`;
         }
       });
     } catch (err) {
@@ -4565,11 +4829,13 @@ document.body.addEventListener("click", async (e) => {
     const commentId = pinBtn.dataset.id;
     const communityId = pinBtn.dataset.communityId;
     const isPinned = pinBtn.dataset.pinned === "true";
+
     if (isPinned) {
       if (!(await confirmDialog("un-highlight reply?", "you will still be able to re-highlight this reply later."))) return;
     } else {
       if (!(await confirmDialog("highlight reply?", "This will replace the current highlighted reply."))) return;
     }
+    
     loading.classList.add("show");
     let tweetRef, commentsRef;
     if (window.communityID) {
@@ -4820,10 +5086,6 @@ document.body.addEventListener("click", async (e) => {
           <div class="flex" style="display:Flex;gap:5px;">
             <strong>System</strong>
             <img loading='lazy' src="/image/icon.png" height="20" width="20" style="margin:0;">
-            <span style="opacity:0.7;font-size:12px;">
-              <span class="usernamee">@system •</span> 
-              0s
-            </span>
           </div>
           <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
             <p style="margin-bottom:15px !important;color:grey;">Post is not available or you don't have permission to reply</p>
@@ -4880,7 +5142,7 @@ document.body.addEventListener("click", async (e) => {
     let vidRtId = null;
 
     if (c.media && c.mediaType === "image") {
-      const src = base91ToImageSrc(c.media);
+      const src = base91ToImageSrc(c.media.url);
       if (containsSpoiler) {
         mediaHTML = `
             <div style="margin-bottom:10px;" class="attachment spoiler-media" onclick="this.classList.add('revealed')">
@@ -5152,33 +5414,13 @@ sendRetweet.onclick = async () => {
         mediaType = "video";
         mediaPath = upload.path || "";
       } else if (images.length > 0) {
-        for (const img of images) {
-          if (img.size > maxSize) {
-            log("red", "please insert only images lower than 1MB");
-            sendRetweet.disabled = false;
-            sendRetweet.classList.remove('disabled');
-            return;
-          }
-        }
-        const compressedBase64s = await Promise.all(images.map(f => compressImageTo480(f)));
-        let finalFile;
+        let encodedBase91;
         if (images.length > 1) {
-          const collageBase64 = await makeCollage(compressedBase64s);
-          const res = await fetch(collageBase64);
-          finalFile = await res.blob();
-          finalFile = new File([finalFile], "collage.jpg", {
-            type: "image/jpeg"
-          });
+          const collageBase64 = await makeCollage(images);
+          encodedBase91 = await compressImageTo480(collageBase64);
         } else {
-          const res = await fetch(compressedBase64s[0]);
-          finalFile = await res.blob();
-          finalFile = new File([finalFile], "image.jpg", {
-            type: "image/jpeg"
-          });
+          encodedBase91 = await compressImageTo480(images[0]);
         }
-        const arrayBuffer = await finalFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        const encodedBase91 = base91.encode(bytes);
         media = encodedBase91;
         mediaType = "image";
         mediaPath = "";
@@ -5440,9 +5682,13 @@ async function waitForAuth() {
     const unsub = auth.onAuthStateChanged(user => {
       unsub();
       resolve(user);
+      setTimeout(() => {
+        document.getElementById("loadingO").classList.add("hidden");
+      }, 1000);
     });
   });
 }
+
 window.addEventListener("DOMContentLoaded", async () => {
   const user = await waitForAuth();
   if (!user) return log("red", "user isn't logged in");
@@ -5474,6 +5720,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 });
 document.body.addEventListener("click", async (e) => {
+  const copytext = e.target.closest(".text-copy");
+  if (copytext) {
+    const text = copytext.dataset.text;
+    try {
+      await navigator.clipboard.writeText(text);
+      log("green", "text copied");
+      document.getElementById("tweetMenuOverlay").classList.add("hidden");
+    } catch {
+      info("i", "Copy this", text);
+      document.getElementById("tweetMenuOverlay").classList.add("hidden");
+    }
+  }
   const shareBtn = e.target.closest(".share-btn");
   if (shareBtn) {
     const tweetId = shareBtn.dataset.id;
@@ -5519,7 +5777,13 @@ document.body.addEventListener("click", async (e) => {
     }
     const pinId = pincom.dataset.id;
     const alreadyPinned = cData.pinned === pinId;
-    if (!(await confirmDialog("pin to community?", "This will replace the current Wynt pinned in this community."))) return;
+    
+    if (alreadyPinned) {
+      if (!(await confirmDialog("unpin from community?", "This will unpin the current Wynt pinned in this community."))) return;
+    } else {
+      if (!(await confirmDialog("pin to community?", "This will replace the current Wynt pinned in this community."))) return;
+    }
+
     try {
       await updateDoc(comRef, {
         pinned: alreadyPinned ? "" : pinId
@@ -5634,6 +5898,79 @@ document.body.addEventListener("click", async (e) => {
     loading.classList.remove("show");
     log("green", "file downloaded");
   }
+});
+
+document.getElementById("tweetSS").addEventListener("click", async () => {
+  if (window.isOnPrivate) return log("red", "screenshotting is disabled in private communities");
+  loading.classList.add("show");
+
+  const target = document.getElementById("appendTweet");
+  await document.fonts.ready;
+
+  const canvas = await html2canvas(target, {
+    backgroundColor: "#000000",
+    scale: Math.min(window.devicePixelRatio, 2),
+    useCORS: true,
+    allowTaint: false,
+    scrollX: 0,
+    scrollY: -window.scrollY
+  });
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      loading.classList.remove("show");
+      log("red", "failed to create blob");
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "screenshot.jpg"; 
+    link.click();
+
+    URL.revokeObjectURL(url);
+    loading.classList.remove("show");
+    log("green", "screenshoted");
+  }, "image/jpeg", 0.92); 
+});
+
+document.getElementById("commentSS").addEventListener("click", async () => {
+  if (window.isOnPrivate) return log("red", "screenshotting is disabled in private communities");
+  if (window.isPrivateReply) return log("red", "screenshotting is disabled in private replies");
+  loading.classList.add("show");
+
+  const target = document.getElementById("appendComment");
+  await document.fonts.ready;
+
+  const canvas = await html2canvas(target, {
+    backgroundColor: "#000000",
+    scale: Math.min(window.devicePixelRatio, 2), 
+    useCORS: true,
+    allowTaint: false,
+    scrollX: 0,
+    scrollY: -window.scrollY
+  });
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      loading.classList.remove("show");
+      log("red", "failed to create blob");
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "screenshot.jpg"; 
+    link.click();
+
+    URL.revokeObjectURL(url);
+    loading.classList.remove("show");
+    log("green", "screenshoted");
+  }, "image/jpeg", 0.92); 
 });
 
 export { renderTweet, scoreTweet, loadComments, renderPoll }

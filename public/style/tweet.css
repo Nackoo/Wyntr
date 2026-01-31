@@ -89,63 +89,6 @@
   margin-top: 15px;
 }
 
-.spoiler-text {
-  background: #21262d;
-  color: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.3s ease, opacity 0.3s ease;
-  padding: 2px 4px;
-  opacity: 1;
-}
-
-.spoiler-text:hover {
-  background: #21262d;
-}
-
-.spoiler-text.revealed {
-  color: inherit;
-  opacity: 0;
-}
-
-.spoiler-media {
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.spoiler-media .spoiler-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  text-transform: uppercase;
-  font-size:16px;
-  z-index: 1;
-  visibility: visible;
-  opacity: 1;
-  transition: visibility 0.2s ease, opacity 0.2s ease;
-}
-
-.spoiler-media.revealed .spoiler-overlay {
-  visibility: hidden;
-  opacity: 0;
-}
-
-.spoilertxt {
-  padding: 5px 7px;
-  background: var(--normal);
-  border-radius: 8px;
-}
-
 #comment-status {
   color: grey;
   gap: 8px;
@@ -258,7 +201,7 @@
 }
 
 .disabled {
-  background: grey !important;
+  background: dimgrey !important;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -568,7 +511,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: var(--light);
+  background :#16181c;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -589,7 +532,7 @@
 
 .spoilertxt {
   padding: 5px 7px;
-  background: var(--normal);
+  background: var(--dark);
   border-radius: 8px;
 }
 
@@ -709,7 +652,7 @@
 }
 
 .disabled {
-  background: grey !important;
+  background: dimgrey !important;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1111,3 +1054,7 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   word-break: break-word;
   overflow-wrap: break-word;
 }
+
+.renderedparent {
+  margin-bottom: -25px !important;
+} 

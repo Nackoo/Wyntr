@@ -34,7 +34,7 @@ async function loadNSFW() {
 }
 
 async function confirmHeavyScan() {
-  const ok = await confirmDialog("Deep scan required", "Our quick scanner detected NSFW media has inserted.\nIf you think this is wrong, we can run a second model that is more accurate but heavier.\nDo you wish to proceed?");
+  const ok = await confirmDialog("Deep scan required", "We must run a second model for this one to properly analyze it.\nDo you wish to proceed?");
   return ok;
 }
 

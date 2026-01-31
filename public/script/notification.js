@@ -1,7 +1,7 @@
-import { auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment } from "./firebase.js";
-import { renderTweet, loadComments } from "./index.js";
+import { auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment, arrayRemove } from "./firebase.js";
+import { renderTweet, loadComments, getUserData } from "./index.js";
 import { renderTweetViewer } from "./tweetViewer.js";
-import { escapeHTML, log } from "./texts.js";
+import { confirmDialog, escapeHTML, log } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { openCommunity } from "./community.js";
 
@@ -332,6 +332,17 @@ function createNotificationElement(notification) {
   </div>
 </div>
    `
+ } else if (notification.type === "communityAdminDismissed") {
+   content = `<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+  <div style="margin-top:6px;">⚠</div>
+  <div>
+    <span style="color:#00ba7c;font-weight:bold;">@${notification.name}</span> resigned as admin in community <b>"${notification.communityName}"</b><br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>`
  } else if (notification.type === "comment-delete") {
    content = `
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
@@ -384,13 +395,14 @@ function createNotificationElement(notification) {
  } else if (notification.type === "communityAdmin") {
   content = `
   <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
-    <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/pen.svg">
+    <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/community-filled.svg">
     <div>
-      <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span>
-      made you as an admin in <b>${notification.communityName}</b><br>
+      <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> made you as an admin in <b>${notification.communityName}</b><br>
+      <button class="rejectAdminBtn" style="margin:5px 0;padding:9px 20px;border-radius:7px;background:crimson;color:white;">resign as admin</button><br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
     </div>
   </div>`;
+
  } else {
     content = `<span><b>@${notification.senderName}</b> sent you a notification</span>`;
   }
@@ -441,7 +453,59 @@ function createNotificationElement(notification) {
       console.error("Failed to delete notification:", err);
     }
     loading.classList.remove("show");
+    log("green", "Notification deleted");
   });
+
+if (notification.type === "communityAdmin") {
+  const rejectAdminBtn = div.querySelector(".rejectAdminBtn");
+
+  rejectAdminBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+
+    if (!(await confirmDialog(
+      "are you sure?",
+      "You will no longer be an admin in this community unless re-invited by the community owner.",
+      "red"
+    ))) return;
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    loading.classList.add("show");
+
+    try {
+      const adminId = user.uid;
+      const comRef = doc(db, "communities", notification.communityId);
+      const comSnap = await getDoc(comRef);
+
+      if (!comSnap.exists()) {
+        log("red", "Community not found");
+        return;
+      }
+
+      await updateDoc(comRef, {
+        admin: arrayRemove(adminId)
+      });
+
+      if (
+        window.communityID === notification.communityId &&
+        Array.isArray(window.cData?.admin)
+      ) {
+        window.cData.admin = window.cData.admin.filter(id => id !== adminId);
+      }
+
+      log("green", "You are no longer an admin of this community");
+
+      div.remove();
+      deleteDoc(doc(db, "users", adminId, "notifications", notification.id));
+
+      const { username: name } = await getUserData(adminId);
+      sendadminDismissedNotification(notification.senderId, notification.communityId, notification.communityName, name);
+    } finally {
+      loading.classList.remove("show");
+    }
+  });
+}
 
 if (notification.type === "communityJoinRequest") {
   const acceptBtn = div.querySelector(".acceptJoinBtn");
@@ -564,7 +628,7 @@ export async function handleNotificationClick({
     return;
   }
 
-  if (type === "communityJoinAccepted" || type === "communityJoinRequest" || type === "communityAdmin") {
+  if (type === "communityJoinAccepted" || type === "communityJoinRequest" || type === "communityAdmin" || type === "communityAdminDismissed") {
     if (!communityId) {
       console.warn("Missing communityId in notification data");
       return;
@@ -1303,12 +1367,9 @@ export async function sendCommentMentionNotification(tweetId, mentionedUserId, c
   });
 }
 
-export async function sendFollowNotification(targetUserId) {
+export async function sendFollowNotification(targetUserId, username) {
   const sender = auth.currentUser;
   if (!sender || sender.uid === targetUserId) return;
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
 
   const notificationRef = doc(
     db,
@@ -1322,7 +1383,7 @@ export async function sendFollowNotification(targetUserId) {
     type: "follow",
     senderName,
     senderId: sender.uid,
-    text: `${senderName} just followed you`,
+    text: `${username} just followed you`,
     createdAt: serverTimestamp(),
     read: false
   });
@@ -1670,18 +1731,32 @@ export async function sendCommunityJoinRequest(ownerId, communityId, communityNa
   });
 }
 
-export async function sendAdminNotification(targetUserId, communityId, communityName, ownerName) {
+export async function sendAdminNotification(targetUserId, communityId, communityName, ownerName, ownerId) {
   const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
   await setDoc(notifRef, {
     id: notifRef.id,
     type: "communityAdmin",
     senderName: ownerName,
+    senderId: ownerId,
     communityName,
     communityId,
     createdAt: new Date(),
     read: false
   });
 }
+
+async function sendadminDismissedNotification(targetUserId, communityId, communityName, name) {
+  const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
+  await setDoc(notifRef, {
+    id: notifRef.id,
+    type: "communityAdminDismissed",
+    communityName,
+    communityId,
+    name,
+    createdAt: new Date(),
+    read: false
+  });
+} 
 
 export async function sendAcceptedNotification(targetUserId, communityId, communityName, ownerName) {
   const notifRef = doc(collection(db, "users", targetUserId, "notifications"));

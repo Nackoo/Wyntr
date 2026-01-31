@@ -1,7 +1,7 @@
 import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, setDoc, deleteDoc, startAfter, updateDoc, increment, deleteField, addDoc, serverTimestamp } from "./firebase.js";
 import { renderTweet, getUserData, loadComments } from './index.js';
 import { sendFollowNotification } from "./notification.js";
-import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
+import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1, me } from "./nonsense.js";
 import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog } from "./texts.js";
 import { sendToDiscord, reportToDiscord } from "./discord.js";
 import { renderCommentViewer } from "./commentViewer.js";
@@ -497,8 +497,6 @@ async function renderMoreSearchedTweets() {
 
 let lastDoc = null;
 
-let loadedCount = 0;
-const PAGE_SIZE = 3;
 const list = document.getElementById("userList");
 
 let userLastVisibleDoc = null;
@@ -612,11 +610,10 @@ async function fetchUsers(term = "") {
 
   for (const docSnap of snap.docs) {
     const data = docSnap.data();
-    const { displayName: displayName1, username: username1, avatar: avatar1, premium: premium1 } = await getUserData(docSnap.id);
-
+    
     let premiumBadge = "";
-    if (premium1) {
-      const expiry = premium1.toDate ? premium1.toDate() : premium1;
+    if (data.premium) {
+      const expiry = data.premium.toDate ? data.premium.toDate() : data.premium;
       if (expiry > new Date()) {
         premiumBadge = `<img loading='lazy' src="/image/check.svg">`;
       }
@@ -629,18 +626,18 @@ async function fetchUsers(term = "") {
       "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
 
     item.innerHTML = `
-      <img loading='lazy' src="${avatar1}" onerror="this.src='/image/default-avatar.jpg'"
+      <img loading='lazy' src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
            style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">${escapeHTML(displayName1)}</strong>
+          <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">${escapeHTML(data.displayName)}</strong>
           ${premiumBadge}
           <button class="mini-follow-btn"
                   style="padding:0 10px;border-radius:50px;background:white;height:26px;cursor:pointer;border:1px solid var(--border);margin-left:auto;opacity:0;">
             ...
           </button>
         </div>
-        <span style="font-size:14px;color:grey;">@${escapeHTML(username1)}</span>
+        <span style="font-size:14px;color:grey;">@${escapeHTML(data.username)}</span>
       </div>`;
 
     item.addEventListener("click", (e) => {
@@ -754,6 +751,56 @@ function escapeHTML(str) {
   } [c])) || "";
 }
 
+async function getIfUserfollows(uid) { 
+  const theyFollowMeRef = doc(db, "users", uid, "following", auth.currentUser.uid);
+  const theyFollowMeSnap = await getDoc(theyFollowMeRef);
+  const followsBadge = document.getElementById("followsBadge");
+  
+  if (theyFollowMeSnap.exists()) {
+    followsBadge.style.display = "inline";
+  }
+}
+
+async function isBanned(uid) {
+  const bannedRef = doc(db, "banned", uid);
+  const bannedSnap = await getDoc(bannedRef);
+  if (bannedSnap.exists()) {
+    document.getElementById("user-pfp").style.background = "#16181c";
+    document.getElementById("user-banner").style.background = "#16181c";
+    document.getElementById("user-name").textContent = "user is suspended";
+    document.getElementById("username").style.display = "none";
+    document.getElementById("user-description").textContent = "";
+    document.querySelectorAll(".status")[1].style.display = "none";
+    document.getElementById("posts").textContent = "0";
+    document.getElementById("streak").textContent = "0";
+    document.getElementById("followers").textContent = "0";
+    document.getElementById("following").textContent = "0";
+    document.getElementById("iq").style.display = "none";
+    document.getElementById("followsBadge").style.display = "none";
+    document.getElementById("followBtn").style.display = "none";
+    document.getElementById("user-creation").textContent = "";
+    document.getElementById("ing").style.pointerEvents = "none";
+    document.getElementById("ers").style.pointerEvents = "none";
+
+    const adminBadge = document.querySelector(".user-admin");
+    if (adminBadge) adminBadge.style.display = "none";
+
+    const userEffectEl = document.querySelector("#profile-effect");
+    if (userEffectEl) {
+      userEffectEl.style.setProperty("--user-effect-bg", "none");
+      userEffectEl.style.setProperty("--user-effect-opacity", "0");
+    }
+
+    const replylist = document.getElementById("userReplyList");
+
+    list.classList.add("hidden");
+    usermentionedList.classList.add("hidden");
+    replylist.classList.add("hidden");
+    highlightedList.classList.add("hidden");
+    return;
+  }
+}
+
 export async function openUserSubProfile(uid) {
 
   tweetviewactive1();
@@ -788,6 +835,11 @@ export async function openUserSubProfile(uid) {
     return;
   }
 
+  list.classList.remove("hidden");
+  usermentionedList.classList.remove("hidden");
+  document.getElementById("userReplyList").classList.remove("hidden");
+  highlightedList.classList.remove("hidden");
+
   document.getElementById("banBtn").classList.add("hidden");
 
   document.getElementById("user-name").dataset.uid = uid;
@@ -805,8 +857,6 @@ export async function openUserSubProfile(uid) {
   userSubOverlay.classList.remove("hidden");
 
   const d = docSnap.data();
-  const bannedRef = doc(db, "banned", uid);
-  const bannedSnap = await getDoc(bannedRef);
 
   const banBtn = document.getElementById("banBtn");
   const currentUserId = auth.currentUser.uid;
@@ -815,12 +865,7 @@ export async function openUserSubProfile(uid) {
   if (followsBadge) followsBadge.style.display = "none";
 
   if (uid !== currentUserId) {
-    const theyFollowMeRef = doc(db, "users", uid, "following", currentUserId);
-    const theyFollowMeSnap = await getDoc(theyFollowMeRef);
-
-    if (theyFollowMeSnap.exists()) {
-      followsBadge.style.display = "inline";
-    }
+    getIfUserfollows(uid);
   }
 
   if (uid === currentUserId) {
@@ -998,108 +1043,6 @@ export async function openUserSubProfile(uid) {
       };
     };
     }
-
-    const myFollowingRef = doc(db, "users", currentUserId, "following", uid);
-    const theirFollowersRef = doc(db, "users", uid, "followers", currentUserId);
-
-    const snap = await getDoc(myFollowingRef);
-    followBtn.textContent = snap.exists() ? "Following" : "Follow";
-    followBtn.style.cssText = snap.exists() ? "padding: 8px 30px;background:none;border:1px solid var(--color);color:var(--color);margin-right:10px;" : "padding: 8px 30px;background:white;color:black;margin-right:10px;";
-
-    followBtn.onclick = async () => {
-      if (followBtn.disabled) return;
-
-      followBtn.disabled = true;
-      followBtn.classList.add("disabled");
-      loading.classList.add("show");
-
-      try {
-        const currentlyFollowing = snap.exists();
-
-        if (currentlyFollowing) {
-          const ok = await confirmDialog(
-            "Unfollow this user?",
-            "Please wait just a little bit. You might change your mind later."
-          );
-
-          if (!ok) return;
-
-          const batch = writeBatch(db);
-
-          batch.delete(myFollowingRef);
-          batch.delete(theirFollowersRef);
-
-          batch.update(doc(db, "users", currentUserId), {
-            following: increment(-1)
-          });
-
-          batch.update(doc(db, "users", uid), {
-            followers: increment(-1)
-          });
-
-          await batch.commit();
-
-          followBtn.textContent = "Follow";
-          followBtn.style.cssText =
-            "padding: 8px 30px;background:white;color:black;margin-right:10px;";
-        } else {
-          const [meSnap, targetSnap] = await Promise.all([
-            getDoc(doc(db, "users", auth.currentUser.uid)),
-            getDoc(doc(db, "users", uid))
-          ]);
-
-          const meData = meSnap.data() || {};
-          const targetData = targetSnap.data() || {};
-
-          const batch = writeBatch(db);
-
-          batch.set(
-            doc(db, "users", uid, "followers", auth.currentUser.uid),
-            {
-              followedAt: serverTimestamp(),
-              displayName: meData.displayName,
-              username: meData.username,
-              name: meData.displayName?.toLowerCase(),
-              photoURL: meData.photoURL
-            }
-          );
-
-          batch.set(
-            doc(db, "users", auth.currentUser.uid, "following", uid),
-            {
-              followedAt: serverTimestamp(),
-              displayName: targetData.displayName,
-              username: targetData.username,
-              name: targetData.displayName?.toLowerCase(),
-              photoURL: targetData.photoURL
-            }
-          );
-
-          batch.update(doc(db, "users", auth.currentUser.uid), {
-            following: increment(1)
-          });
-
-          batch.update(doc(db, "users", uid), {
-            followers: increment(1)
-          });
-
-          await batch.commit();
-
-          followBtn.textContent = "Following";
-          followBtn.style.cssText =
-            "padding: 8px 30px;background:none;border:1px solid var(--color);color:var(--color);margin-right:10px;";
-
-          sendFollowNotification(uid);
-        }
-      } catch (err) {
-        console.error("Follow action failed:", err);
-        log("red", "Something went wrong");
-      } finally {
-        followBtn.classList.remove("disabled");
-        followBtn.disabled = false;
-        loading.classList.remove("show");
-      }
-    };
   };
 
 const reportBtn = document.getElementById("reportUser");
@@ -1172,40 +1115,6 @@ const reportBtn = document.getElementById("reportUser");
         document.getElementById("userMenuOverlay").classList.add("hidden");
       };
     };
-  }
-
-  if (bannedSnap.exists()) {
-    document.getElementById("user-pfp").style.background = "#16181c";
-    document.getElementById("user-banner").style.background = "#16181c";
-    document.getElementById("user-name").textContent = "user is suspended";
-    document.getElementById("username").style.display = "none";
-    document.getElementById("user-description").textContent = "";
-    document.querySelectorAll(".status")[1].style.display = "none";
-    document.getElementById("posts").textContent = "0";
-    document.getElementById("streak").textContent = "0";
-    document.getElementById("followers").textContent = "0";
-    document.getElementById("following").textContent = "0";
-    document.getElementById("iq").style.display = "none";
-    document.getElementById("followsBadge").style.display = "none";
-    document.getElementById("followBtn").style.display = "none";
-    document.getElementById("user-creation").textContent = "";
-    document.getElementById("ing").style.pointerEvents = "none";
-    document.getElementById("ers").style.pointerEvents = "none";
-
-    const adminBadge = document.querySelector(".user-admin");
-    if (adminBadge) adminBadge.style.display = "none";
-
-    const userEffectEl = document.querySelector("#profile-effect");
-    if (userEffectEl) {
-      userEffectEl.style.setProperty("--user-effect-bg", "none");
-      userEffectEl.style.setProperty("--user-effect-opacity", "0");
-    }
-
-    // DO NOT LOAD TWEETS
-    list.innerHTML = `
-<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">This user is suspended</h2><p style="color:grey;margin:7px 0;">please try again later</p></div></div>
-    `;
-    return; // ← STOP THE FUCKING FUNCTION HERE
   }
 
   document.getElementById("user-status").textContent = d.status || "i'm cold";
@@ -1282,43 +1191,159 @@ const reportBtn = document.getElementById("reportUser");
   if (document.getElementById("pinnedyo")) document.getElementById("pinnedyo").remove();
 
   if (d.pinned) {
-    const pinnedSnap = await getDoc(doc(db, "tweets", d.pinned));
-    if (pinnedSnap.exists()) {
-      const pinnedData = pinnedSnap.data();
-
-      const userData = {
-        ...d,
-        uid
-      };
-
-      const pinnedLabel = document.createElement("div");
-      pinnedLabel.id = "pinnedyo";
-      pinnedLabel.innerHTML = `<div class="iq pinlabel" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
-      if (!document.getElementById('pinnedyo')) {
-        list.prepend(pinnedLabel);
-      }
-
-      await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
-    }
+    renderPinned(d, uid);
   }
 
-  loadedCount = 0;
-
   loadTweets(uid);
+  loadIfFollow(uid);
+  isBanned(uid);
 
-  const userSnap = await getDoc(doc(db, "users", uid));
-  const userData = userSnap.data();
-  const postCount = userData?.posts || 0;
-  const followerCount = userData?.followers || 0;
-  const followingCount = userData?.following || 0;
-  const streak = userData?.streak || 0;
-  const iq = userData?.IQ.toFixed(2) || 0;
+  const postCount = d.posts || 0;
+  const followerCount = d.followers || 0;
+  const followingCount = d.following || 0;
+  const streak = d.streak || 0;
+  const iq = d.IQ.toFixed(2) || 0;
 
   document.getElementById("posts").textContent = `${postCount}`;
   document.getElementById("streak").textContent = `${streak}`;
   document.getElementById("followers").textContent = `${followerCount}`;
   document.getElementById("following").textContent = `${followingCount}`;
   document.getElementById("iq").textContent = `${iq}`
+}
+
+async function loadIfFollow(uid) {
+  const followBtn = document.getElementById("followBtn");
+  const myFollowingRef = doc(db, "users", auth.currentUser.uid, "following", uid);
+  const theirFollowersRef = doc(db, "users", uid, "followers", auth.currentUser.uid);
+
+    followBtn.onclick = async () => {
+      if (followBtn.disabled) return;
+
+      followBtn.disabled = true;
+      followBtn.classList.add("disabled");
+
+      try {
+        const currentlyFollowing = snap.exists();
+
+        if (currentlyFollowing) {
+          const ok = await confirmDialog(
+            "Unfollow this user?",
+            "you still have a chance. Rethink and you might change your mind later."
+          );
+
+          if (!ok) {
+            followBtn.classList.remove("disabled");
+            followBtn.disabled = false;
+            return;
+          }
+
+          const batch = writeBatch(db);
+
+          batch.delete(myFollowingRef);
+          batch.delete(theirFollowersRef);
+
+          batch.update(doc(db, "users", auth.currentUser.uid), {
+            following: increment(-1)
+          });
+
+          batch.update(doc(db, "users", uid), {
+            followers: increment(-1)
+          });
+
+          await batch.commit();
+
+          followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
+          followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
+          followBtn.classList.remove("disabled");
+          followBtn.disabled = false;;
+
+          log("green", `user unfollowed`);
+          loading.classList.remove("show");
+          await loadIfFollow(uid);
+        } else {
+          const [meSnap, targetSnap] = await Promise.all([
+            getDoc(doc(db, "users", auth.currentUser.uid)),
+            getDoc(doc(db, "users", uid))
+          ]);
+
+          const meData = meSnap.data() || {};
+          const targetData = targetSnap.data() || {};
+
+          const batch = writeBatch(db);
+
+          batch.set(
+            doc(db, "users", uid, "followers", auth.currentUser.uid),
+            {
+              followedAt: serverTimestamp(),
+              displayName: meData.displayName,
+              username: meData.username,
+              name: meData.displayName?.toLowerCase(),
+              photoURL: meData.photoURL
+            }
+          );
+
+          batch.set(
+            doc(db, "users", auth.currentUser.uid, "following", uid),
+            {
+              followedAt: serverTimestamp(),
+              displayName: targetData.displayName,
+              username: targetData.username,
+              name: targetData.displayName?.toLowerCase(),
+              photoURL: targetData.photoURL
+            }
+          );
+
+          batch.update(doc(db, "users", auth.currentUser.uid), {
+            following: increment(1)
+          });
+
+          batch.update(doc(db, "users", uid), {
+            followers: increment(1)
+          });
+
+          await batch.commit();
+
+          followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
+          followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
+
+          sendFollowNotification(uid, meData.username);
+
+          followBtn.classList.remove("disabled");
+          followBtn.disabled = false;
+
+          log("green", `followed ${targetData.displayName || "them"}`);
+          await loadIfFollow(uid);
+        }
+      } catch (err) {
+        console.error("Follow action failed:", err);
+        log("red", "Something went wrong");
+      }
+    };
+
+  const snap = await getDoc(myFollowingRef);
+  followBtn.textContent = snap.exists() ? "Following" : "Follow";
+  followBtn.style.cssText = snap.exists() ? "padding: 10px 32px; background:none;border:1px solid var(--color);color:var(--color);margin-right:10px;margin-bottom: -10px;" : "padding: 10px 32px;background:white;color:black;margin-right:10px;margin-bottom: -10px;";
+}
+
+async function renderPinned(d, uid) {
+  const pinnedSnap = await getDoc(doc(db, "tweets", d.pinned));
+  if (pinnedSnap.exists()) {
+    const pinnedData = pinnedSnap.data();
+
+    const userData = {
+      ...d,
+      uid
+    };
+
+    const pinnedLabel = document.createElement("div");
+    pinnedLabel.id = "pinnedyo";
+    pinnedLabel.innerHTML = `<div class="iq pinlabel userPinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
+    if (!document.getElementById('pinnedyo')) {
+      list.prepend(pinnedLabel);
+    }
+
+    await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
+  }
 }
 
 window.openUserSubProfile = openUserSubProfile;
@@ -1625,7 +1650,6 @@ async function setupMiniFollowBtn(btn, targetId) {
 
       btn.disabled = true;
       btn.classList.add("disabled");
-      loading.classList.add("show");
 
       try {
         const isNowFollowing = isFollowingSnap.exists();
@@ -1633,7 +1657,7 @@ async function setupMiniFollowBtn(btn, targetId) {
         if (isNowFollowing) {
           const ok = await confirmDialog(
             "Unfollow this user?",
-            "Please wait just a little bit. You might change your mind later."
+            "you still have a chance. Rethink and you might change your mind later."
           );
           if (!ok) return;
 
@@ -1655,6 +1679,10 @@ async function setupMiniFollowBtn(btn, targetId) {
           btn.textContent = "Follow";
           btn.style.cssText =
             "background:white;color:black;margin-left:auto;padding:10px;height:35px;";
+
+          log("green", `user unfollowed`);
+          loading.classList.remove("show");
+          setupMiniFollowBtn(btn, targetId);
         } else {
           const [meSnap, targetSnap] = await Promise.all([
             getDoc(doc(db, "users", auth.currentUser.uid)),
@@ -1701,8 +1729,10 @@ async function setupMiniFollowBtn(btn, targetId) {
           btn.textContent = "UnFoll";
           btn.style.cssText =
             "background:none;border:1px solid grey;color:grey;margin-left:auto;padding:9px;height:35px;";
-
-          sendFollowNotification(targetId);
+          
+          log("green", `followed ${targetData.displayName || "them"}`);
+          setupMiniFollowBtn(btn, targetId);
+          sendFollowNotification(targetId, meData.username);
         }
       } catch (err) {
         console.error("Follow toggle failed:", err);
@@ -1710,7 +1740,6 @@ async function setupMiniFollowBtn(btn, targetId) {
       } finally {
         btn.classList.remove("disabled");
         btn.disabled = false;
-        loading.classList.remove("show");
       }
     };
   } else {

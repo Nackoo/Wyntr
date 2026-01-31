@@ -153,7 +153,7 @@ document.getElementById('usersvg').addEventListener("click", async () => {
       if (!document.getElementById("pinnedyeah")) {
         const pinnedLabel = document.createElement("div");
         pinnedLabel.id = "pinnedyeah";
-        pinnedLabel.innerHTML = `<div class="iq pinlabel" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
+        pinnedLabel.innerHTML = `<div class="iq pinlabel profilePinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
         list.prepend(pinnedLabel);
       }
       await renderTweet(pinnedData, d.pinned, userData, "prepend", list);

@@ -114,7 +114,7 @@
 .banner {
   background-position: center;
   background-repeat: no-repeat;
-  backgroundL-size: cover;
+  background-size: cover;
   height: 180px;
   margin: 0 -20px;
 }
@@ -670,7 +670,7 @@ textarea {
   margin-bottom:10px;
 }
 
-.vote-btn {
+.vote-btn, .vote-btn1 {
   position: relative;
   overflow: hidden;
   border-radius: 10px;
@@ -681,7 +681,8 @@ textarea {
   background: var(--vote-bg, transparent);
 }
 
-.vote-btn .bar {
+.vote-btn .bar,
+.vote-btn1 .bar {
   position: absolute;
   top: 0;
   left: 0;
@@ -692,15 +693,17 @@ textarea {
   z-index: 0;
 }
 
-.vote-btn.selected .bar {
+.vote-btn.selected .bar,
+.vote-btn1.selected .bar {
   background: rgba(0,179,119,0.5); 
 }
 
-.vote-btn.selected .percent {
+.vote-btn.selected .percent,
+.vote-btn1.selected .percent {
   color: white;
 }
 
-.vote-btn .content {
+.vote-btn .content, .vote-btn1 .content {
   position: relative;
   z-index: 2;
   display: flex;
@@ -712,12 +715,12 @@ textarea {
   box-sizing: border-box;
 }
 
-.vote-btn.selected .content {
+.vote-btn.selected .content, .vote-btn1.selected .content {
   font-weight: 700;
   color: var(--selected-text, #fff);
 }
 
-.vote-btn .percent {
+.vote-btn .percent, .vote-btn1 .percent {
   font-size: 13px;
   color: var(--percent-color, grey);
 }
@@ -1602,4 +1605,43 @@ h3, .translated-text {
 #were .ruleTitle, 
 #were .ruleNum {
   font-size: 23px;
+}
+
+@media (max-width: 700px) {
+  .morereplies {
+    margin-left: 13px !important;
+  }
+}
+
+.morereplies, .morereplies1 {
+  font-family: "natar";
+  color: var(--text) !important;
+  text-decoration: underline;
+}
+
+#tweetSS, #commentSS {
+  cursor: pointer;
+}
+
+.follow-btn.disabled {
+  padding: 8px 20px !important;
+}
+
+.tweet .flex:last-child span,
+.comment .flex:last-child span,
+.comment-item .flex:last-child span {
+  font-size: 15px
+}
+
+.poll1 {
+  margin-bottom: 10px;
+  word-break:break-word;
+}
+
+.poll {
+  word-break:break-word
+}
+
+.poll .percent {
+  white-space: nowrap; }
 }

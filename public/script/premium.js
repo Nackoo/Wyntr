@@ -87,25 +87,46 @@ document.getElementById("buyFihEffect").onclick = () =>
   buyEffect("010", 90, "Sakura profile effect");
 
 async function buyEffect(effectId, price, effectName) {
-  const user = auth.currentUser;
-  if (!user) return log("red", "You must be logged in to make a purchase");
+  loading.classList.add("show");
 
+  const user = auth.currentUser;
+  if (!user) {
+    loading.classList.remove("show");
+    log("red", "You must be logged in to make a purchase");
+    return;
+  }
   const userRef = doc(db, "users", user.uid);
 
   try {
     await runTransaction(db, async (transaction) => {
       const userSnap = await transaction.get(userRef);
-      if (!userSnap.exists()) throw "User not found.";
+      if (!userSnap.exists()) {
+        loading.classList.remove("show");
+        log("red", "user isn't logged in");
+        return;
+      }
 
       const userData = userSnap.data();
       const balance = userData.balance || 0;
       const effectsOwned = userData.effectsOwned || [];
 
-      if (effectsOwned.includes(effectId)) throw "You already own this effect.";
-      if (balance < price) throw "Not enough Wcoins.";
+      if (effectsOwned.includes(effectId)) {
+        loading.classList.remove("show");
+        log("red", "you already own this effect");
+        return;
+      }
 
-      if (!(await confirmDialog("buy effect?", `Are you sure you want to purchase ${effectName} for ${price} WC?`)))
-        throw "Purchase cancelled.";
+      if (balance < price) {
+        loading.classList.remove("show");
+        log("red", "not enough Wcoins");
+        return;
+      }
+
+      if (!(await confirmDialog("buy effect?", `Are you sure you want to purchase ${effectName} for ${price} WC?`))) {
+        loading.classList.remove("show");
+        log("green", "purchase cancelled");
+        return;
+      }
 
       const updates = {
         balance: increment(-price),
@@ -117,9 +138,9 @@ async function buyEffect(effectId, price, effectName) {
       }
 
       transaction.update(userRef, updates);
+      loading.classList.remove("show");
+      log("green", `${effectName} is now usable!`);
     });
-
-    log("green", `${effectName} is now usable!`);
   } catch (err) {
     log("red", err);
   }

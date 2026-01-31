@@ -28,8 +28,12 @@
   </script>
 </head>
 
-<div id="loadingO" class="overlay hidden" style="background:var(--dark)">
+<div id="loadingO" class="overlay" style="background:var(--dark);z-index:100">
   <img height="120" src="/image/icon.png">
+  <div style="gap:10px;display:flex;align-items:center;position:absolute;right:50%;left:50%;transform:translateX(-50%);bottom:25px;width:fit-content">
+    <img src="/image/loader.svg" style="height:20px;">
+    <span style="color:var(--color);font-size:16px;white-space: nowrap;">Loading for auth</span>
+  </div>
 </div>
 
 <body>
@@ -852,7 +856,7 @@
                   <h2 style="margin:0;margin-left:Auto">ReWynt</h2>
                 </div>
               </header>
-              <div id="retweetOriginal" style=""></div>
+              <div id="retweetOriginal" style="margin-bottom:10px"></div>
               <div style="display:flex;gap:10px;">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=retweetAvatar></img>
                 <div>
@@ -903,10 +907,10 @@
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="tweetviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>
-                  <button style="background:none;border:none;padding:0;margin:0;margin-left:Auto;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
+                  <h2 title="takes screenshot of the posts" id="tweetSS" style="margin:0;margin-left:auto;">post</h2>
+                  <button style="background:none;border:none;padding:0;margin:0;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
                     <img height="24" src="/image/search.svg">
                   </button>
-                  <h2 style="margin:0;">post</h2>
                 </div>
               </header>
               <div id="appendTweet"></div>
@@ -941,10 +945,10 @@
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="commentviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>
-                  <button style="background:none;border:none;padding:0;margin:0;margin-left:Auto;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
+                  <h2 title="takes screenshot of the posts" id="commentSS" style="margin:0;margin-left:auto;">post</h2>
+                  <button style="background:none;border:none;padding:0;margin:0;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
                     <img height="24" src="/image/search.svg">
                   </button>
-                  <h2 style="margin:0">post</h2>
                 </div>
               </header>
               <div id="appendComment" style="margin-top:20px"></div>
@@ -969,6 +973,19 @@
                 <textarea id="commentInput" style="font-size:16px;" placeholder="hmm...?"></textarea>
               </div>
               <div class="attachment" id="commentPreview"></div>
+              <div id="pollOptionsComment" style="padding:15px;padding-bottom:7px;border-radius:10px;border:var(--border);margin-bottom:15px;" class="hidden">
+                <p style="font-size:17px;margin:0;margin-bottom:15px;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1">
+                <input type="text" class="poll-option" placeholder="Option 2">
+                <button type="button" style="font-size:15px;color:var(--color);text-decoration:underline;margin: 0px 0px 10px; display: inline-block;" class="link" id="addPollOptionComment">Add more</button>
+                <select id="pollDurationComment" style="margin:5px 0 10px 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border-radius:15px;border:var(--border)">
+                  <option value="8h">Duration: 8 Hours</option>
+                  <option value="24h">Duration: 24 Hours</option>
+                  <option value="3d">Duration: 3 Days</option>
+                  <option value="1w">Duration: 1 Week</option>
+                  <option value="3w">Duration: 3 Weeks</option>
+                </select>
+              </div>
               <div class="flex" id="comment-status"></div>
               <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button id="sendComment" style="border-radius:12px;padding:10px 20px;;">Post</button>
@@ -977,6 +994,9 @@
                 <button class="hidden" id="giftBtn"></button>
                 <input type="file" id="commentMediaInput" class="comment-media-input hidden-input" accept="image/*, video/*" multiple>
                 <div class=char-counter>0/1000</div>
+                <label style="margin-left:auto;font-size:16px;">
+                  <input type="checkbox" style="width:15px;" id="includePollComment">
+                </label>
               </div>
               <br><br><br>
             </div>
@@ -996,11 +1016,28 @@
                 <textarea id="replyInput" style="background:none;font-size:16px;border:none;min-height:65px;" placeholder="hmm...?"></textarea>
               </div>
               <div class="attachment" id="replyPreview"></div>
+              <div class="attachment" id="commentPreview"></div>
+              <div id="pollOptionsReply" style="padding:15px;padding-bottom:7px;border-radius:10px;border:var(--border);margin-bottom:15px;" class="hidden">
+                <p style="font-size:17px;margin:0;margin-bottom:15px;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1">
+                <input type="text" class="poll-option" placeholder="Option 2">
+                <button type="button" style="font-size:15px;color:var(--color);text-decoration:underline;margin: 0px 0px 10px; display: inline-block;" class="link" id="addPollOptionReply">Add more</button>
+                <select id="pollDurationReply" style="margin:5px 0 10px 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border-radius:15px;border:var(--border)">
+                  <option value="8h">Duration: 8 Hours</option>
+                  <option value="24h">Duration: 24 Hours</option>
+                  <option value="3d">Duration: 3 Days</option>
+                  <option value="1w">Duration: 1 Week</option>
+                  <option value="3w">Duration: 3 Weeks</option>
+                </select>
+              </div>
               <div class="flex" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button style="border-radius:12px;padding:10px 20px;;" id="sendReply">Post</button>
                 <label class="custom-file-btn" for="replyMediaInput"><img src="/image/upload.svg"></label>
                 <input type="file" id="replyMediaInput" class="comment-media-input hidden-input" accept="image/*, video/*" multiple>
                 <div class=char-counter>0/1000</div>
+                <label style="margin-left:auto;font-size:16px;">
+                  <input type="checkbox" style="width:15px;" id="includePollReply">
+                </label>
               </div>
               <br><br><br>
             </div>
@@ -1523,7 +1560,7 @@
     });
     
     window.onerror = function(message, source, lineno, colno, error) {
-      if (message && message.includes("net::ERR_NAME_NOT_RESOLVED")) {
+      if (message && message.includes("Failed to load resource:")) {
         location.reload();
       }
     };

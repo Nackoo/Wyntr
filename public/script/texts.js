@@ -448,6 +448,8 @@ if (isT != "false" && isT != false) {
 
 if (isT === "true") {
   lp.style.display = "block";
+} else {
+  lp.style.display = "none";
 }
 
 ist.addEventListener("change", () => {
@@ -498,7 +500,7 @@ setd.onclick = () => {
 
 function randomString(length) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
+  let result = "id_"; 
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }

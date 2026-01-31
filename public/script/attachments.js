@@ -361,72 +361,62 @@ async function uploadToSupabase(file, uid) {
   };
 }
 
-async function compressImageTo480(file) {
-  const MAX_BYTES = 1024 * 1024;
+function canvasToWebP(canvas, quality) {
+  return new Promise(res => {
+    canvas.toBlob(
+      blob => res(blob),
+      "image/webp",
+      quality
+    );
+  });
+}
 
-  const getSize = (b64) =>
-    Math.ceil((b64.length * 3) / 4);
+async function compressImageTo480(input) {
+  const MAX_BASE91 = 1024 * 1024;
+  const BASE91_RATIO = 16 / 13; // ≈1.23
+  const MAX_BINARY = Math.floor(MAX_BASE91 / BASE91_RATIO);
 
   const readFile = (file) =>
-    new Promise((res, rej) => {
+    new Promise(res => {
       const r = new FileReader();
       r.onload = () => res(r.result);
-      r.onerror = rej;
       r.readAsDataURL(file);
     });
 
-  const originalBase64 = await readFile(file);
-
-  if (getSize(originalBase64) <= MAX_BYTES) {
-    return originalBase64;
-  }
+  const base64 =
+    typeof input === "string" ? input : await readFile(input);
 
   const img = new Image();
-  img.src = originalBase64;
-
-  await new Promise((res, rej) => {
-    img.onload = res;
-    img.onerror = rej;
-  });
+  img.src = base64;
+  await img.decode();
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  let width = img.width;
-  let height = img.height;
-
-  let quality = 0.82;
   let scale = 1;
+  let quality = 0.85;
 
-  let output;
+  for (let i = 0; i < 50; i++) {
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
 
-  for (let i = 0; i < 12; i++) {
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    output = canvas.toDataURL("image/jpeg", quality);
+    const blob = await canvasToWebP(canvas, quality);
 
-    if (getSize(output) <= MAX_BYTES) {
-      return output;
+    if (blob.size <= MAX_BINARY) {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      return base91.encode(bytes);
     }
 
-    /**
-     * 1. Reduce quality first (least visible)
-     * 2. Then reduce resolution slightly
-     * 3. Never jump aggressively
-     */
-
-    if (quality > 0.6) {
-      quality -= 0.06;
+    if (quality > 0.5) {
+      quality -= 0.08;
     } else {
-      scale *= 0.92;
+      scale *= 0.85;
     }
   }
 
-  return output;
+  throw new Error("Cannot compress under base91 1MB limit");
 }
 
 let lastURL = null;
@@ -862,36 +852,51 @@ async function handleMediaInput(e, previewEl) {
     previewEl.appendChild(img);
   }
 
-  if (images.length > 1) {
-    try {
-      const compressed = await Promise.all(
-        images.map(f => compressImageTo480(f))
-      );
-      await makeCollage(compressed);
-    } catch (err) {
-      console.warn("Collage generation failed:", err);
-    }
-  }
-
   loading.classList.remove("show");
 }
 
-async function makeCollage(base64Images) {
-  return new Promise((resolve, reject) => {
-    const images = [];
-    let loaded = 0;
+async function makeCollage(inputs) {
+  const toImageSrc = (input) =>
+    new Promise((resolve, reject) => {
+      if (typeof input === "string") {
+        return resolve(input);
+      }
 
-    base64Images.forEach((src, i) => {
+      if (input instanceof Blob) {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(input);
+        return;
+      }
+
+      reject(new Error("Invalid image input"));
+    });
+
+  const images = [];
+  let loaded = 0;
+
+  return new Promise(async (resolve, reject) => {
+    for (let i = 0; i < inputs.length; i++) {
       const img = new Image();
       img.crossOrigin = "anonymous";
+
+      try {
+        img.src = await toImageSrc(inputs[i]);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+
       img.onload = () => {
         images[i] = img;
         loaded++;
-        if (loaded === base64Images.length) buildSingleRow(images);
+        if (loaded === inputs.length) buildSingleRow(images);
       };
-      img.onerror = reject;
-      img.src = src;
-    });
+
+      img.onerror = () =>
+        reject(new Error("Image failed to load"));
+    }
 
     function buildSingleRow(images) {
       const maxHeight = Math.max(...images.map(img => img.height));
@@ -905,18 +910,21 @@ async function makeCollage(base64Images) {
         };
       });
 
-      const totalWidth = scaled.reduce((sum, s) => sum + s.width, 0);
+      const totalWidth = Math.round(
+        scaled.reduce((sum, s) => sum + s.width, 0)
+      );
 
       const canvas = document.createElement("canvas");
       canvas.width = totalWidth;
       canvas.height = maxHeight;
+
       const ctx = canvas.getContext("2d");
 
       let x = 0;
-      scaled.forEach(({ img, width, height }) => {
+      for (const { img, width, height } of scaled) {
         ctx.drawImage(img, x, 0, width, height);
         x += width;
-      });
+      }
 
       resolve(canvas.toDataURL("image/jpeg", 0.9));
     }

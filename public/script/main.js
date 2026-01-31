@@ -130,14 +130,6 @@ if (window.innerWidth > 700) {
         hoverCard.classList.remove("hidden");
       }, 400);
     }
-    const el1 = e.target.closest(".donate-btn");
-    if (el1) {
-      hoverTimeout = setTimeout(async () => {
-        fillHoverCard1("Gifts", "How much Wcoins this Wynt was donated.\nDonate Wynts you like via comments.");
-        positionHoverCard(el1, hoverCard);
-        hoverCard.classList.remove("hidden");
-      }, 400);
-    }
     const el2 = e.target.closest(".viewbtn");
     if (el2) {
       hoverTimeout = setTimeout(async () => {
@@ -600,7 +592,7 @@ document.addEventListener("click", async (e) => {
           if (tweetviewer && !document.querySelector(`#appendTweet #tweet-${tweetId}`)) {
             await tweetviewer.classList.add("hidden");
           }
-          await renderCommentViewer(commentData, commentId, tweetId, box, communityId);
+          await renderCommentViewer(commentData, commentId, tweetId, box, communityId, true);
           await loadComments(tweetId, true, commentId, replyList, communityId);
           await openCommunity(communityId);
           document.body.classList.add("no-scroll");
@@ -668,7 +660,7 @@ document.addEventListener("click", async (e) => {
 
         loading.classList.remove("show");
         const tweetData = tweetSnap.data();
-        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId);
+        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, true);
         await loadComments(tweetId, true, null, null, communityId);
         await openCommunity(communityId);
         return;

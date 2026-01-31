@@ -237,10 +237,11 @@ export async function loadMyCommunities(reset = false) {
             </span>
           </div>
         </div>
-        <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block">
-          ${escapeHTML(cData.membersCount)} members • by ${escapeHTML(cData.creatorName)} • ${escapeHTML(
-      cData.posts)
-    } posts ${cData.private ? `• private` : ""}
+        <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
+            ${formatNumber(cData.posts)} posts •
+            by ${escapeHTML(cData.creatorName)} •
+            ${formatNumber(cData.membersCount)} members 
+            ${cData.private ? `• private` : ""}
         </span>
         ${tagsHtml}
       </div>
@@ -748,8 +749,10 @@ export async function loadCommunities(reset = false) {
           </div>
           ${joinedStatus}
         </div>
-        <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block">
-          ${escapeHTML(cData.membersCount)} members • by ${escapeHTML(cData.creatorName)} • ${escapeHTML(cData.posts)} posts
+        <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
+            ${formatNumber(cData.posts)} posts •
+            by ${escapeHTML(cData.creatorName)} •
+            ${formatNumber(cData.membersCount)} members
         </span>
         ${tagsHtml}
       </div>
@@ -1005,9 +1008,9 @@ export async function openCommunity(communityId) {
           <h2 style="margin:0" class="skibidi-link" id="com-name2">${escapeHTML(cData.name)}</h2>
           <div style="color:grey;font-size:15px;margin-top:5px;">by ${escapeHTML(cData.creatorName)}</div>
           <div style="color:grey;gap:5px;font-size:15px;display:flex;align-items:center;margin-top:10px;width:100%;">
-            <img src="/image/write.svg" style="height:20px;"> ${formatNumber(cData.posts)}
+            <img src="/image/write-gray.svg" style="height:20px;"> ${formatNumber(cData.posts)}
             <img style="height:20px;" src="/image/calendar.svg"> ${escapeHTML(formatted)}
-            <img src="/image/community.svg" style="height:20px;">${formatNumber(cData.membersCount) || 0}
+            <img src="/image/community-gray.svg" style="height:20px;">${formatNumber(cData.membersCount) || 0}
           </div>
         </div>
       </div>
@@ -1786,17 +1789,21 @@ async function toggleAdmin(uid, isAdmin) {
   if (!Array.isArray(window.cData.admin)) {
     window.cData.admin = [];
   }
-  if (isAdmin) {
-    if (!(await confirmDialog("dismiss user as admin?", "are you sure you want to dismiss this user as admin?"))) return;
-    window.cData.admin = window.cData.admin.filter(id => id !== uid);
-  } else {
-    if (!(await confirmDialog("make user admin?", "are you sure you want to make this user admin? Once proceeded, This user can take dangerous actions to this community.", "red"))) return;
-    window.cData.admin.push(uid);
-  }
 
   const comRef = doc(db, "communities", window.communityID);
   const comSnap = await getDoc(comRef);
   const comData = comSnap.data();
+
+  if (!isAdmin && (comData.admin || []).length >= 10) {
+    log("red", "Admin limit reached");
+    return;
+  }
+
+  if (isAdmin) {
+    if (!(await confirmDialog("dismiss user as admin?", "are you sure you want to dismiss this user as admin?"))) return;
+  } else {
+    if (!(await confirmDialog("make user admin?", "are you sure you want to make this user admin? Once proceeded, This user can take dangerous actions to this community.", "red"))) return;
+  }
 
   await updateDoc(comRef, {
     admin: isAdmin ? arrayRemove(uid) : arrayUnion(uid)
@@ -1804,8 +1811,10 @@ async function toggleAdmin(uid, isAdmin) {
 
   if (isAdmin) {
     log("green", "successfully dismissed this user as admin");
+    window.cData.admin = window.cData.admin.filter(id => id !== uid);
   } else {
-    await sendAdminNotification(uid, window.communityID, comData.name, comData.creatorName);
+    window.cData.admin.push(uid);
+    await sendAdminNotification(uid, window.communityID, comData.name, comData.creatorName, comData.creatorId);
     log("green", "successfully made this user admin");
   }
 }
@@ -2193,6 +2202,10 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
       const userData = userSnap.data();
       const joined = (userData.communities || []).includes(c.id);
 
+      const tagsHtml = (c.tags || [])
+      .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
+      .join("");
+
       wrapper.innerHTML = `
         <div>
           <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
@@ -2205,7 +2218,12 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
             </div>
             ${joined ? `<div style="color:grey;font-size:15px;margin-left:auto;">Joined</div>` : ""}
           </div>
-          <span style="color:grey;font-size:14px">${escapeHTML(c.membersCount)} members • by ${escapeHTML(c.creatorName)}</span>
+          <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
+            ${formatNumber(c.posts)} posts •
+            by ${escapeHTML(c.creatorName)} •
+            ${formatNumber(c.membersCount)} members
+          </span>
+          ${tagsHtml}
         </div>
       `;
 
@@ -2297,7 +2315,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
           const label = document.createElement("div");
           label.className = "pinned-label";
           label.innerHTML = `
-            <div class="iq pinlabel" style="background:var(--color);margin-top:40px;width:fit-content;font-size:13px;margin-left:-5px;">Pinned by community admins</div>
+            <div class="iq pinlabel communityPinned-${pinnedId}" style="background:var(--color);margin-top:40px;width:fit-content;font-size:13px;margin-left:-5px;">Pinned by community admins</div>
           `;
 
           if (!container.querySelector(".tweet") && !container.querySelector(".pinned-label") && container.querySelector("#communityloadingbitches")) container.querySelector("#communityloadingbitches").remove();
