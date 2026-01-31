@@ -134,6 +134,12 @@ service cloud.firestore {
             allow create: if request.auth != null && request.auth.uid == userId;
             allow delete: if request.auth != null && request.auth.uid == userId;
           }
+          
+          match /votes/{userId} {
+          	allow read: if true;
+          	allow create: if request.auth != null && request.auth.uid == userId;
+         	 	allow delete, update: if false;
+        	}
         }
       }
     }
@@ -328,6 +334,12 @@ service cloud.firestore {
             request.auth.uid == userId ||
             request.auth.uid == get(/databases/$(database)/documents/tweets/$(tweetId)).data.uid ||
             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin']);
+        }
+        
+        match /votes/{userId} {
+          allow read: if true;
+          allow create: if request.auth != null && request.auth.uid == userId;
+          allow delete, update: if false;
         }
       }
     }
