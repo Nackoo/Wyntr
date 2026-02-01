@@ -3,26 +3,46 @@ import { db, doc, getDoc, auth } from "./firebase.js";
 import { log } from "./texts.js";
 import { quickImageNSFWCheck, quickVideoNSFWCheck, logNSFWResult } from "./nsfw.js"
 
-function base91ToImageSrc(encoded, mime = "image/jpeg") {
-  if (typeof encoded === "string" && encoded.startsWith("data:image/")) {
-    return encoded;
-  }
-  if (typeof encoded === "string" && encoded.startsWith("/image/")) {
-    return encoded;
-  }
-  if (encoded == null || encoded === "") {
-    return `/image/default-avatar.jpg`;
+function base91ToImageSrc(input, mime = "image/jpeg") {
+  if (!input) {
+    return "/image/default-avatar.jpg";
   }
 
-  const bytes = base91.decode(encoded);
+  // data:image/... → Blob URL
+  if (typeof input === "string" && input.startsWith("data:image/")) {
+    const [header, base64] = input.split(",");
+    const m = header.match(/data:(.*?);base64/);
+    const type = m ? m[1] : mime;
 
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    const blob = new Blob([bytes], { type });
+    return URL.createObjectURL(blob);
   }
 
-  const base64 = btoa(binary);
-  return `data:${mime};base64,${base64}`;
+  // Normal URLs → pass through
+  if (
+    typeof input === "string" &&
+    (
+      input.startsWith("/image/") ||
+      input.startsWith("http://") ||
+      input.startsWith("https://") ||
+      input.startsWith("blob:")
+    )
+  ) {
+    return input;
+  }
+
+  // base91 → Blob URL
+  const bytes = base91.decode(input);
+  const blob = new Blob([bytes], { type: mime });
+  return URL.createObjectURL(blob);
 }
 
 async function dataUrlToBase91(dataUrl) {
@@ -98,7 +118,16 @@ async function upscale(url, scale = 2) {
   outCanvas.height = dh;
   outCanvas.getContext("2d").putImageData(dst, 0, 0);
 
-  return outCanvas.toDataURL("image/png");
+  return await canvasToBlobURL(outCanvas);
+}
+
+function canvasToBlobURL(canvas, type = "image/png", quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      resolve(url);
+    }, type, quality);
+  });
 }
 
 const upscaleCache = new Map();
