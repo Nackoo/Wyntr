@@ -1,4 +1,4 @@
-<img src="https://wyntr.netlify.app/image/w.png" height="200"></img>
+<img src="https://wyntr.netlify.app/image/w-transparent.png" height="200"></img>
 
 <h1>Wyntr</h1>
 
