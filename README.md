@@ -359,6 +359,7 @@ service cloud.firestore {
 | posts         | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
 | comments      | `parentId ↑`, `likeCount ↓`, `createdAt ↓`, `__name__ ↓`     | Collection   |
 | comments      | `searchTokens []`, `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
+| communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
 
 ## supabase policies
 
