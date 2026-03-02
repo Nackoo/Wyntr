@@ -360,6 +360,7 @@ service cloud.firestore {
 | comments      | `parentId ↑`, `likeCount ↓`, `createdAt ↓`, `__name__ ↓`     | Collection   |
 | comments      | `searchTokens []`, `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
 | communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
+| tweets        | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   | 
 
 ## supabase policies
 
