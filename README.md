@@ -1,5 +1,7 @@
 <img src="https://wyntr.netlify.app/image/w.png" height="200"></img>
 
+UPDATE INDEX
+
 <h1>Wyntr</h1>
 
 ## netlify .env
