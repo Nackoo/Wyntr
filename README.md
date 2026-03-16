@@ -1,5 +1,7 @@
 <img src="https://wyntr.netlify.app/image/w.png" height="200"></img>
 
+UPDATE INDEX
+
 <h1>Wyntr</h1>
 
 ## netlify .env
@@ -359,6 +361,9 @@ service cloud.firestore {
 | posts         | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
 | comments      | `parentId ↑`, `likeCount ↓`, `createdAt ↓`, `__name__ ↓`     | Collection   |
 | comments      | `searchTokens []`, `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
+| communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
+| tweets        | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   | 
+| tweets        | `retweetOfComment.commentId ↑`, `likeCount ↓`, `__name__ ↓`  | Collection   | 
 
 ## supabase policies
 
