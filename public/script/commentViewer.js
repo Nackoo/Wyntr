@@ -1,23 +1,22 @@
-import { auth, db, doc, getDoc } from "./firebase.js";
+import { auth, db, doc, getDoc, setDoc, increment, updateDoc, Timestamp } from "./firebase.js";
 import { formatDate, escapeHTML, parseMentionsToLinks, formatNumber, formatTime, getDefaultLanguage, isTranslateEnabled, randomString } from "./texts.js";
-import { loadComments, getUserData, getCommunityNameById, editicon, getSnap, renderPoll, renderPoll1 } from "./index.js";
+import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole } from "./index.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
+import { showOriginal } from "./main.js";
  
 export async function renderCommentViewer(c, commentId, tweetId, container, communityId, isFromMain) {
-
+  document.getElementById("replyList").classList.add("hidden");
   container.innerHTML = `<div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div></div><div class="skeleton-dot"></div></div><div class="skeleton-body"><div class="skeleton-line long"></div><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div><div class="skeleton-footer"><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="invisible skeleton-pill small"></div><div class="skeleton-pill small last"></div></div></div>`;
   document.getElementById("replyList").innerHTML = "";
   let vidId = null;
+  let parent1 = "";
   container.dataset.tweet = tweetId;
 
-  const { username, avatar, displayName, IQ, premium } = await getUserData(c.uid);
+  const { username, avatar, displayName, d } = await getUserData(c.uid);
   const createdAt = formatDate(c.createdAt);
   const parsedText = await parseMentionsToLinks(c.text, c.mentions || []);
-  const premiumExpiry = premium ? premium.toDate() : null;
-  const now = new Date();
 
   let comid = "";
-  const isPremium = premiumExpiry && premiumExpiry > now;
 
   let tweetRef;
   if (window.communityID && isFromMain == false) {
@@ -53,7 +52,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
     </span>`;
   }
 
-  if (c.isPrivate || c.isPrivateParent) {
+  if (c.isPrivate || c.isPrivateParent || c.isHidden) {
     window.isPrivateReply = true;
   } else { 
     window.isPrivateReply = false;
@@ -83,7 +82,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
     } 
 
   let mediaHTML = "";
-  const containsSpoiler = /\|\|.+?\|\|/.test(c.text);
+  const containsSpoiler = c.sensitiveMedia === true;
   if (c.media && c.mediaType === "image") {
     const src = base91ToImageSrc(c.media.url);
     if (containsSpoiler) {
@@ -110,12 +109,12 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
         <div style="border-radius:10px;" class="spoiler-overlay">
           <div class="spoilertxt">sensitive</div>
         </div>
-        <video id="${vidId}" controls style="max-width: auto; max-height: 300px; border-radius: 10px;">Your browser does not support the video tag.<</video> 
+        <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">Your browser does not support the video tag.<</video> 
       </div>`;
     } else {
       mediaHTML = `
       <div class="attachment" style="position: relative;">
-        <video id="${vidId}" controls style="max-width: auto; max-height: 300px; border-radius: 10px;">Your browser does not support the video tag.</video>
+        <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">Your browser does not support the video tag.</video>
       </div>`;
       getSupabaseVideo(c.media.url, vidId);
     }
@@ -125,295 +124,71 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   if (c.communityId && window.communityID == null) {
     communityName = await getCommunityNameById(c.communityId);
     communityHTML = `
-      <div class="communityLink" data-id="${c.communityId}" style="cursor:pointer;display:flex;gap:5px;font-size:14px;color:grey;margin:5px 0;margin-top:10px;">
-        <img height="20" src="/image/community-filled.svg">
-        ${escapeHTML(communityName)}
-      </div>`;
+      <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;">
+      <img loading='lazy' height="17" src="/image/community-filled.svg">
+      <span style="font-size:14px;" class="communityLink" data-id="${c.communityId}">posted in @${escapeHTML(communityName)}</span>
+    </div>`;
   }
-  let originalQuoted = "";
+
   let editHTML = "";
   if (c.edited) {
     editHTML = `       
-      <span style="margin-bottom:10px;color:grey;font-size:14px;display:flex;align-items:center;gap:5px;">
-          ${editicon} 
-          ${formatTime(c.edited)}
-        </span>`
-  }
-  if (document.getElementById("tweetViewer").classList.contains("hidden")) {
-    let quotedRef;
-    if (window.communityID != null && isFromMain == false) {
-      quotedRef = doc(db, "communities", window.communityID, "posts", tweetId);
-    } else if (communityId) {
-      quotedRef = doc(db, "communities", communityId, "posts", tweetId);
-    } else {
-      quotedRef = doc(db, "tweets", tweetId);
-    }
-    const quotedSnap = await getDoc(quotedRef);
-    if (quotedSnap.exists()) {
-      const quoted = quotedSnap.data();
-      const parsedQuoted = await parseMentionsToLinks(quoted.text || "", quoted.mentions || []);
-      const userSnap = await getDoc(doc(db, "users", quoted.uid));
-      const {
-        username,
-        avatar,
-        displayName,
-        IQ: uIQ,
-        premium
-      } = await getUserData(quoted.uid);
-      const userData = userSnap.exists() ? userSnap.data() : {};
-      const premiumExpiry = premium ? premium.toDate() : null;
-      const now = new Date();
-      const isPremium = premiumExpiry && premiumExpiry > now;
-      const hasText = quoted.text?.trim()?.length > 0;
-      const hasImage = quoted.media && quoted.mediaType === "image";
-      const hasVideo = quoted.media && quoted.mediaType === "video";
-      const likeCount = quoted.likeCount || 0;
-      const viewCount = quoted.viewsCount || 0;
-      const commentCount = quoted.commentCount || 0;
-      const retweetCount = quoted.retweetCount || 0;
-
-      let titleHTML2 = "";
-      if (quoted.title) {
-        titleHTML2 = `<h3 style="margin:10px 0;">${escapeHTML(quoted.title)}</h3>`
-      }
-
-      let editHTML2 = "";
-      if (quoted.edited) {
-        editHTML2 = `
-        <span style="color:grey;font-size:14px;display:flex;align-items:center;gap:5px;">
-          ${editicon} 
-          ${formatTime(quoted.edited)}
-        </span>
-      `
-      }
-
-      const defaultLanguage = getDefaultLanguage();
-      const isTranslate = isTranslateEnabled();
-
-      let translateHTML = "";
-      if (quoted.language && quoted.language !== defaultLanguage && isTranslate) {
-        const random = Math.floor(Math.random() * 10000);
-        translateHTML = `
-          <div class="translate-wrapper" style="margin-top:5px;margin-bottom:10px;
-      ">
-            <span
-              class="translate-btn"
-              data-id="${tweetId}"
-              data-random="${random}"
-              data-from="${quoted.language}"
-              data-to="${defaultLanguage}"
-              data-text="${quoted.text}"
-              data-title="null"
-              style="color:#B0C4DE;cursor:pointer;font-size:15px;"
-            >
-              Translate from ${quoted.language}
-            </span>
-            <div
-              id="translated-${tweetId}-${random}"
-              class="translated-text"
-              style="display:none;color:grey;font-size:16px;"
-            ></div>
-          </div>
-        `;
-      }
-
-      let pollHTML = "";
-      if (quoted.poll && Array.isArray(quoted.poll.options)) {
-        const uid = auth.currentUser?.uid;
-        let myVoteIndex = null;
-        if (uid) {
-          let voteRef;
-          if (window.communityID != null) {
-            voteRef = doc(db, "communities", window.communityID, "posts", tweetId, "votes", uid);
-          } else {
-            voteRef = doc(db, "tweets", tweetId, "votes", uid);
-          }
-          const voteSnap = await getDoc(voteRef);
-          if (voteSnap.exists()) {
-            myVoteIndex = voteSnap.data().optionIndex;
-          }
-        }
-        pollHTML = renderPoll(quoted, tweetId, myVoteIndex);
-      }
-
-      if (hasImage && hasText) {
-        const containsSpoiler = /\|\|.+?\|\|/.test(quoted.text);
-        const src = base91ToImageSrc(quoted.media);
-
-        originalQuoted = `
-        <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${uIQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body"> 
-            ${titleHTML2} 
-            <p style="margin:0;">${parsedQuoted}</p>
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-      } else if (hasVideo && hasText) {
-        const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const containsSpoiler = /\|\|.+?\|\|/.test(quoted.text);
-
-        originalQuoted = `
-        <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${uIQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body">
-            ${titleHTML2}
-            <p style="margin:0;">${parsedQuoted}</p> 
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <video id="${vidId}" controls style="width: auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
-                  <video id="${vidId}" controls style="width:auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-        getSupabaseVideo(quoted.media, vidId);
-      } else {
-        originalQuoted = `
-        <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
-              onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${uIQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">
-              ${escapeHTML(displayName || 'Unknown')}
-            </strong>
-            <span style="color:grey;font-size:12px;">
-              ${isPremium ? `<img src="/image/check.svg" style="margin:0; margin-left:-5px;">` : ""}
-              <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)}
-            </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${quoted.communityId || null}" data-author="${quoted.uid}" data-text="${quoted.text}" class="menubtn"><img src="/image/three-dots.svg"></span>
-          </div>
-          <div class="quoted-body">
-            ${titleHTML2}
-            <p style="margin:6px 0 12px;">${parsedQuoted}</p> 
-            ${translateHTML}
-            ${editHTML2}
-            ${pollHTML}
-          </div>
-        </div>`;
-      }
-    } else {
-      originalQuoted = `
-      <div class="quoted-comment actuallyATweet quotedTweet">
-        <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-        <img class="avatar" src="/image/default-avatar.jpg" width="30">
-        <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer">System</strong>
-          <span style="color:grey;font-size:12px;">
-            <img src="/image/icon.png" height="20" width="20" style="margin:0; margin-left:-5px;">
-          </span>
-        </div>
-        <div class="quoted-body">
-        <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;"><i>this Wynt is unavailable</i></p>
-        </div>
-      </div>`;
-    }
+      <img src="/image/editicon.svg" title="edited at ${formatTime(c.edited)}. ${c.editAfterComment ? "click me" : ""}" class="editedatt edit0">`
   }
 
   let parentReply = "";
+  let likeId1 = "";
+  let parentLikeRef;
+  let translateHTML = "";
+  let translateHTML1 = "";
+  let parent;
+  let quoted;
+  let translateHTML2 = "";
+  let editHTML2 = "";
+
   if (document.getElementById("tweetViewer").classList.contains("hidden") && c.parentId) {
     let parentRef;
     if (window.communityID != null && isFromMain == false) {
       parentRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", c.parentId);
+      parentLikeRef = `communities/${window.communityID}/posts${tweetId}/comments/${c.parentId}/likes/${auth.currentUser}`
     } else if (communityId) {
       parentRef = doc(db, "communities", communityId, "posts", tweetId, "comments", c.parentId);
+      parentLikeRef = `communities/${communityId}/posts/${tweetId}/comments/${c.parentId}/likes/${auth.currentUser.uid}`
     } else {
       parentRef = doc(db, "tweets", tweetId, "comments", c.parentId);
+      parentLikeRef = `tweets/${tweetId}/comments/${c.parentId}/likes/${auth.currentUser.uid}`;
     }
+
+    likeId1 = randomString(14);
 
     const parentSnap = await getDoc(parentRef);
     if (parentSnap.exists()) {
-      const parent = parentSnap.data();
+      parent = parentSnap.data();
 
       let parsedparent = "";
       if (parent.text) {
         parsedparent = await parseMentionsToLinks(parent.text || "", parent.mentions || []);
       }
 
-      const userSnap = await getDoc(doc(db, "users", parent.uid));
-      const { username, avatar, displayName, IQ, premium } = await getUserData(parent.uid);
-      const userData = userSnap.exists() ? userSnap.data() : {};
-      const premiumExpiry = premium ? premium.toDate() : null;
-      const now = new Date();
-      const isPremium = premiumExpiry && premiumExpiry > now;
+      const { username, avatar, displayName, d: data } = await getUserData(parent.uid);
 
       const hasText = parent.text?.trim()?.length > 0;
       const hasImage = parent.media && parent.mediaType === "image";
       const hasVideo = parent.media && parent.mediaType === "video";
 
-      const likeCount = parent.likeCount || 0;
-      const viewCount = parent.viewsCount || 0;
-      const commentCount = parent.commentCount || 0;
-      const retweetCount = parent.retweetCount || 0;
-
-      let editHTML2 = "";
       if (parent.edited) {
         editHTML2 = `
-        <span style="color:grey;font-size:14px;display:flex;align-items:center;gap:5px;">
-          ${editicon} 
-          ${formatTime(parent.edited)}
-        </span>
+       <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} ${parent.editAfterComment ? "click me" : ""}" class="editedatt edit1>
       `
       }
 
       const defaultLanguage = getDefaultLanguage();
       const isTranslate = isTranslateEnabled();
 
-      let translateHTML = "";
       if (parent.language && parent.language !== defaultLanguage && isTranslate) {
         const random = Math.floor(Math.random() * 10000);
         translateHTML = `
-          <div class="translate-wrapper" style="margin-top:-5px;margin-bottom:5px;
+          <div class="translate-wrapper tr6" style="margin-top:-5px;margin-bottom:5px;
           ">
             <span
               class="translate-btn"
@@ -421,7 +196,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               data-random="${random}"
               data-from="${parent.language}"
               data-to="${defaultLanguage}"
-              data-text="${parent.text}"
               data-title="null"
               style="color:#B0C4DE;cursor:pointer;font-size:15px;"
             >
@@ -455,196 +229,371 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           pollHTML = renderPoll1(parent, tweetId, c.parentId, myVoteIndex);
         }
 
-      if (hasImage && hasText) {
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const src = base91ToImageSrc(parent.media.url);
-        const path = `${tweetId}-${commentId}`;
-
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
+      const infos = `
+<div class="flex" style="margin:0;gap:25px;">
+              ${parent.isHidden ? "" : `
+              <span class="comment-like-btn" data-id="${c.parentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+                <div id="${likeId1}" class="clikeicon" style="height:20px">
+                  <img loading='lazy' src="/image/heart.svg">
+                </div>
+                <span style="color:#757779;" id="comment-like-count-${c.parentId}">${parent.likeCount > 0 ? parent.likeCount : ""}</span>
+              </span>
+              <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${c.parentId}" data-tweet="${tweetId}">
+                <img loading='lazy' src="/image/message.svg"> ${(parent.replyCount ?? 0) > 0 ? parent.replyCount : ""}
+              </span>
+              <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${c.parentId}">
+                <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
+              </span>
+              <span class="viewbtn" style="margin-left:auto;color:#757779"><img loading="lazy" src="/image/chart.svg"> ${parent.viewsCount > 0 ? parent.viewsCount : ""}</span>
+              `
               }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body"> 
-            <p style="margin:0;">${parsedparent}</p>
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-      } else if (hasVideo && hasText) {
-        const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const path = `${tweetId}-${commentId}`;
+              </div>
+      `
 
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body">
-            <p style="margin:0;">${parsedparent}</p> 
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <video id="${vidId}" controls style="width: auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <video id="${vidId}" controls style="width:auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-        getSupabaseVideo(parent.media.url, vidId);
-      } else if (hasVideo) {
-        const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const path = `${tweetId}-${commentId}`;
+      const random = randomString(14);
 
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body">
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <video id="${vidId}" controls style="width: auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <video id="${vidId}" controls style="width:auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-        getSupabaseVideo(parent.media.url, vidId);
-        } else if (hasImage) {
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const src = base91ToImageSrc(parent.media.url);
-        const path = `${tweetId}-${commentId}`;
+      let baninfo = "";
 
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body"> 
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
+      if (data.banned === true && currentUserRole === "admin") {
+        baninfo = `
+          <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${data.bannedFor}</p>
+        `;
+      }
+
+      if (data.banned === true && currentUserRole != "admin") {
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">Suspended user</strong>
+              <span style="color:grey;font-size:12px;">
+                ${formatDate(parent.createdAt)}
+              </span>
+            </div>
+            <div class="quoted-body">
+              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 6px;color:grey">This reply is from a suspended user</p>
+            </div>
+          </div>`;
       } else {
-        const path = `${tweetId}-${commentId}`;
-
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
-              onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
+        if (hasImage && hasText) {
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const src = base91ToImageSrc(parent.media.url);
+          const path = `${tweetId}-${commentId}`;
+          const content = `
+              <p style="margin:0;">${parsedparent}</p>
+              ${translateHTML}
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>`
               }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">
-              ${escapeHTML(displayName || 'Unknown')}
-            </strong>
-            <span style="color:grey;font-size:12px;">
-              ${isPremium ? `<img src="/image/check.svg" style="margin:0; margin-left:-5px;">` : ""}
-              <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)}
-            </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${parent.communityId || null}" data-author="${parent.uid}" data-id="${c.parentId}" data-tweet="${tweetId}" data-text="${parent.text}" class="cmenubtn"><img src="/image/three-dots.svg"></span>
-          </div>
-          <div class="quoted-body">
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}</span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body"> 
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+        } else if (hasVideo && hasText) {
+          const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const path = `${tweetId}-${commentId}`;
+          const content = `
+              <p style="margin:0;">${parsedparent}</p> 
+              ${translateHTML}
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>`
+              }
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}</span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}   
+              `}
+              ${infos}
+            </div>
+          </div>`;
+          getSupabaseVideo(parent.media.url, vidId);
+        } else if (hasVideo) {
+          const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const path = `${tweetId}-${commentId}`;
+          const content = `
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>`
+              }
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+          getSupabaseVideo(parent.media.url, vidId);
+        } else if (hasImage) {
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const src = base91ToImageSrc(parent.media.url);
+          const path = `${tweetId}-${commentId}`;
+          const content = `
+            ${baninfo}
+            ${containsSpoiler ?
+              `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                <div class="spoiler-overlay">
+                  <div class="spoilertxt">sensitive</div>
+                </div>
+                <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+              </div>` :
+              `<div class="attachment" style="margin-bottom:5px">
+                <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+              </div>`
+            }
+          ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${c.parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body"> 
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+                ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}        
+              `}
+              ${infos}
+            </div>
+          </div>`;
+        } else {
+          const path = `${tweetId}-${commentId}`;
+          const content = `
             <p style="margin:6px 0 12px;">${parsedparent}</p> 
             ${translateHTML}
-            ${editHTML2}
+            ${baninfo}
             ${pollHTML}
-          </div>
-        </div>`;
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${c.parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
+                onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">
+                ${escapeHTML(displayName || 'Unknown')}
+              </strong>
+              <span style="color:grey;font-size:12px;">
+                <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}
+              </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${parent.communityId || null}" data-author="${parent.uid}" data-id="${c.parentId}" data-tweet="${tweetId}" data-text="${parent.text}" class="cmenubtn"><img src="/image/three-dots.svg"></span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+                ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+        }
       }
     } else {
       parentReply = `
@@ -665,11 +614,10 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 
   const defaultLanguage = getDefaultLanguage();
   const isTranslate = isTranslateEnabled();
-  let translateHTML1 = "";
   if (c.language && c.language !== defaultLanguage && isTranslate) {
     const random = Math.floor(Math.random() * 10000);
     translateHTML1 = `
-          <div class="translate-wrapper" style="margin-top:-10px;margin-bottom:10px;
+          <div class="translate-wrapper tr7" style="margin-top:-10px;margin-bottom:10px;
       ">
             <span
               class="translate-btn"
@@ -711,52 +659,463 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           pollHTML = renderPoll1(c, tweetId, commentId, myVoteIndex);
         }
 
-  container.innerHTML = `
-    ${originalQuoted}
-    ${parentReply}
-    <div class="comment" style="border-bottom:var(--border);padding-bottom:10px;margin-bottom:10px;" id="comment-${commentId}" data-id="${commentId}" data-community-id="${comid || null}" data-tweet="${tweetId}">
-      <div class="flex" style="gap:10px;">
-        <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
-              ${(c.mentions && c.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-        <strong class="user-link" data-uid="${c.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
-        ${isPremium ? `<img src="/image/check.svg" style="margin:0 -5px;">` : ""}
-        <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${createdAt}</span>
-        <span class="cmenubtn" data-text="${c.text}" data-private="${c.isPrivate || false}" data-community-id="${comid || null}" data-author="${c.uid}" data-id="${commentId}" style="margin-left:auto;" data-tweet="${tweetId}">
-          <img src="/image/three-dots.svg">
-        </span>
-      </div>
-      ${communityHTML}
-      <p>${parsedText}</p> ${translateHTML1} ${editHTML}
-        ${mediaHTML}
-        ${donationHTML}
-        ${privateHTML}
-        ${pollHTML}
-            <div class="flex" style="margin:0;gap:13px;">
-              ${c.isHidden ? "" : `
-                <span class="comment-like-btn" data-id="${commentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
-                  <div id="${likeId}" class="clikeicon" style="height:20px">
-                    <img src="/image/heart.svg">
-                  </div>
-                  <span style="color:#757779;" id="comment-like-count-${commentId}">${c.likeCount > 0 ? formatNumber(c.likeCount) : ""}</span>
-                </span>
+  const random1 = randomString(14);
 
-                <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${commentId}" data-tweet="${tweetId}">
-                  <img src="/image/message.svg"> ${c.replyCount > 0 ? formatNumber(c.replyCount) : ""}
-                </span>
+  let bannedinfo = "";
 
-                ${c.isPrivate || c.isPrivateParent || c.isHidden ? "" :
-                  `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${commentId}">
-                    <img src="/image/rewint.svg"> ${c.retweetCount > 0 ? formatNumber(c.retweetCount) : ""}
-                  </span>`
-                }
-              `}
+  if (d.banned && currentUserRole === "admin") {
+    bannedinfo = `
+      <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d.bannedFor}</p>
+    `;
+  }
+
+  const content1 = `
+    ${communityHTML}
+    <p>${parsedText}</p> 
+    ${translateHTML1} 
+    ${bannedinfo}
+    ${mediaHTML}
+    ${donationHTML}
+    ${privateHTML}
+    ${pollHTML}
+  `;
+
+  let likeId67, quotedLikeRef = "";
+  let editHTML67 = "";
+
+  if (!c.parentId && document.getElementById("tweetViewer").classList.contains("hidden")) {
+      let quotedRef;
+      if (window.communityID != null && isFromMain == false) {
+        quotedRef = doc(db, "communities", window.communityID, "posts", tweetId);
+        quotedLikeRef = `communities/${window.communityID}/posts/${tweetId}/likes/${auth.currentUser.uid}`
+      } else if (communityId) {
+        quotedRef = doc(db, "communities", communityId, "posts", tweetId);
+        quotedLikeRef = `communities/${communityId}/posts/${tweetId}/likes/${auth.currentUser.uid}`
+      } else {
+        quotedRef = doc(db, "tweets", tweetId);
+        quotedLikeRef = `tweets/${tweetId}/likes/${auth.currentUser.uid}`;
+      }
+
+      likeId67 = randomString(14);
+
+      const quotedSnap = await getDoc(quotedRef);
+      if (quotedSnap.exists()) {
+        quoted = quotedSnap.data();
+        const parsedQuoted = await parseMentionsToLinks(quoted.text || "", quoted.mentions || []);
+        const {
+          username,
+          avatar,
+          displayName,
+          d: d1
+        } = await getUserData(quoted.uid);
+
+        const hasText = quoted.text?.trim()?.length > 0;
+        const hasImage = quoted.media && quoted.mediaType === "image";
+        const hasVideo = quoted.media && quoted.mediaType === "video";
+
+        let titleHTML2 = "";
+        if (quoted.title) {
+          titleHTML2 = `<h3 style="margin:10px 0;">${escapeHTML(quoted.title)}</h3>`
+        }
+
+        if (quoted.edited) {
+          editHTML67 = `
+          <img src="/image/editicon.svg" title="edited at ${formatTime(quoted.edited)} ${quoted.editAfterComment ? "click me" : ""}" class="editedatt edit2>
+        `
+        }
+
+        const defaultLanguage = getDefaultLanguage();
+        const isTranslate = isTranslateEnabled();
+
+        let translateHTML = "";
+        if (quoted.language && quoted.language !== defaultLanguage && isTranslate) {
+          const random = Math.floor(Math.random() * 10000);
+          translateHTML = `
+            <div class="translate-wrapper tr8" style="margin-top:5px;margin-bottom:10px;
+        ">
+              <span
+                class="translate-btn"
+                data-id="${tweetId}"
+                data-random="${random}"
+                data-from="${quoted.language}"
+                data-to="${defaultLanguage}"
+                data-title="null"
+                style="color:#B0C4DE;cursor:pointer;font-size:15px;"
+              >
+                Translate from ${quoted.language}
+              </span>
+              <div
+                id="translated-${tweetId}-${random}"
+                class="translated-text"
+                style="display:none;color:grey;font-size:16px;"
+              ></div>
             </div>
-    </div>`;
-  const likeEl = container.querySelector(`#${likeId}`);
-  getSnap(commentLikeRef, likeEl);
+          `;
+        }
+
+        let pollHTML = "";
+        if (quoted.poll && Array.isArray(quoted.poll.options)) {
+          const uid = auth.currentUser?.uid;
+          let myVoteIndex = null;
+          if (uid) {
+            let voteRef;
+            if (window.communityID != null) {
+              voteRef = doc(db, "communities", window.communityID, "posts", tweetId, "votes", uid);
+            } else {
+              voteRef = doc(db, "tweets", tweetId, "votes", uid);
+            }
+            const voteSnap = await getDoc(voteRef);
+            if (voteSnap.exists()) {
+              myVoteIndex = voteSnap.data().optionIndex;
+            }
+          }
+          pollHTML = renderPoll(quoted, tweetId, myVoteIndex);
+        }
+
+        let baninfo1 = "";
+
+        if (d1.banned === true && currentUserRole === "admin") {
+          baninfo1 = `
+            <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d1.bannedFor}</p>
+          `;
+        }
+
+        const info67 = `
+        ${quoted.isHidden ? "" : `
+                <div class="flex">
+                  <span style="cursor:pointer;color:#757779" data-community-id="${quoted.sharedFromCommunity || window.communityID || quoted.communityId || comid || null}" class="like-btn" id="likeBtn-${tweetId}">
+                    <div id="${likeId67}" class="likeicon" style="height:20px">
+                      <img loading='lazy' src="/image/heart.svg">
+                    </div>
+                    ${quoted.likeCount > 0 ? `<span id="likeCount-${tweetId}">${quoted.likeCount}</span>` : ""}
+                  </span>
+                  <span style="cursor:pointer;color:#757779" class="comment-btn" data-id="${tweetId}">
+                    <img loading='lazy' src="/image/message.svg"> ${quoted.commentCount > 0 ? quoted.commentCount : ""}
+                  </span>
+                  <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}">
+                    <img loading='lazy' src="/image/rewint.svg"> ${quoted.retweetCount > 0 ? quoted.retweetCount : ""}
+                  </span>
+                  <div style="margin-left:auto;">
+                    <span class="viewbtn" style="margin-left:10px;color:#757779"><img loading='lazy' src="/image/chart.svg"> ${quoted.viewsCount > 0 ? quoted.viewsCount : ""}</span>
+                  </div>
+                </div>  
+        `}
+      `;
+
+        if (d1.banned === true && currentUserRole != "admin") {
+          parent1 = `
+          <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="/image/default-avatar.jpg" width="30">
+              <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">Suspended user</strong>
+            </div>
+            <div class="quoted-body">
+              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 6px;color:grey">This Wynt is from a suspended user</p>
+            </div>
+          </div>`;
+        } else {
+          if (hasImage && hasText) {
+            const containsSpoiler = quoted.sensitiveMedia === true;
+            const src = base91ToImageSrc(quoted.media);
+
+            parent1 = `
+            <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }
+                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} ${editHTML67}</span>
+                <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
+                  <img src="/image/three-dots.svg">
+                </span>
+              </div>
+              <div class="quoted-body"> 
+                ${titleHTML2} 
+                <p style="margin:0;">${parsedQuoted}</p>
+                ${translateHTML2}
+                ${baninfo1}
+                ${containsSpoiler ?
+                    `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
+                      <div class="spoiler-overlay">
+                        <div class="spoilertxt">sensitive</div>
+                      </div>
+                      <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                    </div>` :
+                    `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
+                      <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                    </div>`
+                }
+                ${pollHTML}
+                ${info67}
+              </div>
+            </div>`;
+          } else if (hasVideo && hasText) {
+            const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const containsSpoiler = quoted.sensitiveMedia === true;
+
+            parent1 = `
+            <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }
+                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} </span>
+                <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
+                  <img src="/image/three-dots.svg">
+                </span>
+              </div>
+              <div class="quoted-body">
+                ${titleHTML2}
+                <p style="margin:0;">${parsedQuoted}</p> 
+                ${translateHTML2}
+                ${baninfo1}
+                
+                ${containsSpoiler ?
+                    `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
+                      <div class="spoiler-overlay">
+                        <div class="spoilertxt">sensitive</div>
+                      </div>
+                      <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>` :
+                    `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
+                      <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>`
+                }
+                ${pollHTML}
+                ${info67}
+              </div>
+            </div>`;
+            getSupabaseVideo(quoted.media, vidId);
+          } else {
+            parent1 = `
+            <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
+                  onerror="this.src='/image/default-avatar.jpg'" width="30">
+                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }
+                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">
+                  ${escapeHTML(displayName || 'Unknown')}
+                </strong>
+                <span style="color:grey;font-size:12px;">
+                  <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)}
+                </span>
+                ${editHTML67}
+                <span style="cursor:pointer;margin-left:auto" data-community-id="${quoted.communityId || null}" data-author="${quoted.uid}" data-text="${quoted.text}" class="menubtn"><img src="/image/three-dots.svg"></span>
+              </div>
+              <div class="quoted-body">
+                ${titleHTML2}
+                <p style="margin:6px 0 12px;">${parsedQuoted}</p> 
+                ${translateHTML2}
+                ${baninfo1}
+                ${pollHTML}
+                ${info67}
+              </div>
+            </div>`;
+          }
+        }
+      } else {
+        parent1 = `
+          <div class="quoted-comment actuallyATweet quotedTweet">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+            <img class="avatar" src="/image/default-avatar.jpg" width="30">
+            <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer">System</strong>
+              <span style="color:grey;font-size:12px;">
+                <img src="/image/icon.png" height="20" width="20" style="margin:0; margin-left:-5px;">
+              </span>
+            </div>
+            <div class="quoted-body">
+            <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;"><i>this Wynt is unavailable</i></p>
+            </div>
+          </div>`;
+      }
+  }
+
+  if (d.banned && currentUserRole != "admin") {
+    container.innerHTML = `
+      ${parent1}
+      ${parentReply}
+      <div class="comment" style="border-bottom:var(--border);padding-bottom:10px;margin-bottom:10px;" id="comment-${commentId}" data-id="${commentId}" data-community-id="${comid || null}" data-tweet="${tweetId}">
+        <div class="flex" style="gap:10px;">
+          <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+          <strong class="user-link" data-uid="${c.uid}" style="cursor:pointer;font-size:17px;">Suspended user</strong>
+          <span style="color:#757779;font-size:12px">${createdAt}</span>
+        </div>
+        <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 6px;color:grey">This Wynt is from a suspended user</p>
+      </div>`;
+  } else {
+    container.innerHTML = `
+      ${parent1}
+      ${parentReply}
+      <div class="comment" style="border-bottom:var(--border);padding-bottom:10px;margin-bottom:10px;" id="comment-${commentId}" data-id="${commentId}" data-community-id="${comid || null}" data-tweet="${tweetId}">
+        <div class="flex" style="gap:10px;">
+          <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+          ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+            `${c.likedByCreator === true ? 
+              `<img style="margin-right:-3px" src="/image/star.svg">` :
+              `${(c.mentions && c.mentions.includes(auth.currentUser.uid)) ?
+                `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                ""
+              }`
+            }`
+          }
+          <strong class="user-link" data-uid="${c.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
+          <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${createdAt} ${editHTML}</span>
+          <span class="cmenubtn" data-text="${c.text}" data-private="${c.isPrivate || false}" data-community-id="${comid || null}" data-author="${c.uid}" data-id="${commentId}" style="margin-left:auto;" data-tweet="${tweetId}">
+            <img src="/image/three-dots.svg">
+          </span>
+        </div>
+        ${c.isHidden ? `
+          <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random1}" onclick="
+            this.classList.add('hidden');
+            document.getElementById('commentItem-${random1}').classList.remove('hidden');
+          ">
+            <p style="margin:0;font-size:15px;">This reply ${c.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${c.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+          </button>
+          <div class="hidden" id="commentItem-${random1}">
+            ${content1}
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                  <img src="/image/eye.svg">
+                  <span style="color: grey; font-size: 13px;">
+                    This reply is hidden ${c.hiddenByAuthority ? `by moderators ${c.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${c.hiddenReason ? `(hidden for: ${c.hiddenReason})` : ""}` : ""}` : `${c.hiddenByAdmin ? `by community admin ${c.hiddenReason ? `(hidden for: ${c.hiddenReason})` : ""}` : `by Wynt author ${c.hiddenReason ? `(hidden for: ${c.hiddenReason})` : ""}`}`}
+                  </span>
+                </div>
+          </div>` : `
+          ${content1}
+        `}
+        <div class="flex" style="margin:0;gap:25px;">
+          ${c.isHidden ? "" : `
+            <span class="comment-like-btn" data-id="${commentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+              <div id="${likeId}" class="clikeicon" style="height:20px">
+                <img src="/image/heart.svg">
+              </div>
+              <span style="color:#757779;" id="comment-like-count-${commentId}">${c.likeCount > 0 ? formatNumber(c.likeCount) : ""}</span>
+            </span>
+
+            <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${commentId}" data-tweet="${tweetId}">
+              <img src="/image/message.svg"> ${c.replyCount > 0 ? formatNumber(c.replyCount) : ""}
+            </span>
+
+            ${c.isPrivate || c.isPrivateParent || c.isHidden ? "" :
+              `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${commentId}">
+                <img src="/image/rewint.svg"> ${c.retweetCount > 0 ? formatNumber(c.retweetCount) : ""}
+              </span>`
+            }
+
+            <span class="viewbtn" style="margin-left:auto;color:#757779"><img loading="lazy" src="/image/chart.svg"> ${c.viewsCount > 0 ? c.viewsCount : ""}</span>
+          `}
+        </div>
+        ${c.retweetCount > 0 ? `
+          <div style="width:100%;display:flex;align-items:center;cursor:pointer;">
+            <span 
+              data-tweet="${tweetId}"
+              data-comment="${commentId}"
+              ${c.communityId ? `data-community="${t.communityId}"` : ""}
+              class="xviewQuotes"
+              style="font-size:14px;margin-left:auto;margin-top:10px;color:grey">
+                View quotes
+            </span>
+          </div>  
+        ` : ""}
+      </div>`;
+  }
+
+  if (translateHTML != "") {
+    container.querySelector(".tr6 .translate-btn").dataset.text = parent.text;
+  }
+  if (translateHTML1 != "") {
+    container.querySelector(".tr7 .translate-btn").dataset.text = c.text;
+  }
+  if (translateHTML2 != "") {
+    container.querySelector(".tr8 .translate-btn").dataset.text = quoted.text;
+  }
+
+  if (editHTML != "") { if (c.editAfterComment) {
+    container.querySelector(".edit0").onclick = () => {
+      showOriginal(c.originalText, c.mentions || []);
+    };
+  }}
+  if (editHTML2 != "") { if (parent.editAfterComment) {
+    container.querySelector(".edit1").onclick = () => {
+      showOriginal(parent.originalText, parent.mentions || [], parent.originalTitle);
+    };
+  }}
+  if (editHTML67 != "") { if (quoted.editAfterComment) {
+    container.querySelector(".edit2").onclick = () => {
+      showOriginal(quoted.originalText, quoted.mentions || [], quoted.originalTitle);
+    };
+  }}
+
+  if (likeId) {
+    const likeEl = container.querySelector(`#${likeId}`);
+    if (likeEl) getSnap(commentLikeRef, likeEl);
+  }
+
+  if (document.getElementById("tweetViewer").classList.contains("hidden") && c.parentId && likeId1) { 
+    const likeEl1 = container.querySelector(`#${likeId1}`);
+    if (likeEl1) getSnap(parentLikeRef, likeEl1);
+  } else if (document.getElementById("tweetViewer").classList.contains("hidden") && !c.parentId && likeId67) {
+    const likeEl2 = container.querySelector(`#${likeId67}`);
+    if (likeEl2) getSnap(quotedLikeRef, likeEl2);
+  }
+
+  document.getElementById("replyList").classList.remove("hidden");
+
+  if (window.communityID) {
+    const viewRef = doc(db, "communities", window.communityID, "posts", tweetId, "views",  auth.currentUser.uid);
+    const postRef = doc(db, "communities", window.communityID, "posts", tweetId);
+    const viewSnap = await getDoc(viewRef);
+    if (!viewSnap.exists()) {
+      await setDoc(viewRef, {
+        viewedAt: new Date()
+      });
+      updateDoc(postRef, {
+        viewsCount: increment(1)
+      });
+    }
+  } else if (communityId) {
+    const viewRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId, "views",  auth.currentUser.uid);
+    const postRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId);
+    const viewSnap = await getDoc(viewRef);
+    if (!viewSnap.exists()) {
+      await setDoc(viewRef, {
+        viewedAt: new Date()
+      });
+      updateDoc(postRef, {
+        viewsCount: increment(1)
+      });
+    }
+  } else {
+    const viewRef = doc(db, "tweets", tweetId, "comments", commentId, "views", auth.currentUser.uid);
+    const postRef = doc(db, "tweets", tweetId, "comments", commentId);
+    const viewSnap = await getDoc(viewRef);
+    if (!viewSnap.exists()) {
+      await setDoc(viewRef, {
+        viewedAt: new Date()
+      });
+      updateDoc(postRef, {
+        viewsCount: increment(1)
+      });
+    }
+  }
 }
 
 document.body.addEventListener("click", async (e) => {
@@ -767,6 +1126,7 @@ document.body.addEventListener("click", async (e) => {
   if (comid && comid != "null" && comid != null) {
     hascom = comid;
   }
+
   const actionEl = body.querySelector(".reply-btn");
   if (!actionEl) return;
 
@@ -789,36 +1149,50 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest("a") ||
     e.target.closest(".ownerr") ||
     e.target.closest(".vote-btn1") ||
-    e.target.closest(".vote-btn")
+    e.target.closest(".vote-btn") ||
+    e.target.closest(".xviewQuotes") ||
+    e.target.closest(".xviewQuotes") ||
+    e.target.closest(".editedatt")
   ) {
     return;
   }
   e.preventDefault();
+
   document.getElementById("commentSearch").classList.add("hidden");
+
   const commentId = actionEl.dataset.id;
   const tweetId = actionEl.dataset.tweet;
+
   const overlay = document.getElementById("commentViewer");
   const box = overlay.querySelector("#appendComment");
   const replyList = overlay.querySelector("#replyList");
+
   overlay.classList.remove("hidden");
   box.innerHTML = `<div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div></div><div class="skeleton-dot"></div></div><div class="skeleton-body"><div class="skeleton-line long"></div><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div><div class="skeleton-footer"><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="invisible skeleton-pill small"></div><div class="skeleton-pill small last"></div></div></div>`;
   replyList.innerHTML = ``;
+
   let commentRef;
   if (hascom) {
     commentRef = doc(db, "communities", hascom, "posts", tweetId, "comments", commentId);
   } else {
     commentRef = doc(db, "tweets", tweetId, "comments", commentId);
   }
+
   const snap = await getDoc(commentRef);
   if (snap.exists()) {
     const commentData = {
       id: snap.id,
       ...snap.data()
     };
-    await renderCommentViewer(commentData, commentId, tweetId, box, hascom);
+    renderCommentViewer(commentData, commentId, tweetId, box, hascom);
+  } else {
+    box.innerHTML = `
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>
+    `;
   }
   loadComments(tweetId, true, commentId, replyList, hascom);
 });
+
 document.getElementById("commentviewerclose").addEventListener("click", async () => {
   const overlay = document.getElementById("commentViewer");
   overlay.classList.add("hidden");
@@ -888,16 +1262,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       id: snap.id,
       ...snap.data()
     };
-    await renderCommentViewer(commentData, commentId, tweetId, box, communityId);
-    await loadComments(tweetId, true, commentId, replyList, communityId);
+    renderCommentViewer(commentData, commentId, tweetId, box, communityId);
+    loadComments(tweetId, true, commentId, replyList, communityId);
   } else {
     box.innerHTML = `
-      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-        <div style="max-width:400px;text-align:left;">
-          <h2 style="margin:0;">No reply found</h2>
-          <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-        </div>
-      </div>`;
+    <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
     replyList.innerHTML = "";
   }
   document.body.classList.add("no-scroll");
@@ -939,7 +1308,9 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest(".hiddenCon") || 
     e.target.closest(".internal-link") || 
     e.target.closest(".translate-btn") ||
-    e.target.closest("a")
+    e.target.closest("a") ||
+    e.target.closest(".viewQuotes") ||
+    e.target.closest(".editedatt") 
   ) {
     return;
   }
@@ -969,17 +1340,12 @@ document.body.addEventListener("click", async (e) => {
         ...snap.data()
       };
 
-      await renderCommentViewer(commentData, commentId, tweetId, box, hascom);
-      await loadComments(tweetId, true, commentId, replyList, hascom);
+      renderCommentViewer(commentData, commentId, tweetId, box, hascom);
+      loadComments(tweetId, true, commentId, replyList, hascom);
       document.body.classList.add("no-scroll");
     } else {
       box.innerHTML = `
-        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No reply found</h2>
-            <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-          </div>
-        </div>`;
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
       replyList.innerHTML = "";
     }
   } catch (err) {
@@ -1006,64 +1372,58 @@ document.addEventListener("mousedown", (e) => {
   window.open(url, "_blank", "noopener");
 });
 
-async function loadparent(communityId, tweetId, parentId, element, isFromMain) {
+async function renderQuoted(communityId, tweetId, parentId, element, isFromMain) {
     document.getElementById(`more-replies-${element}`).textContent = "loading...";
     document.getElementById(`more-replies-${element}`).style.textDecoration = "none";
 
     let parentReply = "";
     let parentRef;
+    let likeRef;
+    let editHTML2 = "";
 
     if (window.communityID != null && isFromMain == false) {
       parentRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", parentId);
+      likeRef = `communities/${window.communityID}/posts/${tweetId}/comments/${parentId}/likes/${auth.currentUser.uid}`
     } else if (communityId != null && communityId != "null" && communityId != "undefined" && communityId != undefined) {
       parentRef = doc(db, "communities", communityId, "posts", tweetId, "comments", parentId);
+      likeRef = `communities/${communityId}/posts/${tweetId}/comments/${parentId}/likes/${auth.currentUser.uid}`
     } else {
       parentRef = doc(db, "tweets", tweetId, "comments", parentId);
+      likeRef = `tweets/${tweetId}/comments/${parentId}/likes/${auth.currentUser.uid}`
     }
+
+    const likeId2 = randomString(14);
+    let translateHTML = "";
+    let parent;
 
     const parentSnap = await getDoc(parentRef);
     if (parentSnap.exists()) {
-      const parent = parentSnap.data();
+      parent = parentSnap.data();
 
       let parsedparent = "";
       if (parent.text) {
         parsedparent = await parseMentionsToLinks(parent.text || "", parent.mentions || []);
       }
 
-      const userSnap = await getDoc(doc(db, "users", parent.uid));
-      const { username, avatar, displayName, IQ, premium } = await getUserData(parent.uid);
-      const userData = userSnap.exists() ? userSnap.data() : {};
-      const premiumExpiry = premium ? premium.toDate() : null;
-      const now = new Date();
-      const isPremium = premiumExpiry && premiumExpiry > now;
+      const { username, avatar, displayName, d } = await getUserData(parent.uid);
 
       const hasText = parent.text?.trim()?.length > 0;
       const hasImage = parent.media && parent.mediaType === "image";
       const hasVideo = parent.media && parent.mediaType === "video";
 
-      const likeCount = parent.likeCount || 0;
-      const viewCount = parent.viewsCount || 0;
-      const commentCount = parent.commentCount || 0;
-      const retweetCount = parent.retweetCount || 0;
-
-      let editHTML2 = "";
       if (parent.edited) {
         editHTML2 = `
-        <span style="color:grey;font-size:14px;display:flex;align-items:center;gap:5px;">
-          ${editicon} 
-          ${formatTime(parent.edited)}
-        </span>
+        <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} ${parent.editAfterComment ? "click me" : ""}" class="edit0">
       `
       }
 
       const defaultLanguage = getDefaultLanguage();
       const isTranslate = isTranslateEnabled();
 
-      let translateHTML = "";
       if (parent.language && parent.language !== defaultLanguage && isTranslate) {
         const random = Math.floor(Math.random() * 10000);
         translateHTML = `
-          <div class="translate-wrapper" style="margin-top:-5px;margin-bottom:5px;
+          <div class="translate-wrapper tr9" style="margin-top:-5px;margin-bottom:5px;
           ">
             <span
               class="translate-btn"
@@ -1071,7 +1431,6 @@ async function loadparent(communityId, tweetId, parentId, element, isFromMain) {
               data-random="${random}"
               data-from="${parent.language}"
               data-to="${defaultLanguage}"
-              data-text="${parent.text}"
               data-title="null"
               style="color:#B0C4DE;cursor:pointer;font-size:15px;"
             >
@@ -1105,196 +1464,371 @@ async function loadparent(communityId, tweetId, parentId, element, isFromMain) {
           pollHTML = renderPoll1(parent, tweetId, parentId, myVoteIndex);
         }
 
-      if (hasImage && hasText) {
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const src = base91ToImageSrc(parent.media.url);
-        const path = `${tweetId}-${parentId}`;
-
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
+      const infos = `
+              <div class="flex" style="display:Flex;gap:25px;">
+              ${parent.isHidden ? "" : `
+              <span class="comment-like-btn" data-id="${parentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+                <div id="${likeId2}" class="clikeicon" style="height:20px">
+                  <img loading='lazy' src="/image/heart.svg">
+                </div>
+                <span style="color:#757779;" id="comment-like-count-${parentId}">${parent.likeCount > 0 ? parent.likeCount : ""}</span>
+              </span>
+              <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${parentId}" data-tweet="${tweetId}">
+                <img loading='lazy' src="/image/message.svg"> ${(parent.replyCount ?? 0) > 0 ? parent.replyCount : ""}
+              </span>
+              <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${parentId}">
+                <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
+              </span>
+              <span class="viewbtn" style="margin-left:auto;color:#757779"><img loading="lazy" src="/image/chart.svg"> ${parent.viewsCount > 0 ? parent.viewsCount : ""}</span>`
               }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body"> 
-            <p style="margin:0;">${parsedparent}</p>
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-      } else if (hasVideo && hasText) {
-        const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const path = `${tweetId}-${parentId}`;
+              </div>
+      `
 
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body">
-            <p style="margin:0;">${parsedparent}</p> 
-            ${translateHTML}
-            ${editHTML2}
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <video id="${vidId}" controls style="width: auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <video id="${vidId}" controls style="width:auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-        getSupabaseVideo(parent.media.url, vidId);
-      } else if (hasVideo) {
-        const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const path = `${tweetId}-${parentId}`;
+      let baninfo = "";
 
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
-          </div>
-          <div class="quoted-body">
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <video id="${vidId}" controls style="width: auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <video id="${vidId}" controls style="width:auto !important; height: 250px; object-fit: cover; border-radius:15px;">
-                    Your browser does not support the video tag.
-                  </video>
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
-        getSupabaseVideo(parent.media.url, vidId);
-        } else if (hasImage) {
-        const containsSpoiler = /\|\|.+?\|\|/.test(parent.text);
-        const src = base91ToImageSrc(parent.media.url);
-        const path = `${tweetId}-${parentId}`;
+      if (d.banned === true && currentUserRole === "admin") {
+        baninfo = `
+          <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d.bannedFor}</p>
+        `;
+      }
 
+      if (d.banned === true && currentUserRole != "admin") {
         parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
-              }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-            <span style="color:grey;font-size:12px;"> ${isPremium ? ` <img src="/image/check.svg" style="margin-left:-5px">` : ""} <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
-              <img src="/image/three-dots.svg">
-            </span>
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">
+                Suspended user
+              </strong>
+              <span style="color:grey;font-size:12px;">
+                ${formatDate(parent.createdAt)}
+              </span>
+            </div>
+            <div class="quoted-body">
+              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 6px;color:grey">This reply is from a suspended user</p>
+            </div>
           </div>
-          <div class="quoted-body"> 
-            ${containsSpoiler ?
-                `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                  <div class="spoiler-overlay">
-                    <div class="spoilertxt">sensitive</div>
-                  </div>
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>` :
-                `<div class="attachment" style="margin-bottom:5px">
-                  <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                </div>`
-            }
-            ${pollHTML}
-          </div>
-        </div>`;
+        `;
       } else {
-        const path = `${tweetId}-${parentId}`;
-
-        parentReply = `
-        ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="loadparent('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
-        <div id="${path}"></div>
-        <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
-          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-            <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
-              onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
-                `<div class="iq" style="background:#fcd15b;margin:0">mention</div>` :
-                `<div class=iq style="margin:0">${IQ}</div>` 
+        if (hasImage && hasText) {
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const src = base91ToImageSrc(parent.media.url);
+          const path = `${tweetId}-${parentId}`;
+          const content = `
+              <p style="margin:0;">${parsedparent}</p>
+              ${translateHTML}
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>`
               }
-            <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">
-              ${escapeHTML(displayName || 'Unknown')}
-            </strong>
-            <span style="color:grey;font-size:12px;">
-              ${isPremium ? `<img src="/image/check.svg" style="margin:0; margin-left:-5px;">` : ""}
-              <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)}
-            </span>
-            <span style="cursor:pointer;margin-left:auto" data-community-id="${parent.communityId || null}" data-author="${parent.uid}" data-id="${parentId}" data-tweet="${tweetId}" data-text="${parent.text}" class="cmenubtn"><img src="/image/three-dots.svg"></span>
-          </div>
-          <div class="quoted-body">
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" : 
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}</span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body"> 
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+        } else if (hasVideo && hasText) {
+          const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const path = `${tweetId}-${parentId}`;
+          const content = `
+              <p style="margin:0;">${parsedparent}</p> 
+              ${translateHTML}
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>`
+              }
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}</span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+          getSupabaseVideo(parent.media.url, vidId);
+        } else if (hasVideo) {
+          const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const path = `${tweetId}-${parentId}`;
+          const content = `
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>`
+              }
+              ${pollHTML}
+          `;
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+                ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+          getSupabaseVideo(parent.media.url, vidId);
+          } else if (hasImage) {
+          const containsSpoiler = parent.sensitiveMedia === true;
+          const src = base91ToImageSrc(parent.media.url);
+          const path = `${tweetId}-${parentId}`;
+          const content = `
+              ${baninfo}
+              ${containsSpoiler ?
+                  `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                    <div class="spoiler-overlay">
+                      <div class="spoilertxt">sensitive</div>
+                    </div>
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>` :
+                  `<div class="attachment" style="margin-bottom:5px">
+                    <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                  </div>`
+              }
+              ${pollHTML}
+          `
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+                <img src="/image/three-dots.svg">
+              </span>
+            </div>
+            <div class="quoted-body"> 
+              ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+                ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `} 
+              ${infos}
+            </div>
+          </div>`;
+        } else {
+          const path = `${tweetId}-${parentId}`;
+          const content = `
             <p style="margin:6px 0 12px;">${parsedparent}</p> 
             ${translateHTML}
-            ${editHTML2}
+            ${baninfo}
             ${pollHTML}
-          </div>
-        </div>`;
+          `
+
+          parentReply = `
+          ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
+          <div id="${path}"></div>
+          <div style="padding-top:0;" class="quoted-comment quotedTweet" data-community-id="${parent.communityId || null}" data-id="${tweetId}" data-comment-id="${parentId}">
+            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+              <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
+                onerror="this.src='/image/default-avatar.jpg'" width="30">
+              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                `${parent.likedByCreator === true ? 
+                  `<img style="margin-right:-3px" src="/image/star.svg">` :
+                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                    ""
+                  }`
+                }`
+              }
+              <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer">
+                ${escapeHTML(displayName || 'Unknown')}
+              </strong>
+              <span style="color:grey;font-size:12px;">
+                <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}
+              </span>
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${parent.communityId || null}" data-author="${parent.uid}" data-id="${parentId}" data-tweet="${tweetId}" data-text="${parent.text}" class="cmenubtn"><img src="/image/three-dots.svg"></span>
+            </div>
+            <div class="quoted-body">
+            ${parent.isHidden ? `
+              <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${random}" onclick="
+                  this.classList.add('hidden');
+                  document.getElementById('commentItem-${random}').classList.remove('hidden');">
+                  <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                </button>
+                <div class="hidden" id="commentItem-${random}">
+              ${content}
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                    <img src="/image/eye.svg">
+                    <span style="color: grey; font-size: 13px;">
+                      This reply is hidden ${parent.hiddenByAuthority ? `by moderators ${parent.uid === auth.currentUser.uid || currentUserRole === "admin" ? `${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : ""}` : `${parent.hiddenByAdmin ? `by community admin ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}` : `by Wynt author ${parent.hiddenReason ? `(hidden for: ${parent.hiddenReason})` : ""}`}`}
+                    </span>
+                  </div>
+              </div>` : `
+              ${content}
+              `}
+              ${infos}
+            </div>
+          </div>`;
+        }
       }
     } else {
       parentReply = `
@@ -1311,8 +1845,26 @@ async function loadparent(communityId, tweetId, parentId, element, isFromMain) {
         </div>
       </div>`;
     }
+
+    const el = document.getElementById(`${element}`)
+
     document.getElementById(`more-replies-${element}`).remove();
-    document.getElementById(`${element}`).innerHTML = parentReply;
+    el.innerHTML = parentReply;
+
+    if (likeId2) {
+      const likeEl = el.querySelector(`#${likeId2}`);
+      if (likeEl) getSnap(likeRef, likeEl);
+    }
+
+    if (editHTML2 != "") { if (parent.editAfterComment) {
+      container.querySelector(".edit0").onclick = () => {
+        showOriginal(parent.originalText, parent.mentions || [], parent.originalTitle);
+      };
+    }}
+
+    if (translateHTML != "") {
+      el.querySelector(".tr9 .translate-btn").dataset.text = parent.text;
+    }
 }
 
-window.loadparent = loadparent;
+window.renderQuoted = renderQuoted;

@@ -1,8 +1,8 @@
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, auth, db, signOut, serverTimestamp } from "./firebase.js";
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, auth, db, signOut, serverTimestamp } from "./firebase.js";
 import { extractMentions } from "./mention.js";
-import { parseMentionsToLinks, log, confirmDialog } from "./texts.js";
+import { parseMentionsToLinks, log, confirmDialog, formatNum } from "./texts.js";
 import { applyUserEffect } from "./profile.js";
-import { compressImageTo480, dataUrlToBase91, base91ToImageSrc } from "./attachments.js";
+import { compressImageTo480, base91ToImageSrc } from "./attachments.js";
 import { quickImageNSFWCheck, logNSFWResult } from "./nsfw.js";
  
 const bannerInput = document.getElementById("banner-input");
@@ -116,111 +116,6 @@ document.getElementById('openMe').addEventListener("click", async () => {
   document.getElementById("description-edit").value = description;
 
   usernameInput.value = data.username;
-
-  const effectEquippedEl = document.getElementById("effect-equipped");
-  effectEquippedEl.innerHTML = "";
-  const effect = data.effect || "none";
-
-  let effectHTML = "";
-
-  switch (effect) {
-    case "002":
-      effectHTML = `<img src="/image/effects/flame.gif" alt="Flame Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "003":
-      effectHTML = `<img src="/image/effects/rain.webp" alt="Rain Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "005": 
-      effectHTML = `<img src="/image/effects/earth.gif" alt="earth Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "008":
-      effectHTML = `<img src="/image/effects/wave.gif" alt="wave Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "009":
-      effectHTML = `<img src="/image/effects/fih.gif" alt="fih Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "010":
-      effectHTML = `<img src="/image/effects/sakura.gif" alt="sakura Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    case "custom-001":
-      effectHTML = `<img src="/image/effects/custom/phoebe.gif" alt="Phoebe Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-      break;
-    default:
-      effectHTML = `none`;
-      break;
-  }
-
-  effectEquippedEl.innerHTML = effectHTML;
-});
-
-const changeEffectBtn = document.getElementById("change-effect");
-const effectOverlay = document.getElementById("effectOverlay");
-const effectOptions = document.getElementById("effectOptions");
-const saveEffectBtn = document.getElementById("saveEffect");
-const cancelEffectBtn = document.getElementById("cancelEffect");
-
-let selectedEffect = null;
-let effectToSave = null;
-
-changeEffectBtn.addEventListener("click", async () => {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
-
-  const docSnap = await getDoc(doc(db, "users", uid));
-  if (!docSnap.exists()) return;
-  const data = docSnap.data();
-
-  const owned = data.effectsOwned || [];
-  effectOptions.innerHTML = "";
-
-  if (owned.length === 0) {
-    effectOptions.innerHTML = `<p style="color:grey">You don't own any effects yet.</p>`;
-    effectOverlay.classList.remove("hidden");
-    return;
-  }
-
-  owned.forEach(effect => {
-    let imgSrc = "";
-    let effectName = "";
-    switch (effect) {
-      case "002": imgSrc = "/image/effects/flame.gif"; effectName = "flame"; break;
-      case "003": imgSrc = "/image/effects/rain.webp"; effectName = "rain"; break;
-      case "005": imgSrc = "/image/effects/earth.gif"; effectName = "earth"; break;
-      case "008": imgSrc = "/image/effects/wave.gif"; effectName = "wave"; break;
-      case "009": imgSrc = "/image/effects/fih.gif"; effectName = "fih"; break;
-      case "010": imgSrc = "/image/effects/sakura.gif"; effectName = "sakura"; break;
-      case "none": imgSrc = "/image/default-avatar.jpg"; effectName = "no"; break;
-      case "custom-001": imgSrc = "/image/effects/custom/phoebe.gif"; effectName = "phoebe"; break;
-      default: return;
-    }
-
-    const div = document.createElement("div");
-    let img = "";
-    img = `<img src="${imgSrc}" data-effect="${effect}" style="width:222px;height:auto;border-radius:10px;border:2px solid transparent;cursor:pointer;transition:0.2s ease">`;
-    div.innerHTML = `<div class="effect-item">${img} <span style="color:grey">${effectName} profile effect<span></div>`;
-    div.style.border = "2px solid #2f3336";
-    div.style.borderRadius = "15px";
-    div.className = "sss"
-    div.style.height = "fit-content";
-
-    div.addEventListener("click", () => {
-      document.querySelectorAll("#effectOptions .sss").forEach(i => i.style.border = "2px solid #2f3336");
-      div.style.border = "2px solid var(--color)";
-      selectedEffect = effect;
-      effectToSave = effect; 
-
-      const equipped = document.getElementById("effect-equipped");
-      equipped.innerHTML = `<img src="${imgSrc}" alt="Selected Effect" style="width:222px;height:auto;border-radius:8px;margin-top:10px">`;
-    });
-
-    effectOptions.appendChild(div);
-  });
-
-  effectOverlay.classList.remove("hidden");
-});
-
-saveEffectBtn.addEventListener("click", async () => {
-  effectOverlay.classList.add("hidden");
 });
 
 usernameInput.addEventListener("input", () => {
@@ -290,10 +185,10 @@ saveButton.addEventListener("click", async () => {
     .slice(0, 20);
   const newDescription = descriptionInput.value.trim();
   const newBanner = bannerInput.files[0]
-    ? await compressImageTo480(bannerInput.files[0])
+    ? bannerInput.files[0]
     : bannerPreview.dataset.image;
   const newAvatar = avaInput.files[0]
-    ? await compressImageTo480(avaInput.files[0])
+    ? avaInput.files[0]
     : avaPreview.dataset.image;
 
   if (!newDisplayName) {
@@ -357,8 +252,8 @@ saveButton.addEventListener("click", async () => {
     ])
   ];
 
-  const newbanner = await dataUrlToBase91(newBanner);
-  const newavatar = await dataUrlToBase91(newAvatar);
+  const newbanner = await compressImageTo480(newBanner);
+  const newavatar = await compressImageTo480(newAvatar);
 
   const userRef = doc(db, "users", uid);
   await setDoc(userRef, {
@@ -370,7 +265,6 @@ saveButton.addEventListener("click", async () => {
     banner: newbanner,
     photoURL: newavatar,
     status: newStatus,
-    ...(effectToSave && { effect: effectToSave }),
   }, { merge: true });
 
   profileSubOverlay.classList.add("hidden");
@@ -405,11 +299,6 @@ saveButton.addEventListener("click", async () => {
 });
 
 document.getElementById("banner-delete").addEventListener("click", async () => {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
-
-  const userRef = doc(db, "users", uid);
-
   bannerPreview.style.background = "url('/image/default-banner.png')";
   bannerPreview.dataset.image = "/image/default-banner.png";
 
@@ -417,4 +306,30 @@ document.getElementById("banner-delete").addEventListener("click", async () => {
   bannerPreview.style.backgroundPosition = "center";
   bannerPreview.style.backgroundSize = "cover";
   bannerPreview.style.backgroundColor = "unset";
+});
+
+document.getElementById("settingssvg").addEventListener("click", async () => { 
+  const userRef = doc(db, "users", auth.currentUser.uid);
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.data();
+
+  document.getElementById("my-streak").textContent = userData.streak ? formatNum(userData.streak) : 0;
+  document.getElementById("my-balance").textContent = userData.balance ? formatNum(userData.balance) : 0;
+
+  const checkbox = document.getElementById("seeFollows");
+  const checkbox1 = document.getElementById("seeCom");
+
+  checkbox.checked = userData?.cannotSeeFollows !== true;
+  checkbox.onchange = async () => {
+    await updateDoc(userRef, {
+      cannotSeeFollows: !checkbox.checked
+    });
+  };
+
+  checkbox1.checked = userData?.cannotSeeCom !== true;
+  checkbox1.onchange = async () => {
+    await updateDoc(userRef, {
+      cannotSeeCom: !checkbox1.checked
+    });
+  };
 });

@@ -1,5 +1,4 @@
-import { db, collection, query, orderBy, limit, startAfter, onSnapshot, doc, getDoc, auth, getDocs, where } from "./firebase.js";
-import { renderTweet } from "./index.js";
+import { db, collection, query, getDocs, where } from "./firebase.js";
 
 export async function extractMentions(text) {
   const results = [];

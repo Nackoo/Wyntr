@@ -8,7 +8,6 @@ function base91ToImageSrc(input, mime = "image/jpeg") {
     return "/image/default-avatar.jpg";
   }
 
-  // data:image/... → Blob URL
   if (typeof input === "string" && input.startsWith("data:image/")) {
     const [header, base64] = input.split(",");
     const m = header.match(/data:(.*?);base64/);
@@ -26,7 +25,6 @@ function base91ToImageSrc(input, mime = "image/jpeg") {
     return URL.createObjectURL(blob);
   }
 
-  // Normal URLs → pass through
   if (
     typeof input === "string" &&
     (
@@ -39,7 +37,6 @@ function base91ToImageSrc(input, mime = "image/jpeg") {
     return input;
   }
 
-  // base91 → Blob URL
   const bytes = base91.decode(input);
   const blob = new Blob([bytes], { type: mime });
   return URL.createObjectURL(blob);
@@ -187,17 +184,14 @@ let ffmpeg;
 
 async function compressVideoTo480(file) {
   currentFFmpeg = FFmpeg.createFFmpeg({
-    log: true
+    log: false
   });
   await currentFFmpeg.load();
 
   showCompressionOverlay(true);
 
-  currentFFmpeg.setLogger(({
-    type,
-    message
-  }) => {
-    appendCompressionLog(`[${type}] ${message}`);
+  currentFFmpeg.setProgress(({ ratio }) => {
+    updateCompressionProgress(ratio);
   });
 
   currentFFmpeg.FS("writeFile", "input.mp4", await FFmpeg.fetchFile(file));
@@ -214,6 +208,11 @@ async function compressVideoTo480(file) {
 
   const data = currentFFmpeg.FS("readFile", "output.mp4");
 
+  updateCompressionProgress(1);
+
+  currentFFmpeg.exit();
+  currentFFmpeg = null;
+
   showCompressionOverlay(false);
 
   return new Blob([data.buffer], {
@@ -229,6 +228,7 @@ function showCompressionOverlay(show) {
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "compression-overlay";
+    overlay.classList.add("overlay");
     overlay.style.cssText = `
       display:none;
       position:fixed;
@@ -243,72 +243,101 @@ function showCompressionOverlay(show) {
 
     const box = document.createElement("div");
     box.className = "overlay-box";
-    box.style.cssText = `
-      background: var(--dark);
-      padding:20px;
-      border-radius:10px;
-      color: var(--color);
-      font-family:monospace;
-      width:80%;
-      max-width:600px;
-      max-height:70%;
-      overflow:auto;
-      box-shadow:0 0 20px rgba(0,0,0,0.7);
-    `;
+    box.style.cssText = `background: var(--dark); padding: 20px; border-radius: 10px; color: var(--color); width: 100%; max-width: 400px; box-shadow: rgba(0, 0, 0, 0.7) 0px 0px 20px; font-family: sans-serif;`;
 
     const title = document.createElement("h2");
+    title.id = "compression-title";
     title.textContent = "Compressing...";
-    title.style.cssText = "margin-top:0; color:#fff; font-family:sans-serif; font-size:18px;";
-
-    const logBox = document.createElement("pre");
-    logBox.id = "compression-log";
-    logBox.style.cssText = `
-      margin-top:20px;
-      font-size:12px;
-      white-space:pre-wrap;
-      max-height:300px;
-      overflow:auto;
-      border-radius: 7px;
-      background: var(--light);
+    title.style.cssText = `
+      margin-top:0;
+      color:#fff;
+      font-size:18px;
     `;
 
+    const progressBar = document.createElement("div");
+    progressBar.style.cssText = `
+      width:100%;
+      height:14px;
+      background:#333;
+      border-radius:10px;
+      overflow:hidden;
+      margin-top:20px;
+    `;
+
+    const progressFill = document.createElement("div");
+    progressFill.id = "compression-progress";
+    progressFill.style.cssText = `
+      height:100%;
+      width:0%;
+      background:#00a35d;
+      transition:width 0.2s linear;
+    `;
+
+    progressBar.appendChild(progressFill);
+
     const cancelBtn = document.createElement("div");
-    cancelBtn.innerHTML = `<div class="flex"><button style="width:100%;padding:10px;margin-left:auto;margin-top:10px;border-radius:12px;">Cancel</button></div>`;
+    cancelBtn.innerHTML = `
+      <div class="flex">
+        <button style="width:100%;padding:10px;margin-left:auto;margin-top:15px;border-radius:12px;background:none;border:1px solid grey;color:var(--color);">
+          Cancel
+        </button>
+      </div>
+    `;
+
     cancelBtn.onclick = () => {
       if (currentFFmpeg) {
         try {
           currentFFmpeg.exit();
         } catch {}
       }
+
       overlay.style.display = "none";
+
       const sendBtn = document.getElementById("postBtn");
-      sendBtn.classList.remove("disabled");
-      sendBtn.disabled = false;
+      if (sendBtn) {
+        sendBtn.classList.remove("disabled");
+        sendBtn.disabled = false;
+      }
+
       const sendRetweet = document.getElementById("sendRetweet");
-      sendRetweet.disabled = false;
-      sendRetweet.classList.remove('disabled')
+      if (sendRetweet) {
+        sendRetweet.disabled = false;
+        sendRetweet.classList.remove("disabled");
+      }
+
       const send = document.getElementById("sendComment");
-      send.disabled = false;
-      send.classList.remove("disabled");;
+      if (send) {
+        send.disabled = false;
+        send.classList.remove("disabled");
+      }
     };
 
     box.appendChild(title);
-    box.appendChild(logBox);
+    box.appendChild(progressBar);
     box.appendChild(cancelBtn);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
   }
 
   overlay.style.display = show ? "flex" : "none";
-  if (show) document.getElementById("compression-log").textContent = "";
+
+  if (show) {
+    const bar = document.getElementById("compression-progress");
+    const title = document.getElementById("compression-title");
+
+    if (bar) bar.style.width = "0%";
+    if (title) title.textContent = "Compressing... 0%";
+  }
 }
 
-function appendCompressionLog(msg) {
-  const logBox = document.getElementById("compression-log");
-  if (logBox) {
-    logBox.textContent += msg + "\n";
-    logBox.scrollTop = logBox.scrollHeight;
-  }
+function updateCompressionProgress(ratio) {
+  const percent = Math.round(ratio * 100);
+
+  const bar = document.getElementById("compression-progress");
+  const title = document.getElementById("compression-title");
+
+  if (bar) bar.style.width = percent + "%";
+  if (title) title.textContent = `Compressing... ${percent}%`;
 }
 
 async function uploadToSupabase(file, uid) {

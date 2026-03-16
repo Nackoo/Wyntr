@@ -1,5 +1,5 @@
-import { auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment, arrayRemove } from "./firebase.js";
-import { renderTweet, loadComments, getUserData } from "./index.js";
+import { runTransaction, auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment, arrayRemove } from "./firebase.js";
+import { loadComments, getUserData } from "./index.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { confirmDialog, escapeHTML, log } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
@@ -105,6 +105,20 @@ function createNotificationElement(notification) {
       <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
+}else if (notification.type === "community-pin-notification") {
+    content = `
+<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+  <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/pinned.svg">
+  <div>
+    your Wynt was pinned in community <b style="color:#00ba7c">${notification.communityName}</b><br>
+      <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>
+`;
   } else if (notification.type === "commentMention") {
     content = `
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
@@ -262,6 +276,19 @@ function createNotificationElement(notification) {
 </div>
 `;
     div.dataset.senderId = notification.senderId;
+} else if (notification.type === "invite") {
+    content = `
+<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+  <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/share.svg">
+  <div>
+    You were invited to join <span style="color:#00ba7c;font-weight:bold;">${notification.communityName}</span> Community. Click to view.<br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>
+`;
 } else if (notification.type === "pin") {
     content = `
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
@@ -294,7 +321,7 @@ function createNotificationElement(notification) {
   <!-- coin svg -->
   <svg style="min-height:24px;min-width:24px;margin-top:6px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M10.7367 14.5876c.895.2365 2.8528.754 3.1643-.4966.3179-1.2781-1.5795-1.7039-2.5053-1.9117-.1034-.0232-.1947-.0437-.2694-.0623l-.6025 2.4153c.0611.0152.1328.0341.2129.0553Zm.8452-3.5291c.7468.1993 2.3746.6335 2.6581-.5025.2899-1.16213-1.2929-1.5124-2.066-1.68348-.0869-.01923-.1635-.03619-.2262-.0518l-.5462 2.19058c.0517.0129.1123.0291.1803.0472Z"/><path fill="currentColor" fill-rule="evenodd" d="M9.57909 21.7008c5.35781 1.3356 10.78401-1.9244 12.11971-7.2816 1.3356-5.35745-1.9247-10.78433-7.2822-12.11995C9.06034.963624 3.6344 4.22425 2.2994 9.58206.963461 14.9389 4.22377 20.3652 9.57909 21.7008ZM14.2085 8.0526c1.3853.47719 2.3984 1.1925 2.1997 2.5231-.1441.9741-.6844 1.4456-1.4013 1.6116.9844.5128 1.485 1.2987 1.0078 2.6612-.5915 1.6919-1.9987 1.8347-3.8697 1.4807l-.454 1.8196-1.0972-.2734.4481-1.7953c-.2844-.0706-.575-.1456-.8741-.2269l-.44996 1.8038-1.09594-.2735.45407-1.8234c-.10059-.0258-.20185-.0522-.30385-.0788-.15753-.0411-.3168-.0827-.47803-.1231l-1.42812-.3559.54468-1.2563s.80844.215.7975.1991c.31063.0769.44844-.1256.50282-.2606l.71781-2.8766.11562.0288c-.04375-.0175-.08343-.0288-.11406-.0366l.51188-2.05344c.01375-.23312-.06688-.52719-.51125-.63812.01718-.01157-.79688-.19813-.79688-.19813l.29188-1.17187 1.51313.37781-.0013.00562c.2275.05657.4619.11032.7007.16469l.4497-1.80187 1.0965.27343-.4406 1.76657c.2944.06718.5906.135.8787.20687l.4375-1.755 1.0975.27344-.4493 1.8025Z" clip-rule="evenodd"/></svg>
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> donated ${notification.donationReceived} Wcoins in post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
+    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> donated <b>${notification.donationReceived}</b> Wcoins in post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.commentText))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -323,7 +350,49 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <div style="margin-top:6px;">⚠</div>
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Wynt got deleted</span><br>
+    <span style="color:#db1d23;font-weight:bold;">Your Wynt got deleted for violating Wyntr ToS</span><br>
+      <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>
+   `
+ } else if (notification.type === "community-tweet-delete") {
+   content = `
+<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+    <div style="margin-top:6px;">⚠</div>
+    <div>
+    <span style="color:#db1d23;font-weight:bold;">Your Wynt got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
+      <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>
+   `
+ } else if (notification.type === "community-reply-delete") {
+   content = `
+<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+    <div style="margin-top:6px;">⚠</div>
+    <div>
+    <span style="color:#db1d23;font-weight:bold;">Your reply got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
+      <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
+      <span style="color:grey;font-size:12px;">
+        ${formatTime(notification.createdAt.toDate())}
+      </span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+  </div>
+</div>
+   `
+ } else if (notification.type === "hide-notification") {
+   content = `
+<div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
+    <div style="margin-top:6px;">⚠</div>
+    <div>
+    <span style="color:#db1d23;font-weight:bold;">Your reply got hidden by moderators</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -362,8 +431,8 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <div style="margin-top:6px;">⚠</div>
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Community "${escapeHTML(notification.name)}" got disbanded</span><br>
-      <span>by:</span> <span style="color:grey;">"${escapeHTML(notification.admin)}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(notification.reason)}"</span><br>
+    <span style="color:#db1d23;font-weight:bold;">Your Community <span style="color:var(--color)">${escapeHTML(notification.name)}</span> got disbanded</span><br>
+      <span>reason:</span> <span style="color:grey;">"${escapeHTML(notification.reason)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
@@ -377,8 +446,8 @@ function createNotificationElement(notification) {
     <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/community-filled.svg">
     <div>
       <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> requested to join your community <b>${notification.communityName}</b><br>
-      <button class="acceptJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:7px;margin-right:2px;">Accept</button>
-      <button class="rejectJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:7px;background:crimson;color:white;">Reject</button><br>
+      <button class="acceptJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:6px;margin-right:2px;">Accept</button>
+      <button class="rejectJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:6px;background:crimson;color:white;">Reject</button><br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
     </div>
   </div>`;
@@ -387,9 +456,8 @@ function createNotificationElement(notification) {
   <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/community-filled.svg">
     <div>
-      <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span>
-      accepted your request to join <b>${notification.communityName}</b><br>
-      <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
+      Your request to join <b style="color:#00ba7c;">${notification.communityName}</b> was accepted<br>
+      <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}
     </div>
   </div>`;
  } else if (notification.type === "communityAdmin") {
@@ -398,111 +466,125 @@ function createNotificationElement(notification) {
     <img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/community-filled.svg">
     <div>
       <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> made you as an admin in <b>${notification.communityName}</b><br>
-      <button class="rejectAdminBtn" style="margin:5px 0;padding:9px 20px;border-radius:7px;background:crimson;color:white;">resign as admin</button><br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
     </div>
   </div>`;
 
  } else {
-    content = `<span><b>@${notification.senderName}</b> sent you a notification</span>`;
+    content = `<span style="color:grey;">You received a notification. But your Wyntr version might doesn't support it.</span>`;
   }
 
   div.innerHTML = `
 <div style="display:flex;margin:0;">
   ${content}
-  <button class="delete-notif-btn" style="display:none;background:none;margin-left:auto;padding-right: 0;">
-    <svg style="min-height:15px;min-width:15px;color:#db1d23" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"></path></svg>
-  </button>
+  ${["community-delete", "comment-delete", "community-reply-delete", "community-tweet-delete", "tweet"].includes(notification.type) ? "" : `
+    <button class="MenuNotif" data-sender="${notification.SENDERUID}" data-id="${notification.id}" style="display:none;background:none;margin-left:auto;padding-right: 0;">
+      <img src="/image/three-dots.svg">
+    </button>  
+  `}
 </div>
   `;
 
-  const deleteBtn = div.querySelector(".delete-notif-btn");
+const menu = div.querySelector(".MenuNotif");
 
-  div.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    deleteBtn.style.display = "block";
-  });
+div.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  if (menu) menu.style.display = "block";
+});
 
-  document.addEventListener("mousedown", (e) => {
-    if (!div.contains(e.target)) {
-      deleteBtn.style.display = "none";
-    }
-  });
+document.addEventListener("mousedown", (e) => {
+  if (!div.contains(e.target)) {
+    if (menu) menu.style.display = "none";
+  }
+});
 
-  div.dataset.tweetId = notification.tweetId;
-  if (notification.commentId) div.dataset.commentId = notification.commentId;
-  if (notification.communityId) div.dataset.communityId = notification.communityId;
-  if (notification.replyId) div.dataset.replyId = notification.replyId; 
-  div.dataset.type = notification.type;
+div.dataset.tweetId = notification.tweetId;
+if (notification.commentId) div.dataset.commentId = notification.commentId;
+if (notification.communityId) div.dataset.communityId = notification.communityId;
+if (notification.replyId) div.dataset.replyId = notification.replyId; 
+div.dataset.type = notification.type;
 
-  div.addEventListener("click", () => {
-    handleNotificationClick(div.dataset);
-  });
+div.addEventListener("click", () => {
+  handleNotificationClick(div.dataset);
+});
 
-  div.querySelector(".delete-notif-btn").addEventListener("click", async (e) => {
+if (menu) {
+  div.querySelector(".MenuNotif").addEventListener("click", async (e) => {
     e.stopPropagation();
-    const user = auth.currentUser;
-    if (!user) return;
+    const el = e.currentTarget;
 
-    loading.classList.add("show");
-    const notifRef = doc(db, "users", user.uid, "notifications", notification.id);
-    try {
-      await deleteDoc(notifRef);
-      div.remove();
-    } catch (err) {
-      console.error("Failed to delete notification:", err);
-    }
-    loading.classList.remove("show");
-    log("green", "Notification deleted");
-  });
+    document.getElementById("notifMenuOverlay").classList.remove("hidden");
+    document.getElementById("deleteNotif").onclick = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
 
-if (notification.type === "communityAdmin") {
-  const rejectAdminBtn = div.querySelector(".rejectAdminBtn");
-
-  rejectAdminBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-
-    if (!(await confirmDialog(
-      "are you sure?",
-      "You will no longer be an admin in this community unless re-invited by the community owner.",
-      "red"
-    ))) return;
-
-    const user = auth.currentUser;
-    if (!user) return;
-
-    loading.classList.add("show");
-
-    try {
-      const adminId = user.uid;
-      const comRef = doc(db, "communities", notification.communityId);
-      const comSnap = await getDoc(comRef);
-
-      if (!comSnap.exists()) {
-        log("red", "Community not found");
-        return;
+      loading.classList.add("show");
+      const notifRef = doc(db, "users", user.uid, "notifications", el.dataset.id);
+      try {
+        await deleteDoc(notifRef);
+        div.remove();
+      } catch (err) {
+        console.error("Failed to delete notification:", err);
       }
-
-      await updateDoc(comRef, {
-        admin: arrayRemove(adminId)
-      });
-
-      if (
-        window.communityID === notification.communityId &&
-        Array.isArray(window.cData?.admin)
-      ) {
-        window.cData.admin = window.cData.admin.filter(id => id !== adminId);
-      }
-
-      log("green", "You are no longer an admin of this community");
-
-      div.remove();
-      deleteDoc(doc(db, "users", adminId, "notifications", notification.id));
-
-      const { username: name } = await getUserData(adminId);
-      sendadminDismissedNotification(notification.senderId, notification.communityId, notification.communityName, name);
-    } finally {
       loading.classList.remove("show");
+      document.getElementById("notifMenuOverlay").classList.add("hidden");
+      log("green", "Notification deleted");
+    };
+
+    const senderId = el.dataset.sender;
+    if (senderId != "null" && senderId != "undefined") {
+      document.getElementById("blockNotif").style.display = "flex";
+      document.getElementById("blockNotif").onclick = async () => {
+        const blockRef = doc(db, "users", auth.currentUser.uid, "blocks", el.dataset.sender);
+  
+        document.getElementById("blockOptions").classList.remove("hidden");
+        document.getElementById("confirmBlock").onclick = async () => {
+          const options = document.getElementById("blockDuration");
+
+          const durations = {
+            "1d": 1,
+            "1w": 7,
+            "1m": 30,
+            "6m": 180,
+          };
+
+          try {
+            document.getElementById("confirmBlock").disabled = true;
+            document.getElementById("confirmBlock").classList.add("disabled");
+
+            const { realavatar, realusername } = await getUserData(el.dataset.sender);
+
+            if (options.value === "permanent") {
+              await setDoc(blockRef, { 
+                permanent: true,
+                blockedAt: new Date(),
+                avatar: realavatar,
+                name: realusername
+              });
+            } else {
+              const days = durations[options.value];
+              const expireAt = new Date();
+              expireAt.setDate(expireAt.getDate() + days);
+
+              await setDoc(blockRef, { 
+                blockUntil: expireAt,
+                blockedAt: new Date(),
+                avatar: realavatar,
+                name: realusername
+              });
+            }
+            log("green", "User muted");
+          } catch (err) {
+            console.error("Failed to mute user:", err);
+            log("red", "Failed to mute user");
+          }
+          document.getElementById("blockOptions").classList.add("hidden");
+          document.getElementById("confirmBlock").disabled = false;
+          document.getElementById("confirmBlock").classList.remove("disabled");
+        };
+      };
+    } else {
+      document.getElementById("blockNotif").style.display = "none";
     }
   });
 }
@@ -511,69 +593,80 @@ if (notification.type === "communityJoinRequest") {
   const acceptBtn = div.querySelector(".acceptJoinBtn");
   const rejectBtn = div.querySelector(".rejectJoinBtn");
 
-acceptBtn.addEventListener("click", async (e) => {
-  if (!confirm('are you sure you want to reject this user?')) return;
-  e.stopPropagation();
-  const user = auth.currentUser;
-  if (!user) return;
-  loading.classList.add("show");
+  div.addEventListener("click", (e) => {
+    if (e.target.closest(".acceptJoinBtn") || e.target.closest(".rejectJoinBtn")) return;
+    openCommunity(notification.communityId);
+  });
 
-  const ownerId = user.uid;
-  const comRef = doc(db, "communities", notification.communityId);
-  const comSnap = await getDoc(comRef);
-  if (!comSnap.exists()) return log("red", "Community not found");
+  acceptBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
 
-  const comData = comSnap.data();
-  if (comData.creatorId !== ownerId) return log("red", "You aren't the community owner");
+    if (!(await confirmDialog("accept user?", `are you sure you want to accept this user to join "${notification.communityName}"?`))) return;
 
-  const userRef = doc(db, "users", notification.senderId);
-  const creatorRef = doc(db, "users", ownerId);
+    const user = auth.currentUser;
+    const ownerId = user.uid;
 
-  const userSnap = await getDoc(userRef);
-  const userData = userSnap.data();
+    loading.classList.add("show");
+    try {
+      const memberRef = doc(db, "communities", notification.communityId, "members", notification.senderId);
 
-  try {
-    const ownerSnap = await getDoc(creatorRef);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.data();
-    const ownerData = ownerSnap.exists() ? ownerSnap.data() : {};
-    const ownerDisplayName = ownerData.displayName || "Community Owner";
-    const memberRef = doc(db, "communities", notification.communityId, "members", notification.senderId);
+      await runTransaction(db, async (tx) => {
+        const userRef = doc(db, "users", notification.senderId);
+        const creatorRef = doc(db, "users", ownerId);
+        const comRef = doc(db, "communities", notification.communityId);
 
-    await Promise.all([
-      updateDoc(userRef, { 
-        communities: arrayUnion(notification.communityId),
-        interest: (userData.interest || []).concat(comData.tags || [])
-      }),
-      updateDoc(comRef, {
-        membersCount: increment(1)
-      }),
-      setDoc(memberRef, {
-        uid: notification.senderId,
-        joinedAt: new Date(),
-        username: userData.username,
-        photoURL: userData.photoURL
-      }),
+        const userSnap = await tx.get(userRef);
+        const comSnap = await tx.get(comRef);
 
-      notification.joinFee > 0
-        ? updateDoc(creatorRef, { balance: increment(Math.floor(notification.joinFee * 0.8)) })
-        : Promise.resolve(),
-      deleteDoc(doc(db, "users", ownerId, "notifications", notification.id))
-    ]);
+        if (!comSnap.exists()) return log("red", "Community not found");
+        if (!userSnap.exists()) return log("red", "User doesn't exist");
 
-    await sendAcceptedNotification( notification.senderId, comData.id, comData.name, ownerDisplayName);
+        const userData = userSnap.data();
+        const comData = comSnap.data();
 
-    div.remove();
-    log("green", `${notification.senderName} has been accepted to ${notification.communityName}`);
-  } catch (err) {
-    console.error("Error accepting join request:", err);
-    log("red", "Error accepting join request")
-  }
-  loading.classList.remove("show");
-});
+        if (comData.creatorId !== ownerId) return log("red", "You aren't the community owner");
+
+        tx.update(comRef, {
+          membersCount: increment(1),
+          members: arrayUnion(notification.senderId)
+        });
+        tx.set(memberRef, {
+          uid: notification.senderId,
+          joinedAt: new Date(),
+          username: userData.username,
+          photoURL: userData.photoURL,
+          role: 1
+        });
+        tx.update(userRef, {
+          communitiesCount: increment(1)
+        });
+
+        if (notification.joinFee > 0) {
+          tx.update(creatorRef, {
+            balance: increment(Math.floor(notification.joinFee * 0.8))
+          });
+        }
+
+        tx.delete(doc(db, "users", ownerId, "notifications", notification.id));
+      });
+
+      await sendAcceptedNotification(
+        notification.senderId,
+        notification.communityId,
+        notification.communityName,
+      );
+
+      div.remove();
+      log("green", `${notification.senderName} has been accepted to ${notification.communityName}`);
+    } catch (err) {
+      console.error("Error accepting join request:", err);
+      log("red", "Error accepting join request")
+    }
+    loading.classList.remove("show");
+  });
 
   rejectBtn.addEventListener("click", async (e) => {
-    if (!confirm('are you sure you want to reject this user?')) return;
+    if (!(await confirmDialog("Reject user?", `are you sure you want to reject this user from joining ${notification.communityName}?`, "red"))) return;
     e.stopPropagation();
     const user = auth.currentUser;
     if (!user) return;
@@ -586,14 +679,11 @@ acceptBtn.addEventListener("click", async (e) => {
     const comData = comSnap.data();
     if (comData.creatorId !== ownerId) return log("red", "you aren't the community owner");
 
-    const ownerRef = doc(db, "users", ownerId);
     const applicantRef = doc(db, "users", notification.senderId);
 
     try {
       if (notification.joinFee > 0) {
-        await Promise.all([
-          updateDoc(applicantRef, { balance: increment(notification.joinFee) })
-        ]);
+        await updateDoc(applicantRef, { balance: increment(notification.joinFee) })
       }
 
       await deleteDoc(doc(db, "users", ownerId, "notifications", notification.id));
@@ -628,7 +718,7 @@ export async function handleNotificationClick({
     return;
   }
 
-  if (type === "communityJoinAccepted" || type === "communityJoinRequest" || type === "communityAdmin" || type === "communityAdminDismissed") {
+  if (type === "community-invite" || type === "community-pin-notification" || type === "communityJoinAccepted" || type === "communityAdmin" || type === "communityAdminDismissed" || type === "community-tweet-delete" || type === "community-reply-delete" || type === "invite") {
     if (!communityId) {
       console.warn("Missing communityId in notification data");
       return;
@@ -787,6 +877,9 @@ export async function handleNotificationClick({
     await renderTweetViewer(tweetSnap.data(), tweetId, box, auth.currentUser, communityId);
     await loadComments(tweetId, true, null, null, communityId);
     await openCommunity(communityId);
+  
+  } else if (type === "communityJoinRequest") {
+    return;
 
   } else {
     const tweetViewer = document.getElementById("tweetViewer");
@@ -859,6 +952,12 @@ export function listenForSystemNotifications() {
   });
 }
 
+navigator.serviceWorker.addEventListener("message", event => {
+  if (event.data?.type === "NOTIFICATION_CLICK") {
+    handleNotificationClick(event.data.data);
+  }
+});
+
 function showSystemNotification(data) {
   const title = `@${data.senderName}`;
   const body =
@@ -872,16 +971,28 @@ function showSystemNotification(data) {
       ? `rewynted your post`
       : `You have a new notification`;
 
-  const notif = new Notification(title, {
+  const options = {
     body,
-    icon: "/image/icon.png", 
-    tag: data.id, 
-  });
-
-  notif.onclick = () => {
-    window.focus();
-    handleNotificationClick(data);
+    icon: "/image/icon.png",
+    tag: data.id,
+    data,
   };
+
+  if (typeof window !== "undefined" && "Notification" in window) {
+    if (Notification.permission === "granted") {
+      const notif = new Notification(title, options);
+
+      notif.onclick = () => {
+        window.focus();
+        handleNotificationClick(data);
+      };
+    }
+    return;
+  }
+
+  if (typeof self !== "undefined" && self.registration) {
+    self.registration.showNotification(title, options);
+  }
 }
 
 function waitForElement(selector, timeout = 5000) {
@@ -1031,24 +1142,17 @@ function formatDate(date) {
   return date.toISOString().split("T")[0];
 }
 
-export async function sendCommunityCommentNotification(tweetId, commentText, communityId, commentId, communityName, tweetText) {
+export async function sendCommunityCommentNotification(tweetId, commentText, communityId, commentId, communityName, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
 
-  const tweetRef = doc(db, "communities", communityId, "posts", tweetId);
-  const tweetSnap = await getDoc(tweetRef);
-  if (!tweetSnap.exists()) return;
-
-  const creatorId = tweetSnap.data().uid;
-  if (creatorId === sender.uid) return;
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  if (authorId === sender.uid) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
   const notificationRef = doc(
     db,
     "users",
-    creatorId,
+    authorId,
     "notifications",
     `${tweetId}-comment-${Date.now()}`
   );
@@ -1063,28 +1167,23 @@ export async function sendCommunityCommentNotification(tweetId, commentText, com
     communityId,
     commentId,
     communityName,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
-export async function sendCommentNotification(tweetId, commentText, commentId, tweetText) {
+export async function sendCommentNotification(tweetId, commentText, commentId, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
 
-  const tweetRef = doc(db, "tweets", tweetId);
-  const tweetSnap = await getDoc(tweetRef);
-  if (!tweetSnap.exists()) return;
+  if (authorId === sender.uid) return;
 
-  const creatorId = tweetSnap.data().uid;
-  if (creatorId === sender.uid) return;
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username : senderName } = await getUserData(sender.uid);
 
   const notificationRef = doc(
     db,
     "users",
-    creatorId,
+    authorId,
     "notifications",
     `${tweetId}-comment-${Date.now()}`
   );
@@ -1097,7 +1196,8 @@ export async function sendCommentNotification(tweetId, commentText, commentId, t
     tweetId,
     read: false,
     commentId,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1105,11 +1205,19 @@ export async function sendCommunityMentionNotification(tweetId, mentionedUserId,
   const sender = auth.currentUser;
   if (!sender || sender.uid === mentionedUserId) return;
 
-  const tweetSnap = await getDoc(doc(db, "communities", communityId, "posts", tweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
@@ -1124,11 +1232,12 @@ export async function sendCommunityMentionNotification(tweetId, mentionedUserId,
     senderName,
     createdAt: serverTimestamp(),
     tweetId,
-    tweetText: tweetSnap.data().text || "",
+    tweetText: tweetText,
     read: false,
     communityId,
     communityName,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1136,11 +1245,19 @@ export async function sendMentionNotification(tweetId, mentionedUserId, tweetTex
   const sender = auth.currentUser;
   if (!sender || sender.uid === mentionedUserId) return;
 
-  const tweetSnap = await getDoc(doc(db, "tweets", tweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
@@ -1155,29 +1272,36 @@ export async function sendMentionNotification(tweetId, mentionedUserId, tweetTex
     senderName,
     createdAt: serverTimestamp(),
     tweetId,
-    tweetText: tweetSnap.data().text || "",
+    tweetText: tweetText || "",
     read: false,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
-export async function sendCommunityRetweetNotification(originalTweetId, replyText, retweetId, communityId, communityName, tweetText) {
+export async function sendCommunityRetweetNotification(originalTweetId, replyText, retweetId, communityId, communityName, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
+  if (sender.uid === authorId) return;
 
-  const tweetSnap = await getDoc(doc(db, "communities", communityId, "posts", originalTweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const originalAuthorId = tweetSnap.data().uid;
-  if (sender.uid === originalAuthorId) return;
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
     "users",
-    originalAuthorId,
+    authorId,
     "notifications",
     `${retweetId}-retweet-${Date.now()}`
   );
@@ -1189,31 +1313,38 @@ export async function sendCommunityRetweetNotification(originalTweetId, replyTex
     createdAt: serverTimestamp(),
     tweetId: retweetId,
     originalTweetId: originalTweetId,
-    tweetText: tweetSnap.data().text || "",
+    tweetText: tweetText,
     read: false,
     communityId,
     communityName,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
-export async function sendRetweetNotification(originalTweetId, replyText, retweetId, tweetText) {
+export async function sendRetweetNotification(originalTweetId, replyText, retweetId, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
+  if (sender.uid === authorId) return;
 
-  const tweetSnap = await getDoc(doc(db, "tweets", originalTweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const originalAuthorId = tweetSnap.data().uid;
-  if (sender.uid === originalAuthorId) return;
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
     "users",
-    originalAuthorId,
+    authorId,
     "notifications",
     `${retweetId}-retweet-${Date.now()}`
   );
@@ -1225,31 +1356,36 @@ export async function sendRetweetNotification(originalTweetId, replyText, retwee
     createdAt: serverTimestamp(),
     tweetId: retweetId,
     originalTweetId: originalTweetId,
-    tweetText: tweetSnap.data().text || "",
+    tweetText: tweetText || "",
     read: false,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
-export async function sendCommunityReplyRetweetNotification(originalTweetId, commentId, replyText, retweetId, communityId, communityName) {
+export async function sendCommunityReplyRetweetNotification(originalTweetId, commentId, replyText, retweetId, communityId, communityName, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
+  if (sender.uid === authorId) return; 
 
-  const commentRef = doc(db, "communities", communityId, "posts", originalTweetId, "comments", commentId);
-  const commentSnap = await getDoc(commentRef);
-  if (!commentSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const commentData = commentSnap.data();
-  const commentAuthorId = commentData.uid;
-  if (sender.uid === commentAuthorId) return; 
-
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
     "users",
-    commentAuthorId,
+    authorId,
     "notifications",
     `${retweetId}-reply-retweet-${Date.now()}`
   );
@@ -1262,32 +1398,38 @@ export async function sendCommunityReplyRetweetNotification(originalTweetId, com
     tweetId: retweetId,
     originalTweetId: originalTweetId,
     commentId: commentId,
-    commentText: commentData.text || "",
+    commentText: tweetText,
     read: false,
     communityId,
     communityName,
+    SENDERUID: sender.uid
   });
 }
 
-export async function sendReplyRetweetNotification(originalTweetId, commentId, replyText, retweetId) {
+export async function sendReplyRetweetNotification(originalTweetId, commentId, replyText, retweetId, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
 
-  const commentRef = doc(db, "tweets", originalTweetId, "comments", commentId);
-  const commentSnap = await getDoc(commentRef);
-  if (!commentSnap.exists()) return;
+  if (sender.uid === authorId) return; 
 
-  const commentData = commentSnap.data();
-  const commentAuthorId = commentData.uid;
-  if (sender.uid === commentAuthorId) return; 
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
     "users",
-    commentAuthorId,
+    authorId,
     "notifications",
     `${retweetId}-reply-retweet-${Date.now()}`
   );
@@ -1300,8 +1442,9 @@ export async function sendReplyRetweetNotification(originalTweetId, commentId, r
     tweetId: retweetId,
     originalTweetId: originalTweetId,
     commentId: commentId,
-    commentText: commentData.text || "",
-    read: false
+    commentText: tweetText,
+    read: false,
+    SENDERUID: sender.uid 
   });
 }
 
@@ -1309,11 +1452,19 @@ export async function sendCommunityCommentMentionNotification(tweetId, mentioned
   const sender = auth.currentUser;
   if (!sender || sender.uid === mentionedUserId) return;
 
-  const tweetSnap = await getDoc(doc(db, "communities", communityId, "posts", tweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
@@ -1333,7 +1484,8 @@ export async function sendCommunityCommentMentionNotification(tweetId, mentioned
     communityId,
     commentId,
     communityName,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1341,11 +1493,19 @@ export async function sendCommentMentionNotification(tweetId, mentionedUserId, c
   const sender = auth.currentUser;
   if (!sender || sender.uid === mentionedUserId) return;
 
-  const tweetSnap = await getDoc(doc(db, "tweets", tweetId));
-  if (!tweetSnap.exists()) return;
+  const { username : senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
@@ -1363,52 +1523,101 @@ export async function sendCommentMentionNotification(tweetId, mentionedUserId, c
     tweetId,
     read: false,
     commentId,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
+}
+
+async function isBlocked(uid) {
+  const blockRef = doc(db, "users", uid, "blocks", auth.currentUser.uid);
+  const blockSnap = await getDoc(blockRef);
+
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date())
+      || blockData.permanent === true
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function sendCommunityJoinRequest(ownerId, communityId, communityName, joinFee = 0) {
+  const sender = auth.currentUser;
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
+
+  const today = new Date().toISOString().split("T")[0];
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const notifRef = doc(db, "users", ownerId, "notifications", `joinrequest-${auth.currentUser.uid}-${communityId}-${today}`);
+
+  await setDoc(notifRef, {
+    type: "communityJoinRequest",
+    senderName,
+    senderId: sender.uid,
+    communityId,
+    communityName,
+    joinFee,
+    createdAt: serverTimestamp(),
+    read: false,
+    SENDERUID: sender.uid
+  }, { merge: true });
+}
+
+export async function sendInviteNotification(uid, communityId, communityName) {
+  const blocked = await isBlocked(uid);
+  if (blocked) return;
+
+  const today = new Date().toISOString().split("T")[0];
+  const {username} = await getUserData(auth.currentUser.uid);
+  const notificationId = `${auth.currentUser.uid}-invite-${communityId}-${today}`;
+  const notificationRef = doc(db, "users", uid, "notifications", notificationId);
+
+  await setDoc(notificationRef, {
+    type: "invite",
+    senderName: username,
+    senderId: auth.currentUser.uid,
+    communityId,
+    communityName,
+    createdAt: serverTimestamp(),
+    read: false,
+    SENDERUID: auth.currentUser.uid
+  }, { merge: true });
 }
 
 export async function sendFollowNotification(targetUserId, username) {
-  const sender = auth.currentUser;
-  if (!sender || sender.uid === targetUserId) return;
+  const blocked = await isBlocked(targetUserId);
+  if (blocked) return;
 
-  const notificationRef = doc(
-    db,
-    "users",
-    targetUserId,
-    "notifications",
-    `follow-${Date.now()}`
-  );
+  const today = new Date().toISOString().split("T")[0]; 
+  const notificationId = `${auth.currentUser.uid}-follow-${today}`;
+  const notificationRef = doc(db, "users", targetUserId, "notifications", notificationId);
 
   await setDoc(notificationRef, {
     type: "follow",
-    senderName,
+    senderName: username,
     senderId: sender.uid,
     text: `${username} just followed you`,
     createdAt: serverTimestamp(),
-    read: false
-  });
+    read: false,
+    SENDERUID: sender.uid
+  }, { merge: true });
 }
 
 export async function sendCommunityDonationNotification(tweetId, donationAmount, donationReceived, commentText = "", communityId, commentId, communityName, tweetText) {
-  const sender = auth.currentUser;
-  if (!sender) return;
-
   const tweetSnap = await getDoc(doc(db, "communities", communityId, "posts", tweetId));
   if (!tweetSnap.exists()) return;
 
   const creatorId = tweetSnap.data().uid;
-  if (creatorId === sender.uid) return;
+  const { username: senderName } = await getUserData(sender.uid);
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blocked = await isBlocked(creatorId);
+  if (blocked) return;
 
-  const notificationRef = doc(
-    db,
-    "users",
-    creatorId,
-    "notifications",
-    `${tweetId}-donation-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", creatorId, "notifications", `${tweetId}-donation-${Date.now()}`);
 
   await setDoc(notificationRef, {
     type: "community-donation",
@@ -1421,7 +1630,8 @@ export async function sendCommunityDonationNotification(tweetId, donationAmount,
     read: false,
     commentId,
     communityName,
-    tweetTextt: tweetText
+    tweetTextt: tweetText,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1435,8 +1645,19 @@ export async function sendDonationNotification(tweetId, donationAmount, donation
   const creatorId = tweetSnap.data().uid;
   if (creatorId === sender.uid) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const blockRef = doc(db, "users", creatorId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notificationRef = doc(
     db,
@@ -1454,7 +1675,8 @@ export async function sendDonationNotification(tweetId, donationAmount, donation
     createdAt: serverTimestamp(),
     tweetId,
     read: false,
-    commentId
+    commentId,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1470,8 +1692,19 @@ export async function sendCommunityReplyNotification(tweetId, parentCommentId, r
   const parentOwnerId = parentData.uid;
   if (parentOwnerId === sender.uid) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+  
+  const blockRef = doc(db, "users", parentOwnerId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notifRef = doc(
     db,
@@ -1492,7 +1725,8 @@ export async function sendCommunityReplyNotification(tweetId, parentCommentId, r
     communityId,
     communityName,
     tweetTextt: tweetText,
-    replyId
+    replyId,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1508,8 +1742,19 @@ export async function sendReplyNotification(tweetId, parentCommentId, replyText,
   const parentOwnerId = parentData.uid;
   if (parentOwnerId === sender.uid) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const blockRef = doc(db, "users", parentOwnerId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
+
+  const { username: senderName } = await getUserData(sender.uid);
 
   const notifRef = doc(
     db,
@@ -1528,7 +1773,8 @@ export async function sendReplyNotification(tweetId, parentCommentId, replyText,
     commentId: parentCommentId,
     read: false,
     tweetTextt: tweetText,
-    replyId
+    replyId,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1537,8 +1783,19 @@ export async function sendCommunityReplyMentionNotification(tweetId, parentComme
   if (!sender) return;
   if (mentionedUserId === sender.uid) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notifRef = doc(
     db,
@@ -1559,7 +1816,8 @@ export async function sendCommunityReplyMentionNotification(tweetId, parentComme
     read: false,
     communityName,
     tweetTextt: tweetText,
-    replyId
+    replyId,
+    SENDERUID: sender.uid
   });
 }
 
@@ -1568,8 +1826,19 @@ export async function sendReplyMentionNotification(tweetId, parentCommentId, men
   if (!sender) return;
   if (mentionedUserId === sender.uid) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notifRef = doc(
     db,
@@ -1589,17 +1858,64 @@ export async function sendReplyMentionNotification(tweetId, parentCommentId, men
     read: false,
     tweetTextt: tweetText,
     replyId,
+    SENDERUID: sender.uid
+  });
+}
+
+export async function sendCommunityPinNotification1(communityId, communityName, receiverId, text) {
+  const sender = auth.currentUser;
+  if (!sender) return;
+  if (sender.uid === receiverId) return;  
+
+  const blockRef = doc(db, "users", receiverId, "blocks", sender.uid);  
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
+
+  const notifRef = doc(
+    db,
+    "users",
+    receiverId,
+    "notifications",
+    `communityPin-${Date.now()}`
+  );
+
+  await setDoc(notifRef, {
+    type: "community-pin-notification",
+    createdAt: serverTimestamp(),
+    read: false,
+    communityId,
+    communityName,
+    text,
+    SENDERUID: sender.uid
   });
 }
 
 export async function sendCommunityPinNotification(tweetOwner, replyText, tweetId, commentId, communityId, communityName) {
   const sender = auth.currentUser;
   if (!sender) return;
-
   if (sender.uid === tweetOwner) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const blockRef = doc(db, "users", tweetOwner, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notifRef = doc(
     db,
@@ -1618,18 +1934,29 @@ export async function sendCommunityPinNotification(tweetOwner, replyText, tweetI
     commentId,
     read: false,
     communityId,
-    communityName
+    communityName,
+    SENDERUID: sender.uid
   });
 }
 
 export async function sendPinNotification(tweetOwner, replyText, tweetId, commentId) {
   const sender = auth.currentUser;
   if (!sender) return;
-
   if (sender.uid === tweetOwner) return;
 
-  const senderDoc = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderDoc.exists() ? senderDoc.data().displayName : "Someone";
+  const { username: senderName } = await getUserData(sender.uid);
+
+  const blockRef = doc(db, "users", tweetOwner, "blocks", sender.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
 
   const notifRef = doc(
     db,
@@ -1646,7 +1973,98 @@ export async function sendPinNotification(tweetOwner, replyText, tweetId, commen
     createdAt: serverTimestamp(),
     tweetId,
     commentId,
-    read: false
+    read: false,
+    SENDERUID: sender.uid
+  });
+}
+
+export async function sendHideNotification(text, targetUserId, reason) {
+  if (!targetUserId) return;
+
+  const warningRef = doc(
+    db,
+    "users",
+    targetUserId,
+    "notifications",
+    `commentHide-${Date.now()}`
+  );
+
+  await setDoc(warningRef, {
+    type: "hide-notification",
+    text,
+    reason,
+    createdAt: serverTimestamp(),
+    read: false,
+  });
+}
+
+export async function sendCommunityReplyDeleteNotification(targetUserId, text, reason, name, communityId) {
+  if (!targetUserId) return;
+
+  const blockRef = doc(db, "users", targetUserId, "blocks", auth.currentUser.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
+
+  const warningRef = doc(
+    db,
+    "users",
+    targetUserId,
+    "notifications",
+    `communityReplyDelete-${Date.now()}`
+  );
+
+  await setDoc(warningRef, {
+    type: "community-reply-delete",
+    text,
+    reason,
+    createdAt: serverTimestamp(),
+    read: false,
+    name,
+    communityId,
+    SENDERUID: auth.currentUser.uid
+  });
+}
+
+export async function sendCommunityTweetDeleteNotification(targetUserId, text, reason, name, communityId) {
+  if (!targetUserId) return;
+
+  const blockRef = doc(db, "users", targetUserId, "blocks", auth.currentUser.uid);
+  const blockSnap = await getDoc(blockRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
+
+  const warningRef = doc(
+    db,
+    "users",
+    targetUserId,
+    "notifications",
+    `communityTweetDelete-${Date.now()}`
+  );
+
+  await setDoc(warningRef, {
+    type: "community-tweet-delete",
+    text,
+    reason,
+    createdAt: serverTimestamp(),
+    read: false,
+    name,
+    communityId,
+    SENDERUID: auth.currentUser.uid
   });
 }
 
@@ -1690,7 +2108,7 @@ export async function sendCommentWarningNotification(targetUserId, text, reason)
   });
 }
 
-export async function sendCommunityWarningNotification(targetUserId, name, reason, admin) {
+export async function sendCommunityWarningNotification(targetUserId, name, reason) {
   if (!targetUserId) return;
 
   const warningRef = doc(
@@ -1706,33 +2124,25 @@ export async function sendCommunityWarningNotification(targetUserId, name, reaso
     name,
     reason,
     createdAt: serverTimestamp(),
-    read: false,
-    admin,
-  });
-}
-
-export async function sendCommunityJoinRequest(ownerId, communityId, communityName, joinFee = 0) {
-  const sender = auth.currentUser;
-  if (!sender) return;
-
-  const senderSnap = await getDoc(doc(db, "users", sender.uid));
-  const senderName = senderSnap.exists() ? senderSnap.data().displayName : "Someone";
-
-  const notifRef = doc(db, "users", ownerId, "notifications", `joinrequest-${Date.now()}`);
-  await setDoc(notifRef, {
-    type: "communityJoinRequest",
-    senderName,
-    senderId: sender.uid,
-    communityId,
-    communityName,
-    joinFee,
-    createdAt: serverTimestamp(),
-    read: false,
+    read: false
   });
 }
 
 export async function sendAdminNotification(targetUserId, communityId, communityName, ownerName, ownerId) {
   const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
+
+  const blockedRef = doc(db, "users", targetUserId, "blocks", ownerId);
+  const blockSnap = await getDoc(blockedRef);
+  if (blockSnap.exists()) {
+    const blockData = blockSnap.data();
+    if (
+      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
+      blockData.permanent === true
+    ) {
+      return;
+    } 
+  }
+
   await setDoc(notifRef, {
     id: notifRef.id,
     type: "communityAdmin",
@@ -1741,11 +2151,12 @@ export async function sendAdminNotification(targetUserId, communityId, community
     communityName,
     communityId,
     createdAt: new Date(),
-    read: false
+    read: false,
+    SENDERUID: ownerId
   });
 }
 
-async function sendadminDismissedNotification(targetUserId, communityId, communityName, name) {
+export async function sendadminDismissedNotification(targetUserId, communityId, communityName, name) {
   const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
   await setDoc(notifRef, {
     id: notifRef.id,
@@ -1758,12 +2169,11 @@ async function sendadminDismissedNotification(targetUserId, communityId, communi
   });
 } 
 
-export async function sendAcceptedNotification(targetUserId, communityId, communityName, ownerName) {
+export async function sendAcceptedNotification(targetUserId, communityId, communityName) {
   const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
   await setDoc(notifRef, {
     id: notifRef.id,
     type: "communityJoinAccepted",
-    senderName: ownerName,
     communityName,
     communityId,
     createdAt: new Date(),

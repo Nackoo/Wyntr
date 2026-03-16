@@ -33,7 +33,8 @@ function log(color, text) {
     col = color
   }
   log.querySelector("p").textContent = text;
-  log.querySelector(".popup-box").style.background = col;
+  log.querySelector("p").style.color = col;
+  log.querySelector(".popup-box .popup-box").style.border = `2px solid ${col}`;
   log.classList.add("show");
 
   setTimeout(() => { 
@@ -41,7 +42,46 @@ function log(color, text) {
   }, 4000);
 }
 
-function inputDialog(title, desc) {
+function createEmojiOverlay(button) {
+  const emojis = [
+    "📁","⭐","🔥","😂","💡","📌","🎵","🧠",
+    "📚","💻","🎮","❤️","⚡","📝","🔖"
+  ];
+
+  const overlay = document.createElement("div");
+  overlay.classList.add("overlay");
+  overlay.style.zIndex = "100";
+
+  const picker = document.createElement("div");
+  picker.id = "emojipicker";
+
+  const title = document.createElement("div");
+  title.textContent = "Choose icon";
+  title.style.cssText = `font-size: 16px; opacity: 0.6; grid-column: 1 / -1;`;
+
+  picker.prepend(title);
+
+  emojis.forEach(e => {
+    const btn = document.createElement("button");
+    btn.textContent = e;
+
+    btn.onclick = () => {
+      button.textContent = e;
+      overlay.remove();
+    };
+
+    picker.appendChild(btn);
+  });
+
+  overlay.onclick = e => {
+    if (e.target === overlay) overlay.remove();
+  };
+
+  overlay.appendChild(picker);
+  document.body.appendChild(overlay);
+}
+
+function inputDialog(title, desc, extraElement, inputValue) {
   return new Promise(resolve => {
     if (loading.classList.contains("show")) {
       loading.classList.remove("show");
@@ -53,11 +93,27 @@ function inputDialog(title, desc) {
     const modal = document.getElementById("inputDialog");
     const input = document.getElementById("inputDialogValue");
 
+    if (extraElement) {
+      document.getElementById("extra").innerHTML = extraElement;
+
+      if (extraElement.includes(`<button id="chooseEmoji">`)) {
+        const chooseEmojiBtn = document.getElementById("chooseEmoji");
+        chooseEmojiBtn.onclick = () => {
+          createEmojiOverlay(chooseEmojiBtn);
+        };
+      }
+    }
+
+    if (inputValue) {
+      input.value = inputValue;
+    } else {
+      input.value = "";
+    }
+
     modal.classList.add("show");
     modal.querySelector("h2").textContent = title;
     modal.querySelector("p").textContent = desc;
 
-    input.value = "";
     input.focus();
     input.placeholder = title;
 
@@ -184,6 +240,10 @@ function formatNumber(num) {
   }
 }
 
+export function formatNum(num) {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 function tokenize(text) {
   const lower = (text || "").toLowerCase();
 
@@ -240,6 +300,30 @@ function linkify(text) {
   return escaped.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
+function sanitizeBrokenHTML(html) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  if (template.innerHTML !== html) {
+    const div = document.createElement("div");
+    div.textContent = html;
+    return div.innerHTML;
+  }
+
+  return html;
+}
+
+export function truncateHTML(html, maxChars) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+
+  const text = div.textContent;
+
+  if (text.length <= maxChars) return html;
+
+  return escapeHTML(text.slice(0, maxChars)) + " ...";
+}
+
 function applyReadMoreLogic(container) {
   const paragraphs = container.querySelectorAll("p");
 
@@ -247,7 +331,7 @@ function applyReadMoreLogic(container) {
     if (p.dataset.readmoreApplied) return;
     p.dataset.readmoreApplied = "true";
 
-    const originalText = p.innerHTML;
+    const originalText = sanitizeBrokenHTML(p.innerHTML);
     p.dataset.fullText = originalText;
 
     p.classList.add("clamp-text");
@@ -262,8 +346,8 @@ function applyReadMoreLogic(container) {
         btn.textContent = "Read more";
         btn.className = "read-more";
         btn.style.fontSize = "16px";
-        btn.style.marginBottom = '15px';
-        btn.style.marginRight = 'auto';
+        btn.style.marginBottom = "15px";
+        btn.style.marginRight = "auto";
 
         let currentLines = 10;
 
@@ -276,6 +360,7 @@ function applyReadMoreLogic(container) {
             btn.remove();
           }
         });
+
         p.insertAdjacentElement("afterend", btn);
       }
     });
@@ -500,11 +585,93 @@ setd.onclick = () => {
 
 function randomString(length) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "id_"; 
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+
+  let result;
+  do {
+    result = "id_";
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+  } while (document.getElementById(result));
+
   return result;
+}
+
+export function formatUTC8(input = new Date()) {
+  if (!input) return "Unknown time";
+
+  let date;
+
+  if (typeof input?.toDate === "function") {
+    date = input.toDate();
+  } else if (input instanceof Date) {
+    date = input;
+  } else {
+    date = new Date(input);
+  }
+
+  if (isNaN(date)) return "Invalid date";
+
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const utc8 = new Date(utc + (8 * 60 * 60 * 1000));
+
+  const day = utc8.getDate();
+  const month = utc8.toLocaleString("en-US", { month: "long" });
+  const year = utc8.getFullYear();
+
+  const hours24 = utc8.getHours();
+  const hours12 = hours24 % 12 || 12;
+  const minutes = utc8.getMinutes().toString().padStart(2, "0");
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+
+  return `${day} ${month} ${year} at ${hours12
+    .toString()
+    .padStart(2, "0")}:${minutes} ${ampm}`;
+}
+
+export function toDate(input, options = {}) {
+
+  if (!input) return "";
+
+  let date;
+
+  if (typeof input.toDate === "function") {
+    date = input.toDate();
+  }
+  
+  else if (input instanceof Date) {
+    date = input;
+  }
+
+  else if (typeof input === "number") {
+    date = new Date(input);
+  }
+
+  else if (typeof input === "string") {
+    date = new Date(input);
+  }
+
+  else {
+    return "";
+  }
+
+  const {
+    includeTime = false,
+    locale = "en-US"
+  } = options;
+
+  const formatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  };
+
+  if (includeTime) {
+    formatOptions.hour = "2-digit";
+    formatOptions.minute = "2-digit";
+  }
+
+  return date.toLocaleString(locale, formatOptions);
 }
 
 export { randomString, inputDialog, confirmDialog, log, info, tokenize, formatDate, linkify, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime }

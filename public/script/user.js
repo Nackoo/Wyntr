@@ -1,8 +1,8 @@
-import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, setDoc, deleteDoc, startAfter, updateDoc, increment, deleteField, addDoc, serverTimestamp } from "./firebase.js";
-import { renderTweet, getUserData, loadComments } from './index.js';
+import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, setDoc, deleteDoc, startAfter, updateDoc, increment, deleteField, addDoc, serverTimestamp, runTransaction, Timestamp } from "./firebase.js";
+import { renderTweet, getUserData, loadComments, currentUserRole } from './index.js';
 import { sendFollowNotification } from "./notification.js";
-import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1, me } from "./nonsense.js";
-import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog } from "./texts.js";
+import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1, tweet } from "./nonsense.js";
+import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate } from "./texts.js";
 import { sendToDiscord, reportToDiscord } from "./discord.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
@@ -21,17 +21,17 @@ const tagName            = document.getElementById("tagId");
 const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
 const usersSearch        = document.getElementById("usersSearch");
 
-let lastSearchedTweetDoc = null;
-let tweetSearchLoading   = false;
-let tweetSearchNoMore    = false;
 let tweetSearchResults   = [];
 let renderedTweetCount   = 0;
 let userAlreadyFetched   = false;
 let isSearching          = false;
 let lastUserDoc          = null;
-let currentSearchTerm    = "";
 let totalLoaded          = 0;
 let previousTerm         = "";
+let followList           = [];
+let followLastDoc        = null;
+
+const FOLLOW_PAGE_SIZE   = 10;
 
 export const skeleton = `
   <div class="skeleton-card" style="margin-top:50px">
@@ -97,7 +97,22 @@ export const skeleton = `
       <div class="skeleton-pill small last"></div>
     </div>
   </div>
-`
+`;
+
+function getSuspendedUntil(duration) {
+  const now = Date.now();
+
+  const map = {
+    "1d": 24 * 60 * 60 * 1000,
+    "3d": 3 * 24 * 60 * 60 * 1000,
+    "2w": 14 * 24 * 60 * 60 * 1000,
+    "1mo": 30 * 24 * 60 * 60 * 1000
+  };
+
+  if (duration === "permanent") return null;
+
+  return Timestamp.fromMillis(now + map[duration]);
+}
 
 searchBtn.addEventListener("click", () => {
   userOverlay.classList.remove("hidden");
@@ -144,8 +159,6 @@ document.querySelectorAll(".tab1").forEach(tab1 => {
   });
 });
 
-let searchTimeout;
-
 const MIN_LEN = 3;
 
 searchInput.addEventListener("keydown", async (e) => {
@@ -179,16 +192,14 @@ searchInput.addEventListener("keydown", async (e) => {
         }
         const data = snap.data();
 
-        if (data.private === true) {
-          const memberSnap = await getDoc(doc(db, "communities", communityId, "members", auth.currentUser.uid));
-          if (!memberSnap.exists()) {
-            loading.classList.remove("show");
-            info("x", "No access", "This community is a private community and you don't have permission to view this community.");
-            return;
-          }
+        if (data.private === true && !(data.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "This community is a private community and you don't have permission to view this community.");
+          return;
         }
-        return await openCommunity(communityId);
+
         loading.classList.remove("show");
+        return await openCommunity(communityId);
       }
 
       if (userMatch) {
@@ -209,16 +220,10 @@ searchInput.addEventListener("keydown", async (e) => {
 
         const cData = comSnap.data();
 
-        if (cData.private === true) {
-          const memberRef = doc(db, "communities", communityId, "members", auth.currentUser.uid);
-          const memberSnap = await getDoc(memberRef);
-          const isMember = memberSnap.exists();
-
-          if (!isMember) {
-            loading.classList.remove("show");
-            info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this reply.");
-            return;
-          }
+        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this reply.");
+          return;
         }
 
         const overlay = document.getElementById("commentViewer");
@@ -226,7 +231,6 @@ searchInput.addEventListener("keydown", async (e) => {
         const replyList = overlay.querySelector("#replyList");
 
         overlay.classList.remove("hidden");
-        box.innerHTML = "";
         replyList.innerHTML = "";
 
         const commentRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId);
@@ -236,19 +240,13 @@ searchInput.addEventListener("keydown", async (e) => {
           loading.classList.remove("show");
           const commentData = { id: snap.id, ...snap.data() };
           await document.getElementById("tweetViewer").classList.add("hidden");
-          await renderCommentViewer(commentData, commentId, tweetId, box, communityId);
-          await loadComments(tweetId, true, commentId, replyList, communityId);
-          await openCommunity(communityId);
+          renderCommentViewer(commentData, commentId, tweetId, box, communityId);
+          loadComments(tweetId, true, commentId, replyList, communityId);
+          openCommunity(communityId);
           document.body.classList.add("no-scroll");
         } else {
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No reply found</h2>
-                <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-              </div>
-            </div>`;
-          replyList.innerHTML = "";
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
         }
         
         loading.classList.remove("show");
@@ -267,22 +265,15 @@ searchInput.addEventListener("keydown", async (e) => {
 
         const cData = comSnap.data();
 
-        if (cData.private === true) {
-          const memberRef = doc(db, "communities", communityId, "members", auth.currentUser.uid);
-          const memberSnap = await getDoc(memberRef);
-          const isMember = memberSnap.exists();
-
-          if (!isMember) {
-            loading.classList.remove("show");
-            info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this Wynt.");
-            return;
-          }
+        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this Wynt.");
+          return;
         }
 
         const tweetViewer = document.getElementById("tweetViewer");
         const box = tweetViewer.querySelector("#appendTweet");
 
-        box.innerHTML = "";
         tweetViewer.classList.remove("hidden");
         document.body.classList.add("no-scroll");
 
@@ -293,20 +284,15 @@ searchInput.addEventListener("keydown", async (e) => {
           loading.classList.remove("show");
           document.getElementById("commentList").innerHTML = "";
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No Wynt found</h2>
-                <p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted.</p>
-              </div>
-            </div>`;
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>`;
           return;
         }
 
         const tweetData = tweetSnap.data();
         loading.classList.remove("show");
-        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId);
-        await loadComments(tweetId, true, null, null, communityId);
-        await openCommunity(communityId);
+        renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId);
+        loadComments(tweetId, true, null, null, communityId);
+        openCommunity(communityId);
         return;
       }
 
@@ -315,7 +301,6 @@ searchInput.addEventListener("keydown", async (e) => {
         const tweetViewer = document.getElementById("tweetViewer");
         const box = tweetViewer.querySelector("#appendTweet");
 
-        box.innerHTML = "";
         tweetViewer.classList.remove("hidden");
         document.body.classList.add("no-scroll");
 
@@ -325,18 +310,13 @@ searchInput.addEventListener("keydown", async (e) => {
         if (!tweetSnap.exists()) {
           document.getElementById("commentList").innerHTML = "";
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No Wynt found</h2>
-                <p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted.</p>
-              </div>
-            </div>`;
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>`;
           return;
         }
 
         const tweetData = tweetSnap.data();
-        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
-        return await loadComments(tweetId);
+        renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
+        return loadComments(tweetId);
       }
 
       if (replyMatch) {
@@ -348,7 +328,6 @@ searchInput.addEventListener("keydown", async (e) => {
         const replyList = overlay.querySelector("#replyList");
 
         overlay.classList.remove("hidden");
-        box.innerHTML = "";
         replyList.innerHTML = "";
 
         const commentRef = doc(db, "tweets", tweetId, "comments", commentId);
@@ -357,18 +336,12 @@ searchInput.addEventListener("keydown", async (e) => {
         if (snap.exists()) {
           const commentData = { id: snap.id, ...snap.data() };
           await document.getElementById("tweetViewer").classList.add("hidden");
-          await renderCommentViewer(commentData, commentId, tweetId, box);
-          await loadComments(tweetId, true, commentId, replyList);
+          renderCommentViewer(commentData, commentId, tweetId, box);
+          loadComments(tweetId, true, commentId, replyList);
           document.body.classList.add("no-scroll");
         } else {
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No reply found</h2>
-                <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-              </div>
-            </div>`;
-          replyList.innerHTML = "";
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
         }
         return;
       }
@@ -425,13 +398,9 @@ searchInput.addEventListener("keydown", async (e) => {
   }
 });
 
-
 function resetTweetSearch() {
   tweetSearchResults = [];
   renderedTweetCount = 0;
-  lastSearchedTweetDoc = null;
-  tweetSearchLoading = false;
-  tweetSearchNoMore = false;
   tweetsView.innerHTML = "";
 }
 
@@ -479,24 +448,6 @@ async function searchTweets(term, reset = true) {
   return results;
 }
 
-async function renderMoreSearchedTweets() {
-  const next = tweetSearchResults.slice(renderedTweetCount, renderedTweetCount + 10);
-
-  for (const docSnap of next) {
-    const t = docSnap.data();
-    const id = docSnap.id;
-    await renderTweet(t, id, auth.currentUser, "append", tweetsView);
-  }
-
-  renderedTweetCount += next.length;
-
-  if (renderedTweetCount >= tweetSearchResults.length) {
-    tweetSearchNoMore = true;
-  }
-}
-
-let lastDoc = null;
-
 const list = document.getElementById("userList");
 
 let userLastVisibleDoc = null;
@@ -543,7 +494,9 @@ async function loadTweets(uid) {
   }
 
   for (const docSnap of snap.docs) {
-    await renderTweet(docSnap.data(), docSnap.id, userData, "append", list);
+    if (uid === document.querySelector("#user-name").dataset.uid) {
+      renderTweet(docSnap.data(), docSnap.id, userData, "append", list);
+    }
   }
 
   userLoadedCount += snap.docs.length;
@@ -585,15 +538,13 @@ async function fetchUsers(term = "") {
     }
 
   } else {
-    const q = lastUserDoc
-      ? query(collection(db, "users"), orderBy("name"), startAfter(lastUserDoc), limit(10))
-      : query(collection(db, "users"), orderBy("name"), limit(10));
+    const q = query(
+      collection(db, "users"), 
+      orderBy("name"), 
+      limit(10)
+    );
 
     snap = await getDocs(q);
-
-    if (!snap.empty) {
-      lastUserDoc = snap.docs[snap.docs.length - 1];
-    }
   }
 
   if (snap.empty) {
@@ -610,14 +561,6 @@ async function fetchUsers(term = "") {
 
   for (const docSnap of snap.docs) {
     const data = docSnap.data();
-    
-    let premiumBadge = "";
-    if (data.premium) {
-      const expiry = data.premium.toDate ? data.premium.toDate() : data.premium;
-      if (expiry > new Date()) {
-        premiumBadge = `<img loading='lazy' src="/image/check.svg">`;
-      }
-    }
 
     const item = document.createElement("div");
     item.className = "user-search-item";
@@ -626,19 +569,21 @@ async function fetchUsers(term = "") {
       "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
 
     item.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">${escapeHTML(data.displayName)}</strong>
-          ${premiumBadge}
-          <button class="mini-follow-btn"
-                  style="padding:0 10px;border-radius:50px;background:white;height:26px;cursor:pointer;border:1px solid var(--border);margin-left:auto;opacity:0;">
-            ...
-          </button>
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+        
+        <div style="display:flex; flex-direction:column; gap:7px">
+          <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+            ${escapeHTML(data.displayName)}
+          </strong>
+          <span style="font-size:14px; color:grey;">
+            @${escapeHTML(data.username)}
+          </span>
         </div>
-        <span style="font-size:14px;color:grey;">@${escapeHTML(data.username)}</span>
-      </div>`;
+        
+        <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
+      </div>
+    `;
 
     item.addEventListener("click", (e) => {
       if (!e.target.classList.contains("mini-follow-btn")) {
@@ -670,26 +615,30 @@ export async function fetchTags(term) {
   const tagsRef = collection(db, "tags");
 
   if (!term || term.length < 1) {
-    const q = query(tagsRef, orderBy("tweetCount", "desc"), limit(10));
+    const q = query(tagsRef, 
+      orderBy("tweetCount", "desc"), 
+      limit(10)
+    );
     const snap = await getDocs(q);
 
     for (const tagDoc of snap.docs) {
       const tagId = tagDoc.id;
       const count = tagDoc.data().tweetCount || 0;
-      const creator = tagDoc.data().creator || system;
+      const data = tagDoc.data()
 
       const item = document.createElement("div");
       item.className = "tag-search-item";
       item.id = `tag-${tagId}`;
       item.innerHTML = `
-<div style="display:flex;align-items:center;padding:10px 0">
-  <div>
-    <span style="color:grey;font-size:12px">used on ${count} Wynts</span><br>
-    <h4 style="margin:0;font-size:18px;">${tagId}</h4>
-    <span style="color:grey;font-size:12px;">by @${creator}</span>
-  </div>
-  <h2 style="margin-left:auto;color:grey;">#</h2>
-</div>
+        <div style="display:flex;align-items:center;padding:13px 0">
+          <div style="width:100%">
+            <div style="display:flex;align-items:center;">
+              <h4 style="margin:0;font-size:18px;">${tagId}</h4>
+              <p style="color:grey;margin:0;margin-left:auto;font-size:14px;">${formatDate(data.createdAt)}</p>
+            </div>
+            <span style="color:grey;font-size:14px">used on ${count} Wynts</span>
+          </div>
+        </div>
 `;
       item.style.cssText = "border-bottom:var(--border);cursor:pointer;";
       item.onclick = () => openTag(tagId);
@@ -720,20 +669,22 @@ export async function fetchTags(term) {
   for (const tagDoc of snap.docs) {
     const tagId = tagDoc.id;
     const count = tagDoc.data().tweetCount || 0;
-    const creator = tagDoc.data().creator || system;
+    const data = tagDoc.data();
 
     const item = document.createElement("div");
     item.className = "tag-search-item";
     item.id = `tagi-${tagId}`;
     item.innerHTML = `
-<div style="display:flex;align-items:center;padding:10px 0">
-  <div>
-    <span style="color:grey;font-size:12px">used on ${count} Wynts</span><br>
-    <h4 style="margin:0;">${tagId}</h4>
-    <span style="color:grey;font-size:12px;">by @${creator}</span>
-  </div>
-  <h3 style="margin-left:auto;color:grey;">#</h3>
-</div>`;
+        <div style="display:flex;align-items:center;padding:10px 0">
+          <div style="width:100%;">
+            <div style="display:flex;align-items:center;">
+              <h4 style="margin:0;font-size:18px;">${tagId}</h4>
+              <p style="color:grey;margin:0;margin-left:auto;font-size:14px;">${formatDate(data.createdAt)}</p>
+            </div>
+            <span style="color:grey;font-size:14px">used on ${count} Wynts</span>
+          </div>
+        </div>
+    `;
     item.style.cssText = "border-bottom:var(--border);cursor:pointer;";
     item.onclick = () => openTag(tagId);
     if (!tagsView.querySelector(`tagi-${tagId}`)) {
@@ -761,54 +712,91 @@ async function getIfUserfollows(uid) {
   }
 }
 
+function softblank() {
+  document.getElementById("username").textContent = "username"
+  document.getElementById("user-description").textContent = "loading description...";
+  document.getElementById("user-name").textContent = "user";
+  document.getElementById("user-status").textContent = "i'm cold";
+  document.getElementById("posts").textContent = "0";
+  document.getElementById("followers").textContent = "0";
+  document.getElementById("comCount").textContent = "0";
+  document.getElementById("following").textContent = "0";
+  document.getElementById("followsBadge").style.display = "none";
+  document.getElementById("followBtn").style.display = "none";
+  document.getElementById("user-pfp").style.background = "#16181c";
+  document.getElementById("user-banner").style.background = "#16181c";
+  document.getElementById("user-creation").textContent = "loading date";
+
+  const userEffectEl = document.querySelector("#profile-effect");
+  if (userEffectEl) {
+    userEffectEl.style.setProperty("--user-effect-bg", "none");
+    userEffectEl.style.setProperty("--user-effect-opacity", "0");
+  }
+
+  list.innerHTML = "";
+  usermentionedList.innerHTML = "";
+  highlightedList.innerHTML = "";
+}
+
+function blank() {
+  document.getElementById("username").style.display = "none";
+  document.getElementById("user-description").textContent = "";
+  document.querySelectorAll(".status")[1].style.display = "none";
+  document.getElementById("posts").textContent = "0";
+  document.getElementById("followers").textContent = "0";
+  document.getElementById("comCount").textContent = "0";
+  document.getElementById("following").textContent = "0";
+  document.getElementById("followsBadge").style.display = "none";
+  document.getElementById("followBtn").style.display = "none";
+  document.getElementById("user-creation").textContent = "";
+  document.getElementById("ing").style.pointerEvents = "none";
+  document.getElementById("ers").style.pointerEvents = "none";
+  document.getElementById("user-pfp").style.background = "#16181c";
+  document.getElementById("user-banner").style.background = "#16181c";
+  document.getElementById("sujdiqu").style.display = "none";
+
+  const userEffectEl = document.querySelector("#profile-effect");
+  if (userEffectEl) {
+    userEffectEl.style.setProperty("--user-effect-bg", "none");
+    userEffectEl.style.setProperty("--user-effect-opacity", "0");
+  }
+
+  list.classList.add("hidden");
+  usermentionedList.classList.add("hidden");
+  highlightedList.classList.add("hidden");
+}
+
 async function isBanned(uid) {
   const bannedRef = doc(db, "banned", uid);
   const bannedSnap = await getDoc(bannedRef);
   if (bannedSnap.exists()) {
-    document.getElementById("user-pfp").style.background = "#16181c";
-    document.getElementById("user-banner").style.background = "#16181c";
     document.getElementById("user-name").textContent = "user is suspended";
-    document.getElementById("username").style.display = "none";
-    document.getElementById("user-description").textContent = "";
-    document.querySelectorAll(".status")[1].style.display = "none";
-    document.getElementById("posts").textContent = "0";
-    document.getElementById("streak").textContent = "0";
-    document.getElementById("followers").textContent = "0";
-    document.getElementById("following").textContent = "0";
-    document.getElementById("iq").style.display = "none";
-    document.getElementById("followsBadge").style.display = "none";
-    document.getElementById("followBtn").style.display = "none";
-    document.getElementById("user-creation").textContent = "";
-    document.getElementById("ing").style.pointerEvents = "none";
-    document.getElementById("ers").style.pointerEvents = "none";
-
-    const adminBadge = document.querySelector(".user-admin");
-    if (adminBadge) adminBadge.style.display = "none";
-
-    const userEffectEl = document.querySelector("#profile-effect");
-    if (userEffectEl) {
-      userEffectEl.style.setProperty("--user-effect-bg", "none");
-      userEffectEl.style.setProperty("--user-effect-opacity", "0");
-    }
-
-    const replylist = document.getElementById("userReplyList");
-
-    list.classList.add("hidden");
-    usermentionedList.classList.add("hidden");
-    replylist.classList.add("hidden");
-    highlightedList.classList.add("hidden");
+    blank();
     return;
   }
 }
 
+async function incrementUserVisits(uid) {
+  if (uid === auth.currentUser.uid) return;
+
+  const viewRef = doc(db, "users", uid, "views", auth.currentUser.uid);
+  const userRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    await setDoc(viewRef, {
+      viewedAt: new Date()
+    });
+    updateDoc(userRef, {
+      visitedCount: increment(1)
+    });
+  }
+}
+
 export async function openUserSubProfile(uid) {
-
+  softblank();
+  window.cannotSeeFollows = false;
   tweetviewactive1();
-
-  list.innerHTML = "";
-  usermentionedList.innerHTML = "";
-  replyList.innerHTML = "";
-  highlightedList.innerHTML = "";
 
   document.getElementById("comRule").style.display = "none";
 
@@ -826,18 +814,15 @@ export async function openUserSubProfile(uid) {
   highlightedLoadedCount = 0;
   highlightedLastVisibleDoc = null;
 
-  replyLoadedCount = 0;
-  replyLastVisibleDoc = null;
-
   const docSnap = await getDoc(doc(db, "users", uid));
   if (!docSnap.exists()) {
-    log("red", "user doesn't exist");
+    document.getElementById("user-name").textContent = "user not found";
+    blank();
     return;
   }
 
   list.classList.remove("hidden");
   usermentionedList.classList.remove("hidden");
-  document.getElementById("userReplyList").classList.remove("hidden");
   highlightedList.classList.remove("hidden");
 
   document.getElementById("banBtn").classList.add("hidden");
@@ -849,16 +834,27 @@ export async function openUserSubProfile(uid) {
   document.getElementById("reportUser").dataset.uid = uid;
   document.querySelectorAll(".status")[1].style.display = "inline";  
   document.getElementById("username").style.display = "inline";
-  document.getElementById("iq").style.display = "inline";
   document.getElementById("ing").style.pointerEvents = "auto";
   document.getElementById("ers").style.pointerEvents = "auto";
 
   userOverlay.classList.add("hidden");
   userSubOverlay.classList.remove("hidden");
 
+  incrementUserVisits(uid);
+
   const d = docSnap.data();
 
+  if (d.suspended && d.suspendedUntil > Timestamp.now()) {
+    document.getElementById("user-suspended").classList.remove("hidden");
+    if (currentUserRole === "admin") { 
+      document.getElementById("suspended-for1").textContent = `for: ${d.suspendedFor || "no reason specified"}`;
+    }
+  } else {
+    document.getElementById("user-suspended").classList.add("hidden");
+  }
+
   const banBtn = document.getElementById("banBtn");
+  const suspendBtn = document.getElementById("suspendBtn");
   const currentUserId = auth.currentUser.uid;
 
   const followsBadge = document.getElementById("followsBadge");
@@ -871,6 +867,7 @@ export async function openUserSubProfile(uid) {
   if (uid === currentUserId) {
     followBtn.classList.add("hidden");
     banBtn.classList.add("hidden");
+    suspendBtn.classList.add("hidden");
   } else {
     followBtn.classList.remove("hidden");
 
@@ -881,27 +878,116 @@ export async function openUserSubProfile(uid) {
 
     if (window.currentUserRole === "admin" && targetRole !== "admin") {
       banBtn.classList.remove("hidden");
+      suspendBtn.classList.remove("hidden");
 
       const bannedRef = doc(db, "banned", uid);
       const bannedSnap = await getDoc(bannedRef);
+
+      if (d.suspended && d.suspendedUntil > Timestamp.now()) {
+        suspendBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Un-suspend this user`;
+      } else {
+        suspendBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Suspend this user`;
+      }
 
       if (bannedSnap.exists()) {
         banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
-        d.status = "banned"; 
       } else {
         banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
-        d.status = null;
       }
 
-    banBtn.onclick = async () => {
-      document.getElementById("userMenuOverlay").classList.add("hidden");
-      const bannedRef = doc(db, "banned", uid);
-      const bannedSnap = await getDoc(bannedRef);
-      const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
-      const overlay = document.getElementById("deleteReasonOverlay");
-      const reasonInput = document.getElementById("deleteReasonInput");
+      banBtn.onclick = async () => {
+        document.getElementById("userMenuOverlay").classList.add("hidden");
+        const bannedRef = doc(db, "banned", uid);
+        const bannedSnap = await getDoc(bannedRef);
+        const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
+        const overlay = document.getElementById("deleteReasonOverlay");
+        const reasonInput = document.getElementById("deleteReasonInput");
 
-      if (bannedSnap.exists()) {
+        if (bannedSnap.exists()) {
+          overlay.classList.remove("hidden");
+          document.body.classList.add("no-scroll");
+
+          document.getElementById("deleteReasonCancel").onclick = () => {
+            overlay.classList.add("hidden");
+            document.body.classList.remove("no-scroll");
+            reasonInput.value = "";
+          };
+
+          deleteReasonSubmit.onclick = async () => {
+            const reason = reasonInput.value.trim();
+            if (!reason) return log("red", "Please provide a reason");
+
+            deleteReasonSubmit.disabled = true;
+            deleteReasonSubmit.classList.add("disabled");
+
+            const previousReason = bannedSnap.data().reason || "No reason provided";
+
+            const userRef = doc(db, "users", uid);
+
+            await runTransaction(db, async (tx) => {
+              tx.update(userRef, {
+                banned: false
+              });
+              tx.delete(bannedRef);
+            });
+
+            await openUserSubProfile(uid);
+
+            let screenshotBase64 = null;
+            const profileEl = document.querySelector("#userSubOverlay .user-box");
+            if (profileEl) {
+              try {
+                const canvas = await html2canvas(profileEl, {
+                  backgroundColor: null
+                });
+                screenshotBase64 = canvas.toDataURL("image/png");
+              } catch (err) {
+                console.error("Unban screenshot failed:", err);
+              }
+            }
+
+            const { realusername: unbannedName } = await getUserData(uid);
+            const { username: adminName } = await getUserData(auth.currentUser.uid);
+
+            const susRef = doc(db, "susList", uid);
+
+            const susSnap = await getDoc(susRef);
+            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
+
+            const embed = {
+              title: "User Unbanned",
+              color: 4529510,
+              fields: [
+                { name: "User", value: unbannedName },
+                { name: "Unbanned By", value: adminName },
+                { name: "Reason", value: reason },
+                { name: "Previous Ban Reason", value: previousReason },
+                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
+                { name: "user warnings", value: currentWarnings.toString() },
+                { name: "unbanned at", value: formatUTC8() },
+              ],
+              timestamp: new Date(),
+            };
+
+            if (screenshotBase64) embed.image = {
+              url: "attachment://screenshot.png"
+            };
+
+            await sendToDiscord(null, {
+              embeds: [embed]
+            }, screenshotBase64);
+
+            banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
+            document.getElementById("userMenuOverlay").classList.add("hidden");
+            overlay.classList.add("hidden");
+            document.body.classList.remove("no-scroll");
+            reasonInput.value = "";
+            deleteReasonSubmit.classList.remove("disabled");
+            deleteReasonSubmit.disabled = false;
+          };
+          return;
+        }
+
         overlay.classList.remove("hidden");
         document.body.classList.add("no-scroll");
 
@@ -917,23 +1003,35 @@ export async function openUserSubProfile(uid) {
 
           deleteReasonSubmit.disabled = true;
           deleteReasonSubmit.classList.add("disabled");
-          loading.classList.add("show");
-
-          await deleteDoc(bannedRef);
-          await openUserSubProfile(uid);
 
           let screenshotBase64 = null;
           const profileEl = document.querySelector("#userSubOverlay .user-box");
           if (profileEl) {
             try {
-              const canvas = await html2canvas(profileEl, { backgroundColor: null });
+              const canvas = await html2canvas(profileEl, {
+                backgroundColor: null
+              });
               screenshotBase64 = canvas.toDataURL("image/png");
             } catch (err) {
-              console.error("Unban screenshot failed:", err);
+              console.error("Ban screenshot failed:", err);
             }
           }
 
-          const { username: unbannedName } = await getUserData(uid);
+          const userRef = doc(db, "users", uid);
+          await runTransaction(db, async (tx) => {
+            tx.update(userRef, {
+              banned: true,
+              bannedFor: reason
+            });
+            tx.set(bannedRef, {
+              bannedAt: serverTimestamp(),
+              reason,
+            });
+          });
+
+          openUserSubProfile(uid);
+
+          const { username: bannedName } = await getUserData(uid);
           const { username: adminName } = await getUserData(auth.currentUser.uid);
 
           const susRef = doc(db, "susList", uid);
@@ -941,111 +1039,219 @@ export async function openUserSubProfile(uid) {
           const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
 
           const embed = {
-            title: "User Unbanned",
-            color: 65280, 
+            title: "User Banned",
+            color: 16711680,
             fields: [
-              { name: "User", value: unbannedName },
-              { name: "Unbanned By", value: adminName },
+              { name: "User", value: bannedName },
+              { name: "Banned By", value: adminName }, 
               { name: "Reason", value: reason },
               { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
               { name: "user warnings", value: currentWarnings },
+              { name: "banned at", value: formatUTC8() },
             ],
             timestamp: new Date(),
           };
 
-          if (screenshotBase64) embed.image = { url: "attachment://screenshot.png" };
+          if (screenshotBase64) embed.image = {
+            url: "attachment://screenshot.png"
+          };
 
-          await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
+          await sendToDiscord(null, {
+            embeds: [embed]
+          }, screenshotBase64);
 
-          banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
+          banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
           document.getElementById("userMenuOverlay").classList.add("hidden");
-          d.status = null;
           overlay.classList.add("hidden");
           document.body.classList.remove("no-scroll");
           reasonInput.value = "";
           deleteReasonSubmit.classList.remove("disabled");
           deleteReasonSubmit.disabled = false;
-          loading.classList.remove("show");
         };
-        return;
-      }
-
-      overlay.classList.remove("hidden");
-      document.body.classList.add("no-scroll");
-
-
-        document.getElementById("deleteReasonCancel").onclick = () => {
-        overlay.classList.add("hidden");
-        document.body.classList.remove("no-scroll");
-        reasonInput.value = "";
-        loading.classList.remove("show");
       };
 
-        deleteReasonSubmit.onclick = async () => {
-        const reason = reasonInput.value.trim();
-        if (!reason) return log("red", "Please provide a reason");
+      suspendBtn.onclick = async () => {
+        document.getElementById("userMenuOverlay").classList.add("hidden");
+        const userRef = doc(db, "users", uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+        const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
+        const overlay = document.getElementById("deleteReasonOverlay");
+        const reasonInput = document.getElementById("deleteReasonInput");
 
-        deleteReasonSubmit.disabled = true;
-        deleteReasonSubmit.classList.add("disabled");
-        loading.classList.add("show");
+        if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
+          overlay.classList.remove("hidden");
+          document.body.classList.add("no-scroll");
 
-        let screenshotBase64 = null;
-        const profileEl = document.querySelector("#userSubOverlay .user-box");
-        if (profileEl) {
-          try {
-            const canvas = await html2canvas(profileEl, { backgroundColor: null });
-            screenshotBase64 = canvas.toDataURL("image/png");
-          } catch (err) {
-            console.error("Ban screenshot failed:", err);
-          }
+          document.getElementById("deleteReasonCancel").onclick = () => {
+            overlay.classList.add("hidden");
+            document.body.classList.remove("no-scroll");
+            reasonInput.value = "";
+          };
+
+          deleteReasonSubmit.onclick = async () => {
+            const reason = reasonInput.value.trim();
+            if (!reason) return log("red", "Please provide a reason");
+
+            deleteReasonSubmit.disabled = true;
+            deleteReasonSubmit.classList.add("disabled");
+
+            const previousReason = userData.suspendedFor || "No reason provided";
+
+            await runTransaction(db, async (tx) => {
+              tx.update(userRef, {
+                suspended: false
+              });
+            });
+
+            await openUserSubProfile(uid);
+
+            let screenshotBase64 = null;
+            const profileEl = document.querySelector("#userSubOverlay .user-box");
+            if (profileEl) {
+              try {
+                const canvas = await html2canvas(profileEl, {
+                  backgroundColor: null
+                });
+                screenshotBase64 = canvas.toDataURL("image/png");
+              } catch (err) {
+                console.error("Unban screenshot failed:", err);
+              }
+            }
+
+            const { realusername: unbannedName } = await getUserData(uid);
+            const { username: adminName } = await getUserData(auth.currentUser.uid);
+
+            const susRef = doc(db, "susList", uid);
+
+            const susSnap = await getDoc(susRef);
+            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
+
+            const embed = {
+              title: "User Un-suspended",
+              color: 4529510,
+              fields: [
+                { name: "User", value: unbannedName },
+                { name: "un-suspended By", value: adminName },
+                { name: "Reason", value: reason },
+                { name: "Previous suspended Reason", value: previousReason },
+                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
+                { name: "user warnings", value: currentWarnings.toString() },
+                { name: "un-suspended at", value: formatUTC8() },
+              ],
+              timestamp: new Date(),
+            };
+
+            if (screenshotBase64) embed.image = {
+              url: "attachment://screenshot.png"
+            };
+
+            await sendToDiscord(null, {
+              embeds: [embed]
+            }, screenshotBase64);
+
+            banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
+            document.getElementById("userMenuOverlay").classList.add("hidden");
+            overlay.classList.add("hidden");
+            document.body.classList.remove("no-scroll");
+            reasonInput.value = "";
+            deleteReasonSubmit.classList.remove("disabled");
+            deleteReasonSubmit.disabled = false;
+          };
+          return;
         }
 
-        await setDoc(bannedRef, {
-          bannedAt: serverTimestamp(),
-          reason,
-        });
+        overlay.classList.remove("hidden");
+        document.body.classList.add("no-scroll");
 
-        openUserSubProfile(uid);
-
-        const { username: bannedName } = await getUserData(uid);
-        const { username: adminName } = await getUserData(auth.currentUser.uid);
-
-        const susRef = doc(db, "susList", uid);
-        const susSnap = await getDoc(susRef);
-        const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
-
-        const embed = {
-          title: "User Banned",
-          color: 16711680, 
-          fields: [
-            { name: "User", value: bannedName },
-            { name: "Banned By", value: adminName },
-            { name: "Reason", value: reason },
-            { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-            { name: "user warnings", value: currentWarnings },
-          ],
-          timestamp: new Date(),
+        document.getElementById("deleteReasonCancel").onclick = () => {
+          overlay.classList.add("hidden");
+          document.body.classList.remove("no-scroll");
+          reasonInput.value = "";
         };
 
-        if (screenshotBase64) embed.image = { url: "attachment://screenshot.png" };
+        deleteReasonSubmit.onclick = async () => {
+          const reason = reasonInput.value.trim();
+          if (!reason) return log("red", "Please provide a reason");
 
-        await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
+          document.getElementById("suspendOptions").classList.remove("hidden");
+          console.log("SKIBIDI YANTO");
+          const confirmSuspend = document.getElementById("confirmSuspend");
+          
+          confirmSuspend.onclick = async() => {
+            confirmSuspend.classList.add("disabled");
+            confirmSuspend.disabled = true;
 
-        banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
-        document.getElementById("userMenuOverlay").classList.add("hidden");
-        d.status = "banned";
-        overlay.classList.add("hidden");
-        document.body.classList.remove("no-scroll");
-        reasonInput.value = "";
-        deleteReasonSubmit.classList.remove("disabled");
-        deleteReasonSubmit.disabled = false;
-        loading.classList.remove("show");
+            let screenshotBase64 = null;
+            const profileEl = document.querySelector("#userSubOverlay .user-box");
+            if (profileEl) {
+              try {
+                const canvas = await html2canvas(profileEl, {
+                  backgroundColor: null
+                });
+                screenshotBase64 = canvas.toDataURL("image/png");
+              } catch (err) {
+                console.error("Ban screenshot failed:", err);
+              }
+            }
+
+            const duration = document.getElementById("suspendDuration").value;
+
+            await runTransaction(db, async (tx) => {
+              tx.update(userRef, {
+                suspended: true,
+                suspendedFor: reason,
+                suspendedUntil: getSuspendedUntil(duration)
+              });
+            });
+
+            openUserSubProfile(uid);
+
+            const { username: bannedName } = await getUserData(uid);
+            const { username: adminName } = await getUserData(auth.currentUser.uid);
+
+            const susRef = doc(db, "susList", uid);
+            const susSnap = await getDoc(susRef);
+            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
+
+            const embed = {
+              title: "User Suspended",
+              color: 16711680,
+              fields: [
+                { name: "User", value: bannedName },
+                { name: "suspended By", value: adminName }, 
+                { name: "Reason", value: reason },
+                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
+                { name: "user warnings", value: currentWarnings },
+                { name: "suspended at", value: formatUTC8() },
+              ],
+              timestamp: new Date(),
+            };
+
+            if (screenshotBase64) embed.image = {
+              url: "attachment://screenshot.png"
+            };
+
+            await sendToDiscord(null, {
+              embeds: [embed]
+            }, screenshotBase64);
+
+            banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
+            confirmSuspend.classList.remove("disabled");
+            confirmSuspend.disabled = false;
+            document.getElementById("suspendOptions").classList.add("hidden");
+          };
+          document.getElementById("userMenuOverlay").classList.add("hidden");
+          overlay.classList.add("hidden");
+          reasonInput.value = "";
+          deleteReasonSubmit.classList.remove("disabled");
+          deleteReasonSubmit.disabled = false;
+        };
       };
-    };
     }
   };
 
-const reportBtn = document.getElementById("reportUser");
+  const reportBtn = document.getElementById("reportUser");
   if (uid === currentUserId) {
     reportBtn.classList.add("hidden");
   } else {
@@ -1135,24 +1341,6 @@ const reportBtn = document.getElementById("reportUser");
     let background = "";
 
     switch (d.effect) {
-      case "002":
-        background = "/image/effects/flame.gif";
-        break;
-      case "003":
-        background = "/image/effects/rain.webp";
-        break;
-      case "005":
-        background = "/image/effects/earth.gif";
-        break;
-      case "008":
-        background = "/image/effects/wave.gif";
-        break;
-      case "009":
-        background = "/image/effects/fih.gif";
-        break;
-      case "010":
-        background = "/image/effects/sakura.gif";
-        break;
       case "custom-001":
         background = "/image/effects/custom/phoebe.gif";
         break;
@@ -1166,20 +1354,7 @@ const reportBtn = document.getElementById("reportUser");
 
   if (window.currentUserRole === "admin") {
     document.getElementById("sujdiqu").style.display = "flex";
-    document.getElementById("bruhhh").style.marginLeft = "0";
     document.getElementById("user-balance").textContent = formatNumber(d.balance);
-  }
-
-  const adminBadge = document.querySelector(".user-admin");
-
-  const premiumExpiry = d.premium ? d.premium.toDate() : null;
-  const now = new Date();
-  const isPremium = premiumExpiry && premiumExpiry > now;
-
-  if (isPremium) {
-    adminBadge.style.display = "inline-block";
-  } else {
-    adminBadge.style.display = "none";
   }
 
   if (d.createdAt?.toDate) {
@@ -1187,6 +1362,7 @@ const reportBtn = document.getElementById("reportUser");
     const formatted = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
     document.getElementById("user-creation").textContent = `${formatted}`;
   }
+
   list.innerHTML = "";
   if (document.getElementById("pinnedyo")) document.getElementById("pinnedyo").remove();
 
@@ -1198,17 +1374,10 @@ const reportBtn = document.getElementById("reportUser");
   loadIfFollow(uid);
   isBanned(uid);
 
-  const postCount = d.posts || 0;
-  const followerCount = d.followers || 0;
-  const followingCount = d.following || 0;
-  const streak = d.streak || 0;
-  const iq = d.IQ.toFixed(2) || 0;
-
-  document.getElementById("posts").textContent = `${postCount}`;
-  document.getElementById("streak").textContent = `${streak}`;
-  document.getElementById("followers").textContent = `${followerCount}`;
-  document.getElementById("following").textContent = `${followingCount}`;
-  document.getElementById("iq").textContent = `${iq}`
+  document.getElementById("posts").textContent = d.posts || 0;
+  document.getElementById("followers").textContent = d.followers || 0;
+  document.getElementById("following").textContent = d.following || 0;
+  document.getElementById("comCount").textContent = d.communitiesCount || 0;
 }
 
 async function loadIfFollow(uid) {
@@ -1222,18 +1391,19 @@ async function loadIfFollow(uid) {
       followBtn.disabled = true;
       followBtn.classList.add("disabled");
 
+      function reset() {
+        followBtn.classList.remove("disabled");
+        followBtn.disabled = false;
+      }
+
       try {
         const currentlyFollowing = snap.exists();
 
         if (currentlyFollowing) {
-          const ok = await confirmDialog(
-            "Unfollow this user?",
-            "you still have a chance. Rethink and you might change your mind later."
-          );
+          const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
 
           if (!ok) {
-            followBtn.classList.remove("disabled");
-            followBtn.disabled = false;
+            reset();
             return;
           }
 
@@ -1245,7 +1415,6 @@ async function loadIfFollow(uid) {
           batch.update(doc(db, "users", auth.currentUser.uid), {
             following: increment(-1)
           });
-
           batch.update(doc(db, "users", uid), {
             followers: increment(-1)
           });
@@ -1261,57 +1430,62 @@ async function loadIfFollow(uid) {
           loading.classList.remove("show");
           await loadIfFollow(uid);
         } else {
-          const [meSnap, targetSnap] = await Promise.all([
-            getDoc(doc(db, "users", auth.currentUser.uid)),
-            getDoc(doc(db, "users", uid))
-          ]);
+          const { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL } = await getUserData(uid);
+          const { displayName, username, avatar: photoURL } = await getUserData(auth.currentUser.uid);
 
-          const meData = meSnap.data() || {};
-          const targetData = targetSnap.data() || {};
+          await runTransaction(db, async (batch) => {
+            const currentUserRef = doc(db, "users", auth.currentUser.uid);
+            const targetUserRef = doc(db, "users", uid);
 
-          const batch = writeBatch(db);
+            const currentUserSnap = await batch.get(currentUserRef);
+            const currentUserData = currentUserSnap.data();
 
-          batch.set(
-            doc(db, "users", uid, "followers", auth.currentUser.uid),
-            {
-              followedAt: serverTimestamp(),
-              displayName: meData.displayName,
-              username: meData.username,
-              name: meData.displayName?.toLowerCase(),
-              photoURL: meData.photoURL
+            if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
+              info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
+              reset();
+              return;
             }
-          );
 
-          batch.set(
-            doc(db, "users", auth.currentUser.uid, "following", uid),
-            {
-              followedAt: serverTimestamp(),
-              displayName: targetData.displayName,
-              username: targetData.username,
-              name: targetData.displayName?.toLowerCase(),
-              photoURL: targetData.photoURL
+            const targetUserSnap = await batch.get(targetUserRef);
+            const targetUserData = targetUserSnap.data();
+
+            if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
+              info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
+              reset();
+              return;
             }
-          );
 
-          batch.update(doc(db, "users", auth.currentUser.uid), {
-            following: increment(1)
+            batch.set(doc(db, "users", uid, "followers", auth.currentUser.uid), {
+              followedAt: serverTimestamp(),
+              displayName:displayName,
+              username: username,
+              name: displayName?.toLowerCase(),
+              photoURL: photoURL
+            });
+
+            batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
+              followedAt: serverTimestamp(),
+              displayName: tDisplayName,
+              username: tUsername,
+              name: tDisplayName?.toLowerCase(),
+              photoURL: tPhotoURL
+            });
+
+            batch.update(currentUserRef, {
+              following: increment(1)
+            });
+            batch.update(targetUserRef, {
+              followers: increment(1)
+            });      
+
+            sendFollowNotification(uid, username);
+            log("green", `followed ${tDisplayName || "them"}`);
           });
-
-          batch.update(doc(db, "users", uid), {
-            followers: increment(1)
-          });
-
-          await batch.commit();
 
           followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
           followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
 
-          sendFollowNotification(uid, meData.username);
-
-          followBtn.classList.remove("disabled");
-          followBtn.disabled = false;
-
-          log("green", `followed ${targetData.displayName || "them"}`);
+          reset();
           await loadIfFollow(uid);
         }
       } catch (err) {
@@ -1341,8 +1515,9 @@ async function renderPinned(d, uid) {
     if (!document.getElementById('pinnedyo')) {
       list.prepend(pinnedLabel);
     }
-
-    await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
+    if (uid === document.querySelector("#user-name").dataset.uid) {
+      await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
+    }
   }
 }
 
@@ -1404,7 +1579,7 @@ window.openTag = async function (tagId) {
       const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
       if (tweetDoc.exists()) {
         if (!tweetList.querySelector(".tweet")) tweetList.innerHTML = "";
-        await renderTweet(tweetDoc.data(), tweetId, auth.currentUser, "append", tweetList);
+        renderTweet(tweetDoc.data(), tweetId, auth.currentUser, "append", tweetList);
       }
     }
 
@@ -1422,10 +1597,6 @@ window.openTag = async function (tagId) {
 
   await loadBatch();
 };
-
-let followList = [];
-let followLastDoc = null;
-const FOLLOW_PAGE_SIZE = 10;
 
 const followOverlay = document.createElement("div");
 followOverlay.id = "followOverlay";
@@ -1483,7 +1654,22 @@ async function openFollowOverlay(type, userId, isMe) {
   async function searchFollowUsers(term) {
     followList = [];
     followLastDoc = null;
-    listEl.innerHTML = "";
+
+    if (window.cannotSeeFollows === true) {
+      listEl.innerHTML = `
+        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+          <div style="max-width:400px;text-align:left;">
+            <h2 style="margin:0;">No permission</h2>
+            <p style="color:grey;margin:7px 0;">This user chose to not show their followings publicly.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = `
+      <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+    `;
 
     const q = query(
       collection(db, "users", userId, type),
@@ -1495,15 +1681,19 @@ async function openFollowOverlay(type, userId, isMe) {
 
     const snap = await getDocs(q);
 
-    if (snap.empty) {
+    if (snap.empty && !(listEl.querySelector(".user-search-item"))) {
       listEl.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;margin-top:30px;">
           <div style="max-width:400px;">
             <h2 style="margin:0;">No matched users</h2>
-            <p style="color:grey;margin:7px 0;">There’s no person you’re looking for.</p>
+            <p style="color:grey;margin:7px 0;">There's no person you're looking for.</p>
           </div>
         </div>`;
       return;
+    }
+
+    if (!listEl.querySelector(".user-search-item")) {
+      listEl.innerHTML = "";
     }
 
     for (const docSnap of snap.docs) {
@@ -1550,6 +1740,33 @@ async function openFollowOverlay(type, userId, isMe) {
 
 async function loadFollowUsers(type, userId) {
   const ref = collection(db, "users", userId, type);
+
+  if (!followLastDoc) {
+    document.getElementById("followList").innerHTML = `
+      <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+    `;
+  }
+
+  if (type === "following" && !followLastDoc) {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+
+    if (userData.cannotSeeFollows === true && userId != auth.currentUser.uid) {
+      document.getElementById("followList").innerHTML = `
+            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+              <div style="max-width:400px;text-align:left;">
+                <h2 style="margin:0;">No permission</h2>
+                <p style="color:grey;margin:7px 0;">This user chose to not show their followings publicly.</p>
+              </div>
+            </div>
+      `;
+      window.cannotSeeFollows = true;
+      return;
+    }
+  }
+
+  window.cannotSeeFollows = false;
   window.type = type;
   window.userId = userId;
 
@@ -1562,11 +1779,21 @@ async function loadFollowUsers(type, userId) {
 
   followLastDoc = snap.docs[snap.docs.length - 1];
 
+  if (!document.querySelector("#followList .user-search-item")) {
+    document.getElementById("followList").innerHTML = "";
+  }
+
   for (const docSnap of snap.docs) {
     const data = docSnap.data();
     const theirId = data.uid ?? docSnap.id;
 
     if (followList.some(u => u.dataset?.uid === theirId)) continue;
+
+    if (!document.getElementById("userSubOverlay").classList.contains("hidden")) {
+      if (document.getElementById("user-name").dataset.uid != userId) return;
+    } else {
+      if (document.getElementById("my-name").dataset.uid != userId) return;
+    }
 
     const item = await renderFollowUserItem(theirId, data);
     item.dataset.uid = theirId;
@@ -1651,14 +1878,16 @@ async function setupMiniFollowBtn(btn, targetId) {
       btn.disabled = true;
       btn.classList.add("disabled");
 
+      function reset() {
+        btn.classList.remove("disabled");
+        btn.disabled = false;
+      }
+
       try {
         const isNowFollowing = isFollowingSnap.exists();
 
         if (isNowFollowing) {
-          const ok = await confirmDialog(
-            "Unfollow this user?",
-            "you still have a chance. Rethink and you might change your mind later."
-          );
+          const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
           if (!ok) return;
 
           const batch = writeBatch(db);
@@ -1669,7 +1898,6 @@ async function setupMiniFollowBtn(btn, targetId) {
           batch.update(doc(db, "users", currentUid), {
             following: increment(-1)
           });
-
           batch.update(doc(db, "users", targetId), {
             followers: increment(-1)
           });
@@ -1677,69 +1905,75 @@ async function setupMiniFollowBtn(btn, targetId) {
           await batch.commit();
 
           btn.textContent = "Follow";
-          btn.style.cssText =
-            "background:white;color:black;margin-left:auto;padding:10px;height:35px;";
+          btn.style.cssText = "background:white;color:black;margin-left:auto;padding:10px;height:35px;";
 
           log("green", `user unfollowed`);
           loading.classList.remove("show");
           setupMiniFollowBtn(btn, targetId);
         } else {
-          const [meSnap, targetSnap] = await Promise.all([
-            getDoc(doc(db, "users", auth.currentUser.uid)),
-            getDoc(doc(db, "users", targetId))
-          ]);
+          const { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL } = await getUserData(targetId);
+          const { displayName, username, avatar: photoURL } = await getUserData(auth.currentUser.uid);
 
-          const meData = meSnap.data() || {};
-          const targetData = targetSnap.data() || {};
+          await runTransaction(db, async (batch) => {
+            const currentUserRef = doc(db, "users", auth.currentUser.uid);
+            const targetUserRef = doc(db, "users", targetId);
 
-          const batch = writeBatch(db);
+            const currentUserSnap = await batch.get(currentUserRef);
+            const currentUserData = currentUserSnap.data();
 
-          batch.set(
-            doc(db, "users", targetId, "followers", auth.currentUser.uid),
-            {
-              followedAt: serverTimestamp(),
-              displayName: meData.displayName,
-              username: meData.username,
-              name: meData.displayName?.toLowerCase(),
-              photoURL: meData.photoURL
+            if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
+              info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
+              reset();
+              return;
             }
-          );
 
-          batch.set(
-            doc(db, "users", auth.currentUser.uid, "following", targetId),
-            {
-              followedAt: serverTimestamp(),
-              displayName: targetData.displayName,
-              username: targetData.username,
-              name: targetData.displayName?.toLowerCase(),
-              photoURL: targetData.photoURL
+            const targetUserSnap = await batch.get(targetUserRef);
+            const targetUserData = targetUserSnap.data();
+
+            if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
+              info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
+              reset();
+              return;
             }
-          );
 
-          batch.update(doc(db, "users", currentUid), {
-            following: increment(1)
+            batch.set(doc(db, "users", targetId, "followers", auth.currentUser.uid), {
+              followedAt: serverTimestamp(),
+              displayName: displayName,
+              username: username,
+              name: displayName?.toLowerCase(),
+              photoURL: photoURL
+            });
+
+            batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {
+              followedAt: serverTimestamp(),
+              displayName: tDisplayName,
+              username: tUsername,
+              name: tDisplayName?.toLowerCase(),
+              photoURL: tPhotoURL
+            });
+
+            batch.update(currentUserRef, {
+              following: increment(1)
+            });
+            batch.update(targetUserRef, {
+              followers: increment(1)
+            }); 
+
+            log("green", `followed ${tDisplayName || "them"}`);
+            sendFollowNotification(targetId, username);
           });
-
-          batch.update(doc(db, "users", targetId), {
-            followers: increment(1)
-          });
-
-          await batch.commit();
 
           btn.textContent = "UnFoll";
           btn.style.cssText =
             "background:none;border:1px solid grey;color:grey;margin-left:auto;padding:9px;height:35px;";
-          
-          log("green", `followed ${targetData.displayName || "them"}`);
+        
           setupMiniFollowBtn(btn, targetId);
-          sendFollowNotification(targetId, meData.username);
         }
       } catch (err) {
         console.error("Follow toggle failed:", err);
         log("red", "Something went wrong");
       } finally {
-        btn.classList.remove("disabled");
-        btn.disabled = false;
+        reset();
       }
     };
   } else {
@@ -1765,7 +1999,6 @@ document.querySelectorAll(".tab3").forEach(tab => {
 
     document.getElementById("userList").style.display = "none";
     document.getElementById("usermentionedList").style.display = "none";
-    document.getElementById("userReplyList").style.display = "none";
     document.getElementById("userHighlights").style.display = "none";
 
     const targetId = tab.dataset.target;
@@ -1777,61 +2010,11 @@ document.querySelectorAll(".tab3").forEach(tab => {
       loadTweets(uid);
     } else if (targetId === "usermentionedList") {
       loadUserMentionedTweets(uid);
-    } else if (targetId === "userReplyList") {
-      loadReply(uid);
     } else if (targetId === "userHighlights") {
       loadHighlights(uid);
     }
   });
 });
-
-let replyLastVisibleDoc = null;
-let replyLoadedCount = 0;
-const userReplyList = document.getElementById("userReplyList");
-const REPLY_PAGE_SIZE = 3;
-
-async function loadReply(uid) {
-  const replyRef = collection(db, "users", uid, "replies");
-  let q;
-
-  if (!replyLastVisibleDoc) {
-    q = query(replyRef, orderBy("repliedAt", "desc"), limit(REPLY_PAGE_SIZE));
-  } else {
-    q = query(replyRef, orderBy("repliedAt", "desc"), startAfter(replyLastVisibleDoc), limit(REPLY_PAGE_SIZE));
-  }
-
-  const snap = await getDocs(q);
-
-  if (snap.empty && replyLoadedCount === 0) {
-    userReplyList.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No replies — yet</h2><p style="color:grey;margin:7px 0;">when this user reWynt a post, it will appear here.</p></div></div>`;
-    return;
-  }
-
-  if (snap.docs.length >= REPLY_PAGE_SIZE) {
-    replyLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
-
-  for (const mentionDoc of snap.docs) {
-    const tweetId = mentionDoc.id;
-    const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
-    if (!tweetDoc.exists()) continue;
-
-    const tweetData = tweetDoc.data();
-    const userDoc = await getDoc(doc(db, "users", uid));
-    const userData = {
-      ...userDoc.data(),
-      uid
-    };
-
-    await renderTweet(tweetData, tweetId, userData, "append", userReplyList);
-  }
-
-  replyLoadedCount += snap.docs.length;
-
-  if (snap.docs.length >= REPLY_PAGE_SIZE) {
-    replyLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
-}
 
 let mentionedLastVisibleDoc = null;
 let mentionedLoadedCount = 0;
@@ -1871,7 +2054,9 @@ async function loadUserMentionedTweets(uid) {
       uid
     };
 
-    await renderTweet(tweetData, tweetId, userData, "append", usermentionedList);
+    if (uid === document.querySelector("#user-name").dataset.uid) {
+      await renderTweet(tweetData, tweetId, userData, "append", usermentionedList);
+    }
   }
 
   mentionedLoadedCount += snap.docs.length;
@@ -1919,7 +2104,9 @@ async function loadHighlights(uid) {
       uid
     };
 
-    await renderTweet(tweetData, tweetId, userData, "append", highlightedList);
+    if (uid === document.querySelector("#user-name").dataset.uid) {
+      await renderTweet(tweetData, tweetId, userData, "append", highlightedList);
+    }
   }
 
   highlightedLoadedCount += snap.docs.length;

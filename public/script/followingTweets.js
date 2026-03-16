@@ -1,4 +1,4 @@
-import { auth, db, collection, getDoc, getDocs, doc, query, orderBy, limit, where, startAfter, onSnapshot } from "./firebase.js";
+import { auth, db, collection, getDocs, query, orderBy, limit, where, startAfter, onSnapshot } from "./firebase.js";
 import { renderTweet, scoreTweet } from "./index.js"; 
 import { getFollowingIdsFromCache } from "./followingCache.js";
 import { log } from "./texts.js";

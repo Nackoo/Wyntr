@@ -1,8 +1,13 @@
 import { getDoc, doc, db, auth } from "./firebase.js";
 import { log } from "./texts.js";
 
+const loading = document.getElementById("loadingOverlay");
+
 function askDeleteReason() {
   return new Promise((resolve, reject) => {
+    if (loading.classList.contains("show")) {
+      loading.classList.remove("show");
+    }
     const overlay = document.getElementById("deleteReasonOverlay");
     const input = document.getElementById("deleteReasonInput");
     const cancelBtn = document.getElementById("deleteReasonCancel");
@@ -31,18 +36,23 @@ function askDeleteReason() {
   });
 }
 
-async function updateCommentUI(tweetData, isOwner, tweetOwnerId) {
+async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, parentData) {
+  if (parentData != null && parentData.replyPermission) {
+    if (parentData.replyPermission != "everyone") {
+      tweetData.replyPermission = parentData.replyPermission;
+    }
+  }
+
   const permission = tweetData.replyPermission || "everyone";
+  const isOwner = tweetData.uid === auth.currentUser.uid;
+  const tweetOwnerId = tweetData.uid;
   
   let canComment = true;
   let isMentioned = false;
 
-  const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-  const displayName = userDoc.exists() ? userDoc.data().displayName : null;
-  if (displayName) {
-    const mentions = tweetData.text.match(/@(\w+)/g) || [];
-    isMentioned = mentions.some(m => m.slice(1) === displayName);
-  }
+  if (tweetData.mentions && Array.isArray(tweetData.mentions)) {
+    isMentioned = tweetData.mentions.includes(auth.currentUser.uid)
+  } 
 
   if (permission === "following") {
     const followingDoc = await getDoc(
@@ -51,24 +61,26 @@ async function updateCommentUI(tweetData, isOwner, tweetOwnerId) {
     canComment = followingDoc.exists();
   } else if (permission === "mentioned") {
     canComment = isMentioned;
+  } else if (permission === "follower") {
+    const followingDoc = await getDoc(
+      doc(db, "users", auth.currentUser.uid, "following", tweetOwnerId)
+    ); 
+    canComment = followingDoc.exists();
   }
 
+  // people mentioned can always reply
   if (isMentioned) {
     canComment = true;
   }
 
-  const inputBox = document.querySelector("#commentInput");
-  const skibidi = document.querySelectorAll(".skibidi");
-
   if (canComment || isOwner) {
-    inputBox?.classList.remove("hidden");
+    commentInput.classList.remove("hidden");
     skibidi.forEach(el => el.classList.remove("hidden"));
   } else {
-    inputBox?.classList.add("hidden");
+    commentInput.classList.add("hidden");
     skibidi.forEach(el => el.classList.add("hidden"));
   }
 
-  const commentStatus = document.getElementById("comment-status");
   if (commentStatus) {
     if (permission === "everyone") {
       commentStatus.innerHTML = "";
@@ -78,6 +90,9 @@ async function updateCommentUI(tweetData, isOwner, tweetOwnerId) {
     } else if (permission === "mentioned") {
       commentStatus.innerHTML =
         `<img src="/image/exclamation.svg"> the creator has chosen only people they mention can comment`;
+    } else if (permission === "follower") {
+      commentStatus.innerHTML =
+        `<img src="/image/exclamation.svg"> the creator has chosen only people that follow them can comment`;
     }
   }
 }

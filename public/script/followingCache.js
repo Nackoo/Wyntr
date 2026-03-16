@@ -1,5 +1,5 @@
 import { openDB } from "../lib/script/idb.js";
-import { db, collection, query, onSnapshot, getDocs, orderBy, limit } from "./firebase.js";
+import { db, collection, onSnapshot } from "./firebase.js";
 import { getUserData } from "./index.js";
 
 function startFollowingListener(uid) {

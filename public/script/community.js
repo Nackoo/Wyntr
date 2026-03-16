@@ -1,12 +1,13 @@
-import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, addDoc, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter } from "./firebase.js";
+import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter, runTransaction } from "./firebase.js";
 import { fileToBase64 } from "./settings.js";
-import { sendCommunityJoinRequest, sendCommunityWarningNotification, sendAdminNotification } from "./notification.js";
-import { renderTweet, openReportOverlay, getUserData } from "./index.js";
+import { sendadminDismissedNotification, sendCommunityJoinRequest, sendCommunityWarningNotification, sendAdminNotification, sendInviteNotification } from "./notification.js";
+import { renderTweet, openReportOverlay, getUserData, loadComments, getCommunityNameById } from "./index.js";
 import { askDeleteReason } from "./moderation.js";
 import { sendToDiscord } from "./discord.js";
 import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, info, log, inputDialog, confirmDialog } from "./texts.js";
 import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc } from "./attachments.js";
 import { openUserSubProfile } from "./user.js";
+import { renderTweetViewer } from "./tweetViewer.js";
 
 let lastCommunityDoc          = null;
 let hasMoreCommunities        = true;
@@ -35,10 +36,10 @@ window.communityID            = null;
 window.isOnPrivate            = false;
 
 const searchcom               = document.getElementById("searchCom");
-const createbtn               = document.querySelector(".create-community-btn");
+const searchMyCom             = document.getElementById("searchMyCom");
 const loading                 = document.getElementById("loadingOverlay");
 
-import { communityfilled, communitysvg, searchsvg, searchfilled, homefilled, homesvg, community } from "./nonsense.js";
+import { communityfilled, communitysvg, searchsvg, searchfilled, homefilled, homesvg } from "./nonsense.js";
 
 function closecom() {
   communityfilled.classList.add("hidden");
@@ -63,8 +64,8 @@ function addRuleRow(title = "", description = "") {
   ruleDiv.dataset.index = index;
 
   ruleDiv.innerHTML = `
-    <input class="rule-title" placeholder="Rule title" value="${escapeHTML(title)}" />
-    <textarea class="rule-desc" placeholder="Rule description">${escapeHTML(description)}</textarea>
+    <input class="rule-title" maxlength="50" placeholder="Rule title" value="${escapeHTML(title)}" />
+    <textarea class="rule-desc" maxlength="200" placeholder="Rule description">${escapeHTML(description)}</textarea>
     <button class="removeRuleBtn">
       <img src="/image/trash.svg">
     </button>
@@ -87,17 +88,53 @@ function addRuleRow(title = "", description = "") {
     rebuildIndexes();
   };
 
+  const TITLE_LIMIT = 50;
+  const DESC_LIMIT = 200;
+
+  ruleDiv.querySelector(".rule-title").oninput = e => {
+    const i = Number(ruleDiv.dataset.index);
+    let value = e.target.value;
+
+    if (value.length > TITLE_LIMIT) {
+      value = value.slice(0, TITLE_LIMIT);
+      e.target.value = value;
+    }
+
+    rules[i].title = value;
+  };
+
+  ruleDiv.querySelector(".rule-desc").oninput = e => {
+    const i = Number(ruleDiv.dataset.index);
+    let value = e.target.value;
+
+    if (value.length > DESC_LIMIT) {
+      value = value.slice(0, DESC_LIMIT);
+      e.target.value = value;
+    }
+
+    rules[i].description = value;
+  };
+
   document.getElementById("rulesList").appendChild(ruleDiv);
 }
 
 function rebuildIndexes() {
+  const TITLE_LIMIT = 50;
+  const DESC_LIMIT = 200;
+
   const newRules = [];
 
   document.querySelectorAll(".rule-item").forEach((item, i) => {
     item.dataset.index = i;
 
-    const title = item.querySelector(".rule-title").value;
-    const description = item.querySelector(".rule-desc").value;
+    let title = item.querySelector(".rule-title").value;
+    let description = item.querySelector(".rule-desc").value;
+
+    title = title.slice(0, TITLE_LIMIT);
+    description = description.slice(0, DESC_LIMIT);
+
+    item.querySelector(".rule-title").value = title;
+    item.querySelector(".rule-desc").value = description;
 
     newRules.push({ title, description });
   });
@@ -105,15 +142,17 @@ function rebuildIndexes() {
   rules = newRules;
 }
 
-document.getElementById("comsvg").addEventListener("click", () => {
-  loadingMyCom = true;
-  loadMyCommunities();
-  loadingMyCom = false;
-  document.getElementById("myCommunities").classList.remove("hidden");
-  document.querySelector(`.tab5[data-target="communityList"]`).classList.remove("active");
-  document.querySelector(`.tab5[data-target="myCommunities"]`).classList.add("active");
-  searchcom.classList.add("hidden");
-  createbtn.classList.remove("hidden");
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("comsvg").addEventListener("click", async () => {
+    document.getElementById("myCommunities").classList.remove("hidden");
+    document.querySelector(`.tab5[data-target="communityList"]`).classList.remove("active");
+    document.querySelector(`.tab5[data-target="myCommunities"]`).classList.add("active");
+    searchcom.classList.add("hidden");
+    searchMyCom.classList.remove("hidden");
+    loadingMyCom = true;
+    await loadMyCommunities();
+    loadingMyCom = false;
+  });
 });
 
 document.querySelectorAll(".tab5").forEach(tab5 => {
@@ -130,90 +169,78 @@ document.querySelectorAll(".tab5").forEach(tab5 => {
       loadCommunities();
       loadingComList = false;
       searchcom.classList.remove("hidden");
-      createbtn.classList.add("hidden");
+      searchMyCom.classList.add("hidden");
     } else if (tabTarget == "myCommunities") {
       loadingMyCom = true;
       loadMyCommunities();
       loadingMyCom = false;
       searchcom.classList.add("hidden");
-      createbtn.classList.remove("hidden");
+      searchMyCom.classList.remove("hidden");
     }
-
   });
 });
 
 let myComOffset = 0;
-
-export function bumpCommunityOrder(comId) {
-  let order = JSON.parse(localStorage.getItem("communityOrder")) || [];
-  order = [comId, ...order.filter(id => id !== comId)];
-  localStorage.setItem("communityOrder", JSON.stringify(order));
-}
+let myComLastDoc = null;
+const MY_COM_PAGE_SIZE = 5;
 
 export async function loadMyCommunities(reset = false) {
+
   const container = document.getElementById("myCommunities");
+  const user = auth.currentUser;
+
+  if (!user) {
+    log("red", "user isn't logged in");
+    return;
+  }
 
   if (reset) {
-    myComOffset = 0;
+    myComLastDoc = null;
     container.innerHTML = `
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
     `;
   }
 
-  const user = auth.currentUser;
-  if (!user) return log("red", "user isn't logged in");
+  let q;
 
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-  const userData = userSnap.data();
-  const communityIds = userData?.communities || [];
+  if (!myComLastDoc) {
+    q = query(
+      collection(db, "communities"),
+      where("members", "array-contains", user.uid),
+      limit(MY_COM_PAGE_SIZE)
+    );
+  } else {
+    q = query(
+      collection(db, "communities"),
+      where("members", "array-contains", user.uid),
+      startAfter(myComLastDoc),
+      limit(MY_COM_PAGE_SIZE)
+    );
+  }
 
-  if (communityIds.length === 0) {
+  const snap = await getDocs(q);
+
+  if (snap.empty && !myComLastDoc) {
     container.innerHTML = `
-          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-            <div style="max-width:400px;text-align:left;">
-              <h2 style="margin:0;">No communities joined — yet</h2>
-              <p style="color:grey;margin:7px 0;">looks like you're not joined to any community. Discover it and start your journey.</p>
-            </div>
-          </div>
+      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No communities joined — yet</h2><p style="color:grey;margin:7px 0;">looks like you're not joined to any community. Discover it and start your journey.</p></div></div>
     `;
     return;
   }
 
-  let order = JSON.parse(localStorage.getItem("communityOrder")) || [];
-  order = order.filter(id => communityIds.includes(id));
-  localStorage.setItem("communityOrder", JSON.stringify(order));
-  const leftover = communityIds.filter(id => !order.includes(id));
-  let leftoverMeta = [];
+  myComLastDoc = snap.docs[snap.docs.length - 1];
 
-  for (const id of leftover) {
-    const ref = doc(db, "communities", id);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      leftoverMeta.push({ id, ...snap.data() });
-    }
-  }
+  for (const docSnap of snap.docs) {
 
-  leftoverMeta.sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
-  const finalIDs = [...order, ...leftoverMeta.map(x => x.id)];
-  const perPage = 10;
-  const slice = finalIDs.slice(myComOffset, myComOffset + perPage);
-
-  for (const id of slice) {
-    const ref = doc(db, "communities", id);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) continue;
-
-    const cData = snap.data();
+    const id = docSnap.id;
+    const cData = docSnap.data();
 
     const div = document.createElement("div");
     div.className = "com-item";
@@ -226,23 +253,31 @@ export async function loadMyCommunities(reset = false) {
 
     div.innerHTML = `
       <div>
-        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
-          <div id="com-avatar" style="min-height:43px;min-width:43px;max-height:43px;max-width:45px;margin-top:4px;border-radius:5px;background:url('${
-            base91ToImageSrc(cData.avatar) || "/image/default.png"
-          }') no-repeat center / cover"></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
+          <div id="com-avatar"
+               style="min-height:47px;min-width:47px;max-height:43px;max-width:45px;
+               margin-top:4px;border-radius:10px;
+               background:url('${base91ToImageSrc(cData.avatar) || "/image/default.png"}')
+               no-repeat center / cover">
+          </div>
           <div style="display:flex;gap:3px;flex-direction:column;max-width:300px;overflow:hidden;">
-            <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;" id="com-name">${escapeHTML(cData.name)}</strong>
+            <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;margin-bottom:3px" id="com-name">
+              ${escapeHTML(cData.name)}
+            </strong>
             <span id="com-desc" style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
               ${escapeHTML(cData.description) || `<span style="color:grey">No description</span>`}
             </span>
           </div>
+          <img src="/image/loader.svg" height="20" style="margin-left:auto;" class="hidden">
         </div>
-        <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
-            ${formatNumber(cData.posts)} posts •
-            by ${escapeHTML(cData.creatorName)} •
-            ${formatNumber(cData.membersCount)} members 
-            ${cData.private ? `• private` : ""}
+
+        <span style="color:grey;font-size:14px;display:flex;gap:5px;">
+          ${formatNumber(cData.posts)} posts •
+          by @${escapeHTML(cData.creatorName)} •
+          ${formatNumber(cData.membersCount)} members
+          ${cData.private ? `• private` : ""}
         </span>
+
         ${tagsHtml}
       </div>
     `;
@@ -252,8 +287,6 @@ export async function loadMyCommunities(reset = false) {
       container.appendChild(div);
     }
   }
-
-  myComOffset += perPage;
 }
 
 document.querySelector(".create-community-btn").addEventListener("click", showCreateCommunityOverlay);
@@ -269,7 +302,7 @@ async function showCreateCommunityOverlay(communityId = null) {
   overlay.style.pointerEvents = "none"                       ;
 
   overlay.innerHTML = `
-    <div class="user-box" style="width:100%;max-width:519px;pointer-events:auto;">
+    <div class="user-box" style="width:100%;max-width:539px;pointer-events:auto;">
       <header class="flex" style="position:absolute;top:20px;left:0;right:0;margin:0">
         <button onclick="document.getElementById('createCommunity').classList.add('hidden')" class="close-btn">
           <img src="/image/x.svg" alt="Close">
@@ -303,7 +336,7 @@ async function showCreateCommunityOverlay(communityId = null) {
 
       <div class="container1">
         <div style="display:flex;align-items:center;gap:5px;margin:5px 0;">
-          <span>Only people who follows you</span>
+          <span>Only people who follow you</span>
           <div class="switch-row" style="margin-left:auto">
             <input id="onlyFollowers" type="checkbox">
             <label for="onlyFollowers" class="switch-label" aria-hidden="true">
@@ -324,15 +357,8 @@ async function showCreateCommunityOverlay(communityId = null) {
 
       <div class="container1">
         <div style="display:flex;align-items:center;gap:9px;margin:5px 0;">
-          <input id="minWSInput" type="number" placeholder="no" style="border:none;padding:0;margin:0;width:60px;background:var(--light);border-radius:5px;padding:3px;">
-          <span>Minimum Wyntr score</span>
-        </div>
-      </div>
-
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:9px;margin:5px 0;">
           <input id="joinFeeInput" type="number" placeholder="no" style="border:none;padding:0;margin:0;width:60px;background:var(--light);border-radius:5px;padding:3px;">
-          <span>joining Fee (maximum 500)</span>
+          <span>joining Fee (in Wcoins, max 500)</span>
         </div>
       </div>
 
@@ -451,7 +477,7 @@ async function showCreateCommunityOverlay(communityId = null) {
     if (!file) return;
     const result = await quickImageNSFWCheck(file);
     logNSFWResult("image", result);
-    if (result.isNSFW) {
+    if (result.finalNSFW) {
       log("red", "image contains NSFW");
       loading.classList.remove("show");
       return;
@@ -459,6 +485,7 @@ async function showCreateCommunityOverlay(communityId = null) {
     const base64 = await fileToBase64(file);
     bannerPreview.style.background = `url("${escapeHTML(base64)}") no-repeat center / cover`;
     bannerPreview.dataset.image = base64;
+    loading.classList.remove("show");
   });
 
   avaInput.addEventListener("change", async (e) => {
@@ -466,14 +493,15 @@ async function showCreateCommunityOverlay(communityId = null) {
     if (!file) return;
     const result = await quickImageNSFWCheck(file);
     logNSFWResult("image", result);
-    if (result.isNSFW) {
+    if (result.finalNSFW) {
       log("red", "image contains NSFW");
       loading.classList.remove("show");
       return;
     }
     const base64 = await fileToBase64(file);
     avaPreview.style.background = `url("${escapeHTML(base64)}") no-repeat center / cover`;
-      avaPreview.dataset.image = base64;
+    avaPreview.dataset.image = base64;
+    loading.classList.remove("show");
   });
 
   const nameInput = document.getElementById("communityNameInput")
@@ -497,13 +525,17 @@ async function showCreateCommunityOverlay(communityId = null) {
   };
 
 document.getElementById("createCommunityBtn").onclick = async () => {
+  rebuildIndexes();
+
   const user     = auth.currentUser          ;
   const userRef  = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef)     ;
   const userData = userSnap.data()           ;
   const balance  = userData?.balance || 0    ;
 
-  if (balance < 300) return log("red", "Not enough Wcoins (need 300)");
+  if (typeof editingId !== "string" || !editingId) {
+    if (balance < 300) return log("red", "Not enough Wcoins (need 300)");
+  }
 
   const btn    = document.getElementById("createCommunityBtn");
   btn.disabled = true                                         ;
@@ -538,75 +570,82 @@ document.getElementById("createCommunityBtn").onclick = async () => {
   }
 
   if (typeof editingId !== "string" || !editingId) {
+    const reqs = {
+      minFollowers: getValidNum("minFollowersInput"),
+      joinFee: getValidNum("joinFeeInput", 500),
+      mustFollow: document.getElementById("onlyFollowers").checked,
+    };
 
-  const reqs = {
-    minFollowers: getValidNum("minFollowersInput"),
-    minWS: getValidNum("minWSInput"),
-    joinFee: getValidNum("joinFeeInput", 500),
-    mustFollow: document.getElementById("onlyFollowers").checked,
-  };
+    const banner = document.getElementById("com-banner-preview").dataset.image || "/image/default-banner.png";
+    const avatar = document.getElementById("com-ava-preview").dataset.image    || "/image/default-avatar.jpg";
 
-  const banner = document.getElementById("com-banner-preview").dataset.image || "/image/default-banner.png";
-  const avatar = document.getElementById("com-ava-preview").dataset.image    || "/image/default-avatar.jpg";
+    const displayName = userData?.username || "Unknown";
 
-  const displayName = userData?.username || "Unknown";
+    const communityRef = doc(collection(db, "communities"));
+    const acceptingApplications = document.getElementById("acceptApplicationCheck")?.checked || false;
+    const private1 = document.getElementById("privateCheck")?.checked || false;
 
-  const communityRef = doc(collection(db, "communities"));
-  const acceptingApplications = document.getElementById("acceptApplicationCheck")?.checked || false;
-  const private1 = document.getElementById("privateCheck")?.checked || false;
+    if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
+      btn.disabled = false;
+      btn.classList.remove("disabled");
+      return;
+    }
 
-  if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
-    btn.disabled = false;
-    btn.classList.remove("disabled");
-    return;
-  }
+    await runTransaction(db, async (tx) => {
+      tx.set(communityRef, {
+        id: communityRef.id,
+        name: comName,
+        lowerCase: comName.toLowerCase(),
+        description: desc,
+        creatorId: user.uid,
+        creatorName: displayName,
+        createdAt: Date.now(),
+        banner,
+        avatar,
+        requirements: reqs,
+        members: arrayUnion(user.uid),
+        posts: 0,
+        membersCount: 1,
+        acceptingApplications,
+        private: private1,
+        tags: selectedTags,
+        rules: rules,
+      });
 
-  await setDoc(communityRef, {
-    id:           communityRef.id      ,
-    name:         comName              ,
-    lowerCase:    comName.toLowerCase(),
-    description:  desc                 ,
-    creatorId:    user.uid             ,
-    creatorName:  displayName          ,
-    createdAt:    Date.now()           ,
-    banner                             ,
-    avatar                             ,
-    requirements: reqs                 ,
-    posts:        0                    ,
-    membersCount: 1                    ,
-    acceptingApplications              ,
-    private: private1,
-    tags: selectedTags,
-    rules: rules,
-  });
+      const memberRef = doc(db, "communities", communityRef.id, "members", auth.currentUser.uid);
 
-  const memberRef = doc(db, "communities", communityRef.id, "members", user.uid);
+      tx.set(memberRef, {
+        uid: user.uid,
+        joinedAt: new Date(),
+        photoURL: userData.photoURL,
+        username: userData.username,
+        displayName: userData.displayName,
+        role: 3
+      });
 
-  await setDoc(memberRef, {
-    uid: user.uid,
-    joinedAt: new Date(),
-    photoURL: userData.photoURL,
-    username: userData.username
-  });
-
-  await updateDoc(userRef, {
-    balance:     increment(-300)           ,
-    communities: arrayUnion(communityRef.id),
-  });
+      tx.update(userRef, {
+        balance: increment(-300),
+        communitiesCount: increment(1)
+      });
+    });
   
     log("green", "Community created successfully");
     loading.classList.remove("show");
     overlay.remove();
     btn.disabled = false;
     btn.classList.remove("disabled");
-    bumpCommunityOrder(communityRef.id);
+    document.getElementById("myCommunities").classList.remove("hidden");
+    document.getElementById("communityList").classList.add("hidden");
+    document.querySelector(`.tab5[data-target="communityList"]`).classList.remove("active");
+    document.querySelector(`.tab5[data-target="myCommunities"]`).classList.add("active");
+    searchcom.classList.add("hidden");
+    searchMyCom.classList.remove("hidden");
     loadingMyCom = true;
-    loadMyCommunities(true);
+    await loadMyCommunities();
     loadingMyCom = false;
   } else {
     const reqs = {
       minFollowers: getValidNum("minFollowersInput") ,
-      minWS: getValidNum("minWSInput")        ,
       joinFee: getValidNum("joinFeeInput", 500) ,
       mustFollow: document.getElementById("onlyFollowers").checked,
     };
@@ -668,6 +707,39 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       comitem2.querySelector("#com-desc2").textContent = desc || "no description";
     }
 
+    const ruleSection = document.getElementById("comRule");
+    const ruleContainer = document.getElementById("communityRules");
+
+    if (window.innerWidth > 700) {
+      const communitysnap = await getDoc(comRef);
+      const cData = communitysnap.data();
+
+      if (cData.rules && Array.isArray(cData.rules) && cData.rules.length > 0) {
+        ruleSection.style.display = "block"; 
+        ruleContainer.innerHTML = ""; 
+
+        for (let i = 0; i < cData.rules.length; i++) {
+          const r = cData.rules[i];
+          const div = document.createElement("div");
+
+          const parsedDesc = await parseMentionsToLinks(r.description);
+
+          div.innerHTML = `
+            <div class="ruleGroup">
+              <div class="ruleNum" style="font-size:22px">${i + 1}.</div>
+              <strong class="ruleTitle" style="font-size:20px">${escapeHTML(r.title)}</strong>
+            </div>
+            <div class="ruleDesc" style="font-size:16px">${parsedDesc}</div>
+          `;
+
+          ruleContainer.appendChild(div);
+        }
+
+      } else {
+        ruleSection.style.display = "none";
+      }
+    }
+
     log("green", "Changes saved");
   }
     overlay.remove()                ;
@@ -701,11 +773,6 @@ export async function loadCommunities(reset = false) {
   const user = auth.currentUser;
   if (!user) return;
 
-  const userRef         = doc(db, "users", user.uid) ;
-  const userSnap        = await getDoc(userRef)      ;
-  const userData        = userSnap.data()            ;
-  const userCommunities = userData?.communities || [];
-
   let queryRef = collection(db, "communities");
   let q = lastCommunityDoc
     ? query(queryRef, orderBy("membersCount", "desc"), startAfter(lastCommunityDoc), limit(10))
@@ -722,13 +789,22 @@ export async function loadCommunities(reset = false) {
   lastCommunityDoc = snapshot.docs[snapshot.docs.length - 1];
 
   for (const comm of snapshot.docs) {
-    const cData  = comm.data()                       ;
+    const cData  = comm.data();
     if (cData.private === true) continue;
-    const joined = userCommunities.includes(cData.id);
+
+    const comMembers = cData?.members || [];
+    const joined = comMembers.includes(user.uid);
 
     let joinedStatus = joined
-      ? `<div style="color:grey;font-size:15px;margin-left:auto;">Joined</div>`
-      : "";
+      ? `
+        <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
+          <div style="color:grey;font-size:14px;">Joined</div>
+          <img src="/image/loader.svg" height="20" class="hidden">
+        </div>
+        `
+      : `
+      <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
+      `;
 
     const wrapper      = document.createElement("div");
     wrapper.className  = "com-item";
@@ -741,17 +817,17 @@ export async function loadCommunities(reset = false) {
 
     wrapper.innerHTML  = `
       <div>
-        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
-          <div style="min-height:43px;min-width:43px;max-height:43px;max-width:45px;margin-top:4px;border-radius:5px;background:url('${base91ToImageSrc(cData.avatar) || '/image/default.png'}') no-repeat center / cover" id="com-avatar1"></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
+          <div style="min-height:47px;min-width:47px;max-height:43px;max-width:45px;margin-top:4px;border-radius:10px;background:url('${base91ToImageSrc(cData.avatar) || '/image/default.png'}') no-repeat center / cover" id="com-avatar1"></div>
           <div style="display:flex;gap:3px;flex-direction:column;max-width:300px;overflow:hidden;">
-            <strong id="com-name1">${escapeHTML(cData.name)}</strong>
+            <strong style="margin-bottom:3px;" id="com-name1">${escapeHTML(cData.name)}</strong>
             <span style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;" id="com-desc1">${escapeHTML(cData.description) || `<span style="color:grey">No description</span>`}</span>
           </div>
           ${joinedStatus}
         </div>
         <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
             ${formatNumber(cData.posts)} posts •
-            by ${escapeHTML(cData.creatorName)} •
+            by @${escapeHTML(cData.creatorName)} •
             ${formatNumber(cData.membersCount)} members
         </span>
         ${tagsHtml}
@@ -789,16 +865,11 @@ async function joinCommunity(communityId) {
 
   const balance = userData.balance || 0;
   const followers = userData.followers || 0;
-  const posts = userData.posts || 0;
-  const IQ = userData.IQ || 0;
 
   const reasons = [];
 
   if (req.minFollowers && followers < req.minFollowers) {
     reasons.push(`You need at least ${req.minFollowers} followers.`);
-  }
-  if (req.minWS && IQ < req.minWS) {
-    reasons.push(`You need at least ${req.minWS} WS.`);
   }
   if (req.joinFee && balance < req.joinFee) {
     reasons.push(`You need at least ${req.joinFee} Wcoins.`);
@@ -837,45 +908,32 @@ async function joinCommunity(communityId) {
   }
 
   const memberRef = doc(db, "communities", communityId, "members", user.uid);
-  const currentInterest = userData.interest || [];
+  const userRef1 = doc(db, "users", user.uid);
 
-  const counts = {};
-  currentInterest.forEach(tag => {
-    counts[tag] = (counts[tag] || 0) + 1;
-  });
-
-  const normalizedInterest = [];
-  Object.entries(counts).forEach(([tag, count]) => {
-    const finalCount = count >= 30 ? 15 : count;
-    for (let i = 0; i < finalCount; i++) {
-      normalizedInterest.push(tag);
-    }
-  });
-
-  const updatedInterest = normalizedInterest.concat(comData.tags || []);
-
-  await Promise.all([
-    updateDoc(userRef, { 
-      communities: arrayUnion(communityId),
-      interest: updatedInterest
-    }),
-    updateDoc(comRef, {
+  await runTransaction(db, async (transaction) => {
+    transaction.update(comRef, {
       membersCount: increment(1),
-    }),
-    setDoc(memberRef, {
+      members: arrayUnion(user.uid)
+    });
+    transaction.set(memberRef, {
       uid: user.uid,
       joinedAt: new Date(),
       photoURL: userData.photoURL,
-      username: userData.username
-    })
-  ]);
+      username: userData.username,
+      displayName: userData.displayName,
+      role: 1
+    });
+    transaction.update(userRef1, {
+      communitiesCount: increment(1)
+    });
+  });
 
   const actionBtn = document.getElementById("communityActionBtn");
   actionBtn.style.background = "rgba(0,0,0,0.8)";
   actionBtn.textContent = "Leave";
   actionBtn.style.color = "white";
   log("green", `You’ve joined ${comData.name}`);
-  bumpCommunityOrder(communityId);
+  openCommunity(communityId);
 }
 
 window.showCreateCommunityOverlay = showCreateCommunityOverlay;
@@ -888,14 +946,19 @@ document.addEventListener("click", async (e) => {
     const comId = comItem.dataset.id;
     if (!comId) return;
 
+    const loadingLabel = comItem.querySelector(`img[src="/image/loader.svg"]`);
+    loadingLabel.classList.remove("hidden");
+
     document.getElementById("memberOverlay").classList.add("hidden");
     document.getElementById("banOverlay").classList.add("hidden");
-    openCommunity(comId);
+    await openCommunity(comId);
+    loadingLabel.classList.add("hidden");
   }
 });
 
 export async function openCommunity(communityId) {
   const user = auth.currentUser;
+  window.isJoined = false;
 
   if (!user) {
     log("red", "You must be logged in");
@@ -915,8 +978,10 @@ export async function openCommunity(communityId) {
   const memberSnap = await getDoc(memberRef);
   const isJoined = memberSnap.exists();
 
+  window.communityID = communityId;
+
   if (isJoined) { 
-    window.communityID = communityId;
+    window.isJoined = true;
     if (cData.private === true) {
       window.isOnPrivate = true;
     }
@@ -955,7 +1020,7 @@ export async function openCommunity(communityId) {
         div.innerHTML = `
           <div class="ruleGroup">
             <div class="ruleNum" style="font-size:22px">${i + 1}.</div>
-            <strong class="ruleTitle" style="font-size:22px">${escapeHTML(r.title)}</strong>
+            <strong class="ruleTitle" style="font-size:20px">${escapeHTML(r.title)}</strong>
           </div>
           <div class="ruleDesc" style="font-size:16px">${parsedDesc}</div>
         `;
@@ -969,7 +1034,7 @@ export async function openCommunity(communityId) {
   }
 
   overlay.innerHTML = `
-    <div class="user-box" style="width:100%;max-width:519px;pointer-events:auto">
+    <div class="user-box" style="width:100%;max-width:539px;pointer-events:auto">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.9);
         backdrop-filter:blur(10px);border-bottom:var(--border);
         margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
@@ -991,7 +1056,8 @@ export async function openCommunity(communityId) {
         </div>
       </header>
 
-      <div class="banner-section" style="position:relative;height:120px;border-radius:10px;background:url('${base91ToImageSrc(cData.banner) || '/image/default-banner.png'}') no-repeat center / cover;" id="com-avatar2">
+      <div class="banner-section" style="position:relative;border-radius:10px;background:url('${base91ToImageSrc(cData.banner) || '/image/default-banner.png'}') no-repeat center / cover;" id="com-avatar2">
+        <div style="position:relative;height:140px;width:140px;border-radius:20px;background:url('${base91ToImageSrc(cData.avatar) || '/image/default-banner.png'}') no-repeat center / cover;margin-left:20px;border:2px solid black;top:23px;"></div>
         <button id="communityActionBtn" style="
           position:absolute;bottom:10px;right:10px;padding:8px 16px;
           border:none;border-radius:8px;cursor:pointer;
@@ -1006,8 +1072,8 @@ export async function openCommunity(communityId) {
       <div style="display:flex;gap:15px;margin-top:20px">
         <div style="display:flex;flex-direction:column">
           <h2 style="margin:0" class="skibidi-link" id="com-name2">${escapeHTML(cData.name)}</h2>
-          <div style="color:grey;font-size:15px;margin-top:5px;">by ${escapeHTML(cData.creatorName)}</div>
-          <div style="color:grey;gap:5px;font-size:15px;display:flex;align-items:center;margin-top:10px;width:100%;">
+          <div style="color:grey;font-size:15px;margin-top:5px;">by @${escapeHTML(cData.creatorName)}</div>
+          <div style="color:grey;gap:7px;font-size:15px;display:flex;align-items:center;margin-top:10px;width:100%;">
             <img src="/image/write-gray.svg" style="height:20px;"> ${formatNumber(cData.posts)}
             <img style="height:20px;" src="/image/calendar.svg"> ${escapeHTML(formatted)}
             <img src="/image/community-gray.svg" style="height:20px;">${formatNumber(cData.membersCount) || 0}
@@ -1054,22 +1120,19 @@ export async function openCommunity(communityId) {
       return;
     }
     try {
-      const members = cData.members || [];
-      const removeFromMembers = members.map(uid => {
-        const uRef = doc(db, "users", uid);
-        return updateDoc(uRef, {
-          communities: arrayRemove(communityId)
+      const userRef4 = doc(db, "users", auth.currentUser.uid);
+      await runTransaction(db, async (tx) => {
+        tx.delete(comRef);
+        tx.update(userRef4, {
+          communitiesCount: increment(-1)
         });
       });
-
-      const deleteCommunity = deleteDoc(comRef);
-      await Promise.all([...removeFromMembers, deleteCommunity]);
       overlay.remove();
       document.querySelectorAll(`.com-item[data-id="${communityId}"]`).forEach(el => el.remove());
       log("green", "Community disbanded");
       actionBtn.disabled = false;
       actionBtn.classList.remove("disabled");
-
+      document.getElementById("comRule").style.display = "none";
     } catch (err) {
       console.error(err);
       log("red", "Failed to disband");
@@ -1085,19 +1148,21 @@ export async function openCommunity(communityId) {
         actionBtn.classList.remove("disabled");
         return;
       }
+
       const memberRef = doc(db, "communities", communityId, "members", user.uid);
-      const userRef = doc(db, "users", user.uid);
+      const userRef2 = doc(db, "users", user.uid);
 
       try {
-        await Promise.all([
-          updateDoc(userRef, { 
-            communities: arrayRemove(communityId) 
-          }),
-          updateDoc(comRef, {
-            membersCount: increment(-1)
-          }),
-          deleteDoc(memberRef)
-        ]);
+        await runTransaction(db, async (transaction) => {
+          transaction.update(comRef, {
+            membersCount: increment(-1),
+            members: arrayRemove(user.uid)
+          });
+          transaction.delete(memberRef)
+          transaction.update(userRef2, {
+            communitiesCount: increment(-1)
+          });
+        });
         overlay.remove();
         document.querySelectorAll(`#myCommunities .com-item[data-id="${communityId}"]`).forEach(el => el.remove());
         log("green", `You left ${cData.name}.`);
@@ -1137,43 +1202,47 @@ export async function openCommunity(communityId) {
     });
   }
 
-  document.getElementById("openComRule").addEventListener("click", async () => {
-    const section = document.getElementById("skibidicome");
-    const userbox = document.querySelector("#were");
-    const com = cData;
+  if (window.innerWidth < 700) {
+    document.getElementById("openComRule").addEventListener("click", async () => {
+      const section = document.getElementById("skibidicome");
+      const userbox = document.querySelector("#were");
+      const com = cData;
 
-    section.classList.remove("hidden");
-    userbox.innerHTML = "";
+      section.classList.remove("hidden");
+      userbox.innerHTML = "";
 
-    if (!com || !Array.isArray(com.rules) || com.rules.length === 0) {
-      userbox.innerHTML = `
-        <div style="margin-top:60px;width:100%;display:flex;justify-content:center">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">There are no rules — yet</h2>
-            <p style="color:grey;margin:7px 0;">make one for your community. Rules must comply with <a href="/user/tos" target="_blank">Wyntr terms of service</a></p>
+      if (!com || !Array.isArray(com.rules) || com.rules.length === 0) {
+        userbox.innerHTML = `
+          <div style="margin-top:60px;width:100%;display:flex;justify-content:center">
+            <div style="max-width:400px;text-align:left;">
+              <h2 style="margin:0;">There are no rules — yet</h2>
+              <p style="color:grey;margin:7px 0;">make one for your community. Rules must comply with <a href="/user/tos" target="_blank">Wyntr terms of service</a></p>
+            </div>
           </div>
-        </div>
-      `;
-      return;
-    }
-
-    const ruleDivs = await Promise.all(
-      com.rules.map(async (r, i) => {
-        const parsedDesc = await parseMentionsToLinks(r.description);
-        const div = document.createElement("div");
-        div.innerHTML = `
-          <div class="ruleGroup">
-            <div class="ruleNum">${i + 1}.</div>
-            <strong class="ruleTitle">${escapeHTML(r.title)}</strong>
-          </div>
-          <div class="ruleDesc">${parsedDesc}</div>
         `;
-        return div;
-      })
-    );
+        return;
+      }
 
-    ruleDivs.forEach(div => userbox.appendChild(div));
-  });
+      const ruleDivs = await Promise.all(
+        com.rules.map(async (r, i) => {
+          const parsedDesc = await parseMentionsToLinks(r.description);
+          const div = document.createElement("div");
+          div.innerHTML = `
+            <div class="ruleGroup">
+              <div class="ruleNum">${i + 1}.</div>
+              <strong class="ruleTitle">${escapeHTML(r.title)}</strong>
+            </div>
+            <div class="ruleDesc">${parsedDesc}</div>
+          `;
+          return div;
+        })
+      );
+
+      ruleDivs.forEach(div => userbox.appendChild(div));
+    });
+  } else {
+    overlay.querySelector("#openComRule").remove();
+  }
 
   const bruh = cData.private === true && !isJoined;
   if (!bruh) {
@@ -1185,21 +1254,23 @@ export async function openCommunity(communityId) {
   }
   const communityTweetContainer = document.querySelector(".communityo .user-box");
 
-  communityTweetContainer.addEventListener("scroll", async () => {
-    if (isLoadingCommunityTweets || noMoreCommunityTweets) return;
+  if (!bruh) {
+    communityTweetContainer.addEventListener("scroll", async () => {
+      if (isLoadingCommunityTweets || noMoreCommunityTweets) return;
 
-    const scrollBottom = communityTweetContainer.scrollTop + communityTweetContainer.clientHeight;
-    const scrollHeight = communityTweetContainer.scrollHeight;
+      const scrollBottom = communityTweetContainer.scrollTop + communityTweetContainer.clientHeight;
+      const scrollHeight = communityTweetContainer.scrollHeight;
 
-    if (scrollBottom >= scrollHeight - 200) {
-      const communityId = window.communityID;
-      if (!communityId) return;
+      if (scrollBottom >= scrollHeight - 200) {
+        const communityId = window.communityID;
+        if (!communityId) return;
 
-      loadingComList = true;
-      await loadCommunityTweets(communityId, true); 
-      isLoadingCommunityTweets = false;
-    }
-  });
+        loadingComList = true;
+        await loadCommunityTweets(communityId, true); 
+        isLoadingCommunityTweets = false;
+      }
+    });
+  }
 }
 
 function renderCommunityRequirements(cData) {
@@ -1207,7 +1278,6 @@ function renderCommunityRequirements(cData) {
   const hasReqs =
     req.joinFee != null ||
     req.minFollowers != null ||
-    req.minWS != null ||
     req.mustFollow === true;
 
   return `
@@ -1219,12 +1289,11 @@ function renderCommunityRequirements(cData) {
           ? `
             ${req.joinFee != null ? `- ${escapeHTML(req.joinFee)} Wcoins join fee<br>` : ""}
             ${req.minFollowers != null ? `- ${req.escapeHTML(minFollowers)} followers minimum<br>` : ""}
-            ${req.minWS != null ? `- ${escapeHTML(req.minWS)} Wyntr score minimum<br>` : ""}
             ${req.mustFollow != false ? `- must follow ${escapeHTML(cData.creatorName)}<br>` : ""}
           `
           : ""
       }
-      ${req.joinFee == null && req.minFollowers == null && req.minWS == null && req.mustFollow === false && cData.private === false && cData.acceptingApplications === false ? "<span style='color:#04aa6d'>open community</span>" : ""}
+      ${req.joinFee == null && req.minFollowers == null && req.mustFollow === false && cData.private === false && cData.acceptingApplications === false ? "<span style='color:#04aa6d'>open community</span>" : ""}
     </div>
   `;
 }
@@ -1259,6 +1328,12 @@ async function loadMoreBans(limitCount) {
 
   const list = document.getElementById("banList");
 
+  if (!banLastDoc) {
+    list.innerHTML = `
+    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+    `;
+  }
+
   let q = query(
     collection(db, "communities", currentBanCommunity, "bans"),
     orderBy("bannedAt", "desc"),
@@ -1285,6 +1360,10 @@ async function loadMoreBans(limitCount) {
 
   banLastDoc = snap.docs[snap.docs.length - 1];
 
+  if (!list.querySelector(".bans-row")) {
+    list.innerHTML = "";
+  }
+
   snap.forEach(docSnap => {
     const uid = docSnap.id;
     const d = docSnap.data();
@@ -1300,17 +1379,18 @@ async function loadMoreBans(limitCount) {
            style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
+          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.displayName || "user")}</strong>
           <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
-          <button class="unban-btn">unban</button>
         </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(uid)}</span>
+        <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
       </div>
+      <button class="unban-btn">unban</button>
     `;
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
       closecom();
+      window.communityID = null;
       document.querySelector(".communityo")?.remove();
       document.getElementById("communityOverlay").classList.add("hidden");
       document.getElementById("banOverlay").classList.add("hidden");
@@ -1337,6 +1417,10 @@ document.getElementById("banSearch").addEventListener("keydown", async (e) => {
   if (queryUid === banQuery) return;
   banQuery = queryUid;
 
+  list.innerHTML = `
+    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+  `;
+
   if (!queryUid) {
     list.innerHTML = "";
 
@@ -1347,173 +1431,82 @@ document.getElementById("banSearch").addEventListener("keydown", async (e) => {
     await loadMoreBans(10);
     return;
   }
-  list.innerHTML = "";
   banDone = true;
   banLoading = true;
 
-  const ref = doc(
+  const ref = collection(
     db,
     "communities",
     currentBanCommunity,
-    "bans",
-    queryUid
+    "bans"
   );
 
-  const snap = await getDoc(ref);
-  const d = snap.data();
+  const q = query(
+    ref,
+    where("username", ">=", queryUid.toLowerCase()),
+    where("username", "<=", queryUid.toLowerCase() + "\uf8ff"),
+    orderBy("username"),
+    limit(10)
+  );
 
-  if (!snap.exists()) {
-    list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No banned user found</h2><p style="color:grey;margin:7px 0;">Make sure you're typing the correct user ID (case sensitive)</p></div></div>`;
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = `
+    <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
+      <div style="max-width:400px;text-align:left;">
+        <h2 style="margin:0;">No banned user found</h2>
+        <p style="color:grey;margin:7px 0;">No username starts with "${escapeHTML(queryUid)}"</p>
+      </div>
+    </div>`;
     banLoading = false;
     return;
   }
 
-  const row = document.createElement("div");
-  row.className = "bans-row member-row";
-  row.dataset.id = queryUid;
+  if (!list.querySelector(".bans-row")) {
+    list.innerHTML = "";
+  }
 
-  row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
-          <button class="unban-btn">unban</button>
-        </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(queryUid)}</span>
-      </div>
-  `;
-
-  row.addEventListener("click", () => {
-    openUserSubProfile(queryUid);
-    closecom();
-    document.getElementById("communityOverlay").classList.add("hidden");
-    document.querySelector(".communityo")?.remove();
-    document.getElementById("banOverlay").classList.add("hidden");
-  });
-
-  const dots = row.querySelector(".unban-btn");
-  dots.addEventListener("click", (e) => {
-  e.stopPropagation(); 
-    unbanMember(currentBanCommunity, queryUid);
-  });
-
-  list.appendChild(row);
-  banLoading = false;
-});
-
-async function renderAdminsFirst(cData, canModerate) {
-  const list = document.getElementById("memberList");
-  const admins = cData.admin || [];
-
-  for (const uid of admins) {
-    if (uid === cData.creatorId) continue;
-    if (list.querySelector(`[data-id="${uid}"]`)) continue;
-
-    const snap = await getDoc(
-      doc(db, "communities", currentMemberCommunity, "members", uid)
-    );
-    if (!snap.exists()) continue;
-
-    const d = snap.data();
+  snap.forEach(docSnap => {
+    const d = docSnap.data();
+    const uid = docSnap.id;
 
     const row = document.createElement("div");
-    row.className = "user-search-item member-row admin-row";
+    row.className = "bans-row member-row";
     row.dataset.id = uid;
 
     row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">admin</span>
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
-          ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+        <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}"
+            onerror="this.src='/image/default-avatar.jpg'"
+            style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <strong class="user-link">${escapeHTML(d.displayName || "user")}</strong>
+            <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
+          </div>
+          <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
         </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(uid)}</span>
-      </div>
+        <button class="unban-btn">unban</button>
     `;
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
       closecom();
+      window.communityID = null;
       document.getElementById("communityOverlay").classList.add("hidden");
       document.querySelector(".communityo")?.remove();
-      document.getElementById("memberOverlay").classList.add("hidden");
+      document.getElementById("banOverlay").classList.add("hidden");
     });
 
-    if (canModerate) {
-      const dots = row.querySelector(".member-dots");
-      dots.addEventListener("click", (e) => {
-        e.stopPropagation(); 
-        openMemberMenu({
-          communityId: currentMemberCommunity,
-          targetUid: uid,
-          cData
-        });
-      });
-    }
+    row.querySelector(".unban-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      unbanMember(currentBanCommunity, uid);
+    });
 
     list.appendChild(row);
-  }
-}
-
-async function renderOwnerFirst(cData, canModerate) {
-  const list = document.getElementById("memberList");
-  const ownerUid = cData.creatorId;
-
-  if (!ownerUid) return;
-  if (list.querySelector(`[data-id="${ownerUid}"]`)) return;
-
-  const snap = await getDoc(
-    doc(db, "communities", currentMemberCommunity, "members", ownerUid)
-  );
-  if (!snap.exists()) return;
-
-  const d = snap.data();
-
-  const row = document.createElement("div");
-  row.className = "user-search-item member-row owner-row";
-  row.dataset.id = ownerUid;
-
-  row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
-          ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
-        </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(ownerUid)}</span>
-      </div>
-  `;
-
-  row.addEventListener("click", () => {
-    openUserSubProfile(ownerUid);
-    closecom();
-    document.getElementById("communityOverlay").classList.add("hidden");
-    document.querySelector(".communityo")?.remove();
-    document.getElementById("memberOverlay").classList.add("hidden");
   });
-
-  if (canModerate) {
-    const dots = row.querySelector(".member-dots");
-    dots.addEventListener("click", (e) => {
-    e.stopPropagation(); 
-      openMemberMenu({
-        communityId: currentMemberCommunity,
-        targetUid: ownerUid,
-        cData
-      });
-    });
-  }
-
-  list.appendChild(row);
-}
+  banLoading = false;
+});
 
 async function openMembersOverlay(communityId, cData, canModerate) {
   const overlay = document.getElementById("memberOverlay");
@@ -1527,8 +1520,6 @@ async function openMembersOverlay(communityId, cData, canModerate) {
   memberLoading = false;
   currentMemberCommunity = communityId;
 
-  await renderOwnerFirst(cData, canModerate);
-  await renderAdminsFirst(cData, canModerate);
   await loadMoreMembers(10, cData, canModerate);
 
   box.onscroll = () => {
@@ -1548,16 +1539,20 @@ async function loadMoreMembers(limitCount, cData, canModerate) {
 
   const list = document.getElementById("memberList");
 
+  if (!memberLastDoc) {
+    list.innerHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+  }
+
   let q = query(
     collection(db, "communities", currentMemberCommunity, "members"),
-    orderBy("joinedAt", "desc"),
+    orderBy("role", "desc"),        
     limit(limitCount)
   );
 
   if (memberLastDoc) {
     q = query(
       collection(db, "communities", currentMemberCommunity, "members"),
-      orderBy("joinedAt", "desc"),
+      orderBy("role", "desc"),
       startAfter(memberLastDoc),
       limit(limitCount)
     );
@@ -1573,6 +1568,10 @@ async function loadMoreMembers(limitCount, cData, canModerate) {
 
   memberLastDoc = snap.docs[snap.docs.length - 1];
 
+  if (!list.querySelector(".user-search-item")) {
+    list.innerHTML = "";
+  }
+
   snap.forEach(docSnap => {
     const d = docSnap.data();
     const uid = docSnap.id;
@@ -1583,22 +1582,32 @@ async function loadMoreMembers(limitCount, cData, canModerate) {
     row.className = "user-search-item member-row";
     row.dataset.id = uid;
 
+    let roleBadge = "";
+
+    if (d.role === 3) {
+      roleBadge = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
+    } else if (d.role === 2) {
+      roleBadge = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px" class="comRole">admin</span>`;
+    }
+
     row.innerHTML = `
       <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
            style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
+          ${roleBadge}
+          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.displayName || "user")}</strong>
           <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
-          ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
         </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(uid)}</span>
+        <span style="font-size:15px;color:grey">@${escapeHTML(d.username || "username")}</span>
       </div>
+      ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
     `;
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
       closecom();
+      window.communityID = null;
       document.getElementById("communityOverlay").classList.add("hidden");
       document.querySelector(".communityo")?.remove();
       document.getElementById("memberOverlay").classList.add("hidden");
@@ -1632,87 +1641,108 @@ document.getElementById("memberSearch").addEventListener("keydown", async (e) =>
 
   const list = document.getElementById("memberList");
 
+  list.innerHTML = `
+    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
+  `;
+
   if (!queryUid) {
     list.innerHTML = "";
     memberLastDoc = null;
     memberDone = false;
     memberLoading = false;
 
-    await renderOwnerFirst(cData, canModerate)
-    await renderAdminsFirst(cData, canModerate);
     await loadMoreMembers(10, window.cData, true);
     return;
   }
-  list.innerHTML = "";
   memberDone = true;
   memberLoading = true;
 
-  const ref = doc(
+  const ref = collection(
     db,
     "communities",
     currentMemberCommunity,
-    "members",
-    queryUid
+    "members"
   );
 
-  const snap = await getDoc(ref);
-  const d = snap.data();
+  const term = queryUid.toLowerCase();
 
-  if (!snap.exists()) {
-    list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No member found</h2><p style="color:grey;margin:7px 0;">Make sure you're typing the correct user ID (case sensitive)</p></div></div>`;
+  const q = query(
+    ref,
+    where("username", ">=", term),
+    where("username", "<=", term + "\uf8ff"),
+    orderBy("username"),
+    limit(10)
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = `
+    <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
+      <div style="max-width:400px;text-align:left;">
+        <h2 style="margin:0;">No member found</h2>
+        <p style="color:grey;margin:7px 0;">No username starts with "${escapeHTML(queryUid)}"</p>
+      </div>
+    </div>`;
     memberLoading = false;
     return;
   }
 
-  const isCreator = queryUid === window.cData.creatorId;
-  const isAdmin = (window.cData.admin || []).includes(queryUid);
+  list.innerHTML = "";
 
-  let roleLabel = "";
-  if (isCreator) {
-    roleLabel = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
-  } else if (isAdmin) {
-    roleLabel = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">admin</span>`;
-  }
+  snap.forEach(docSnap => {
+    const d = docSnap.data();
+    const uid = docSnap.id;
 
-  const row = document.createElement("div");
-  row.className = "user-search-item member-row";
-  row.dataset.id = queryUid;
+    let roleLabel = "";
+    if (d.role === 3) {
+      roleLabel = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
+    } else if (d.role === 2) {
+      roleLabel = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px" class="comRole">admin</span>`;
+    }
 
-  row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          ${roleLabel}
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.username)}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
-          ${window.canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+    const row = document.createElement("div");
+    row.className = "user-search-item member-row";
+    row.dataset.id = uid;
+
+    row.innerHTML = `
+        <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}"
+            onerror="this.src='/image/default-avatar.jpg'"
+            style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${roleLabel}
+            <strong class="user-link">${escapeHTML(d.displayName || "user")}</strong>
+            <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
+          </div>
+          <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
         </div>
-        <span style="font-size:15px;color:grey">${escapeHTML(queryUid)}</span>
-      </div>
-  `;
+        ${window.canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+    `;
 
-  row.addEventListener("click", () => {
-    openUserSubProfile(queryUid);
-    closecom();
-    document.getElementById("communityOverlay").classList.add("hidden");
-    document.querySelector(".communityo")?.remove();
-    document.getElementById("memberOverlay").classList.add("hidden");
+    row.addEventListener("click", () => {
+      openUserSubProfile(uid);
+      closecom();
+      window.communityID = null;
+      document.getElementById("communityOverlay").classList.add("hidden");
+      document.querySelector(".communityo")?.remove();
+      document.getElementById("memberOverlay").classList.add("hidden");
+    });
+
+    if (window.canModerate) {
+      row.querySelector(".member-dots")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openMemberMenu({
+          communityId: currentMemberCommunity,
+          targetUid: uid,
+          cData: window.cData
+        });
+      });
+    }
+
+    list.appendChild(row);
   });
 
-  if (canModerate) {
-    const dots = row.querySelector(".member-dots");
-    dots.addEventListener("click", (e) => {
-      e.stopPropagation(); 
-      openMemberMenu({
-        communityId: currentMemberCommunity,
-        targetUid: queryUid,
-        cData
-      });
-    });
-  }
-
-  list.appendChild(row);
   memberLoading = false;
 });
 
@@ -1728,9 +1758,10 @@ async function openMemberMenu({communityId, targetUid, cData}) {
 
   const overlay = document.getElementById("memberMenuOverlay");
 
-  const kickBtn  = overlay.querySelector(".member-kick");
-  const banBtn   = overlay.querySelector(".member-ban");
-  const adminBtn = overlay.querySelector(".member-admin-toggle");
+  const kickBtn   = overlay.querySelector(".member-kick");
+  const banBtn    = overlay.querySelector(".member-ban");
+  const adminBtn  = overlay.querySelector(".member-admin-toggle");
+  const resignBtn = overlay.querySelector(".dismiss-admin");
 
   const close = () => overlay.classList.add("hidden");
 
@@ -1739,9 +1770,12 @@ async function openMemberMenu({communityId, targetUid, cData}) {
   overlay.querySelector(".close-member-menu").onclick = close;
   overlay.onclick = (e) => e.target === overlay && close();
 
-  kickBtn.style.display  = "none";
-  banBtn.style.display   = "none";
-  adminBtn.style.display = "none";
+  kickBtn.style.display   = "none";
+  banBtn.style.display    = "none";
+  adminBtn.style.display  = "none";
+  resignBtn.style.display = "none";
+
+  overlay.querySelector("#member-id").textContent = `User ID: ${targetUid}`;
 
   const user = auth.currentUser;
   const isCreator = cData.creatorId === user.uid;
@@ -1749,6 +1783,48 @@ async function openMemberMenu({communityId, targetUid, cData}) {
   const isTargetCreator = cData.creatorId === targetUid;
   const isTargetAdmin   = (cData.admin || []).includes(targetUid);
   const canKickOrBanTarget = !isTargetCreator && !isTargetAdmin;
+
+  if (isAdmin && targetUid === auth.currentUser.uid) {
+    resignBtn.style.display = "flex";
+
+    resignBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+
+      if (!(await confirmDialog("are you sure?", "You will no longer be an admin in this community unless re-invited by the community owner.", "red"
+      ))) return;
+
+      loading.classList.add("show");
+
+      try {
+        const comRef = doc(db, "communities", window.communityID);
+        const comMemberRef = doc(db, "communities", window.communityID, "members", targetUid);
+
+        await runTransaction(db, async (tx) => {
+          tx.update(comRef, {
+            admin: arrayRemove(targetUid)
+          });
+          tx.update(comMemberRef, {
+            role: 1
+          });
+        });
+
+        if (Array.isArray(window.cData?.admin)) {
+          window.cData.admin = window.cData.admin.filter(id => id !== targetUid);
+        }
+
+        log("green", "You are no longer an admin of this community");
+
+        const { username: name } = await getUserData(targetUid);
+        const communityName = await getCommunityNameById(window.communityID);
+
+        sendadminDismissedNotification(cData.creatorId, window.communityID, communityName, name);
+        document.querySelector(`#memberList .member-row[data-id="${targetUid}"] .comRole`).remove();
+      } finally {
+        loading.classList.remove("show");
+        close();
+      }
+    });
+  }
 
   if ((isCreator || isAdmin) && canKickOrBanTarget) {
     kickBtn.style.display = "flex";
@@ -1768,6 +1844,7 @@ async function openMemberMenu({communityId, targetUid, cData}) {
       close();
     };
   }
+
   if (isCreator && !isTargetCreator) {
     adminBtn.style.display = "flex";
     adminBtn.innerHTML = `
@@ -1791,6 +1868,7 @@ async function toggleAdmin(uid, isAdmin) {
   }
 
   const comRef = doc(db, "communities", window.communityID);
+  const memberRef = doc(db, "communities", window.communityID, "members", uid);
   const comSnap = await getDoc(comRef);
   const comData = comSnap.data();
 
@@ -1805,8 +1883,13 @@ async function toggleAdmin(uid, isAdmin) {
     if (!(await confirmDialog("make user admin?", "are you sure you want to make this user admin? Once proceeded, This user can take dangerous actions to this community.", "red"))) return;
   }
 
-  await updateDoc(comRef, {
-    admin: isAdmin ? arrayRemove(uid) : arrayUnion(uid)
+  await runTransaction(db, async (tx) => {
+    tx.update(comRef, {
+      admin: isAdmin ? arrayRemove(uid) : arrayUnion(uid)
+    });
+    tx.update(memberRef, {
+      role: isAdmin ? 1 : 2
+    });
   });
 
   if (isAdmin) {
@@ -1837,15 +1920,16 @@ async function kickMember(uid) {
   if (!(await confirmDialog("Kick user?", "are you sure you want to kick this user? once kicked, user won't be part of this community until they re-joined.", "red"))) return;
   const comId = window.communityID;
 
-  await Promise.all([
-    deleteDoc(doc(db, "communities", comId, "members", uid)),
-    updateDoc(doc(db, "communities", comId), {
-      membersCount: increment(-1)
-    }),
-    updateDoc(doc(db, "users", uid), {
-      communities: arrayRemove(comId)
-    })
-  ]);
+  await runTransaction(db, async (tx) => {
+    tx.delete(doc(db, "communities", comId, "members", uid));
+    tx.update(doc(db, "communities", comId), {
+      membersCount: increment(-1),
+      members: arrayRemove(uid)
+    });
+    tx.update(doc(db, "users", uid), {
+      communitiesCount: increment(-1)
+    });
+  });
 
   document.querySelector(`.member-row[data-id="${uid}"]`).remove();
   log("green", "Member kicked");
@@ -1859,21 +1943,25 @@ async function banMember(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   const data = snap.data();
 
-  await Promise.all([
-    deleteDoc(doc(db, "communities", comId, "members", uid)),
-    updateDoc(comRef, {
+  const userRef3 = doc(db, "users", uid);
+
+  await runTransaction(db, async (tx) => {
+    tx.delete(doc(db, "communities", comId, "members", uid));
+    tx.update(comRef, {
       membersCount: increment(-1),
-    }),
-    updateDoc(doc(db, "users", uid), {
-      communities: arrayRemove(comId)
-    }),
-    setDoc(doc(db, "communities", comId, "bans", uid), {
+      members: arrayRemove(uid),
+    });
+    tx.set(doc(db, "communities", comId, "bans", uid), {
       uid,
       bannedAt: new Date(),
       photoURL: data.photoURL,
-      username: data.username
+      username: data.username,
+      displayName: data.displayName
+    });
+    tx.update(userRef3, {
+      communitiesCount: increment(-1)
     })
-  ]);
+  });
 
   document.querySelector(`.member-row[data-id="${uid}"]`).remove();
   log("green", "Member banned");
@@ -1898,12 +1986,16 @@ window.openComMenu = async function (communityId) {
   disbandBtn.style.display = "none";
 
   const comRef = doc(db, "communities", communityId);
-  const snap = await getDoc(comRef);
-  if (!snap.exists()) return log("red", "Community not found");
-  const cData = snap.data();
-
   const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
+
+  const [snap, userSnap] = await Promise.all([
+    getDoc(comRef),
+    getDoc(userRef)
+  ]);
+
+  if (!snap.exists()) return log("red", "Community not found");
+
+  const cData = snap.data();
   const userData = userSnap.data();
 
   const isOwner = cData.creatorId === user.uid;
@@ -1911,8 +2003,9 @@ window.openComMenu = async function (communityId) {
   const isGlobalAdmin = userData?.role === "admin";
 
   editBtn.style.display = isOwner || isAdmin ? "flex" : "none";
+  inviteBtn.style.display = isOwner || isAdmin ? "flex" : "none";
   reportBtn.style.display = isOwner ? "none" : "flex";
-  disbandBtn.style.display = (isGlobalAdmin) ? "flex" : "none";
+  disbandBtn.style.display = (isGlobalAdmin && cData.creatorId != auth.currentUser.uid) ? "flex" : "none";
 
   copyBtn.onclick = async () => {
     const link = `https://wyntr.netlify.app/community/${communityId}`;
@@ -1953,28 +2046,133 @@ window.openComMenu = async function (communityId) {
     });
   };
 
-  inviteBtn.style.display = (isOwner && cData.private === true || isAdmin && cData.private === true) ? "flex" : "none";
-
   inviteBtn.onclick = async () => {
-    if (!isOwner && !isAdmin) return log("red", "Insufficient permission");
-    const keyRef = doc(collection(db, "invites"));
-    const expires = Date.now() + 24 * 60 * 60 * 1000; 
+    const o = document.getElementById("inviteOverlay");
+    const list = document.getElementById("inviteList");
+    const input = document.querySelector("#inviteOverlay input");
 
-    await setDoc(keyRef, {
-      expiredAt: expires,
-      keyTo: communityId,
-      used: false,
+    o.classList.remove("hidden");
+
+    input.addEventListener("keydown", async (e) => {
+      if (e.key !== "Enter") return;
+      inviteUsers(input.value);
     });
 
-    const inviteKey = keyRef.id;
-    const link = `private://${inviteKey}`;
+    async function inviteUsers(term) {
+      if (!term);
 
-    try {
-      await navigator.clipboard.writeText(link);
-      log("green", "invite link copied");
-    } catch {
-      info("i", "Copy this link", link);
+      let snap;
+
+      list.innerHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+      const lowerTerm = term.toLowerCase();
+
+      const usernameQuery = query(
+        collection(db, "users"),
+        where("username", ">=", lowerTerm),
+        where("username", "<=", lowerTerm + "\uf8ff"),
+        limit(10)
+      );
+
+      snap = await getDocs(usernameQuery);
+
+      if (snap.empty) {
+        const nameQuery = query(
+          collection(db, "users"),
+          where("name", ">=", lowerTerm),
+          where("name", "<=", lowerTerm + "\uf8ff"),
+          limit(10)
+        );
+        snap = await getDocs(nameQuery);
+      }
+
+      if (snap.empty) {
+        list.innerHTML = `
+          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+            <div style="max-width:400px;text-align:left;">
+              <h2 style="margin:0;">No Matched users — yet</h2>
+              <p style="color:grey;margin:7px 0;">there's no person that you're looking for.</p>
+            </div>
+          </div>`;
+        return;
+      }
+
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data();
+
+        const item = document.createElement("div");
+        item.className = "user-search-item";
+        item.id = `user-${docSnap.id}`;
+        item.style.cssText =
+          "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
+
+        item.innerHTML = `
+          <div style="display:flex; gap:12px; width:100%">
+            <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+            
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+                ${escapeHTML(data.displayName)}
+              </strong>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(data.username)}
+              </span>
+            </div>
+            
+            ${docSnap.id === auth.currentUser.uid ? "" : `
+              <button class="mini-invite-btn" style="padding:0 10px; border-radius:10px; background:white; cursor:pointer; border:1px solid var(--border); margin-left:auto;height:35px;">Invite</button>  
+            `}
+          </div>
+        `;
+
+        item.addEventListener("click", (e) => {
+          if (!e.target.classList.contains("mini-invite-btn")) {
+            openUserSubProfile(docSnap.id);
+          }
+        });
+        
+        if (!list.querySelector(`#user-${docSnap.id}`)) {
+          if (!list.querySelector(".user-search-item")) list.innerHTML = "";
+          list.appendChild(item);
+        } 
+
+        const btn = item.querySelector(".mini-invite-btn");
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+
+          btn.disabled = true;
+          btn.classList.add("disabled");
+
+          const followingRef = doc(db, "users", auth.currentUser.uid, "following", docSnap.id);
+          const followerRef = doc(db, "users", docSnap.id, "followers", auth.currentUser.uid);
+          const memberRef = doc(db, "communities", window.communityID, "members", docSnap.id);
+          const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
+
+          const [followingSnap, followerSnap, memberSnap, banSnap] = await Promise.all([
+            getDoc(followingRef),
+            getDoc(followerRef),
+            getDoc(memberRef),
+            getDoc(banRef)
+          ]);
+
+          if (followingSnap.exists() && followerSnap.exists() && !memberSnap.exists() && !banSnap.exists()) {
+            const communityName = await getCommunityNameById(window.communityID);
+            await sendInviteNotification(docSnap.id, window.communityID, communityName);
+            log("green", "Invite sent");
+          } else {
+            if (memberSnap.exists()) {
+              log("red", "This user is already joined");
+            } else if (banSnap.exists()) {
+              log("red", "This user is banned from the community");
+            } else {
+              log("red", "both of you need to follow each other to invite");
+            }
+          }
+          btn.disabled = false;
+          btn.classList.remove("disabled");
+        };
+      }
     }
+
     overlay.classList.add("hidden")
   };
 
@@ -2007,7 +2205,6 @@ window.openComMenu = async function (communityId) {
 
     const reqs = cData.requirements || {};
     document.getElementById("minFollowersInput").value = reqs.minFollowers ?? "";
-    document.getElementById("minWSInput").value = reqs.minWS ?? "";
     document.getElementById("joinFeeInput").value = reqs.joinFee ?? "";
     document.getElementById("onlyFollowers").checked = reqs.mustFollow ?? false;
     document.getElementById("acceptApplicationCheck").checked = !!cData.acceptingApplications;
@@ -2076,24 +2273,17 @@ window.openComMenu = async function (communityId) {
     if (screenshotBase64) {
       embed.image = { url: "attachment://screenshot.png" };
     }
-
-    const members = cData.members || [];
-    for (const uid of members) {
-      await updateDoc(doc(db, "users", uid), {
-        communities: arrayRemove(communityId),
-      });
-    }
     await deleteDoc(comRef);
 
     await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
-    const { displayName } = await getUserData(auth.currentUser.uid);
-    await sendCommunityWarningNotification(cData.creatorId, cData.name, reason, displayName);
+    await sendCommunityWarningNotification(cData.creatorId, cData.name, reason);
 
     loading.classList.remove("show");
     log("green", "Community has been disbanded");
     overlay.classList.add("hidden");
     document.querySelector(".communityo")?.remove();
     document.querySelectorAll(`.com-item[data-id="${communityId}"]`).forEach(el => el.remove());
+    document.getElementById("comRule").style.display = "none";
   };
 };
 
@@ -2131,33 +2321,102 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
+document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) => {
     if (e.key !== "Enter") return;  
+    const term = e.target.value.trim().toLowerCase();
 
-    let term = e.target.value.trim();
-    if (term.startsWith("private://")) {
-      const key = term.replace("private://", "");
+    const list = document.getElementById("myCommunities");
+    list.innerHTML = `
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+    `;
 
-      const keyRef = doc(db, "invites", key);
-      const keySnap = await getDoc(keyRef);
-
-      if (!keySnap.exists()) return log("red", "Invalid invite key");
-
-      const keyData = keySnap.data();
-      const now = Date.now();
-
-      if (keyData.used === true) return log("red", "This invite key is already used");
-      if (keyData.expiredAt < now) return log("red", "This invite key is expired");
-
-      await updateDoc(keyRef, { used: true });
-      e.target.value = "";
-      return openCommunity(keyData.keyTo);
-    } else {
-      term = e.target.value.trim().toLowerCase();
+    if (!term) {
+      loadingComList = true;
+      await loadMyCommunities(true);
+      loadingComList = false;
+      return;
     }
 
+    const q = query(
+      collection(db, "communities"),
+      where("lowerCase", ">=", term),
+      where("lowerCase", "<=", term + "\uf8ff"),
+      where("members", "array-contains", auth.currentUser.uid),
+      orderBy("lowerCase"),
+      limit(7)
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      list.innerHTML = `
+        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
+          <div style="max-width:400px;text-align:left;">
+            <h2 style="margin:0;">No communities found</h2>
+            <p style="color:grey;margin:7px 0;">Try a different name.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    if (!list.querySelector(".com-item")) {
+      list.innerHTML = "";
+    }
+
+    for (const docSnap of snap.docs) {
+      const c = docSnap.data();
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "com-item";
+      wrapper.dataset.id = `community-${c.id}`;
+
+      const tagsHtml = (c.tags || [])
+      .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
+      .join("");
+
+      wrapper.innerHTML = `
+        <div>
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
+            <div id="com-avatar" style="min-height:43px;min-width:43px;border-radius:5px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
+            <div style="display:flex;flex-direction:column;max-width:300px;">
+              <strong id="com-name">${escapeHTML(c.name)}</strong>
+              <span id="com-name" style="color:grey;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${escapeHTML(c.description) || "No description"}
+              </span>
+            </div>
+            <img src="/image/loader.svg" height="20" style="margin-left:auto" class="hidden">
+          </div>
+          <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
+            ${formatNumber(c.posts)} posts •
+            by @${escapeHTML(c.creatorName)} •
+            ${formatNumber(c.membersCount)} members
+          </span>
+          ${tagsHtml}
+        </div>
+      `;
+
+      list.appendChild(wrapper);
+    }
+});
+
+document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;  
+    const term = e.target.value.trim().toLowerCase();
+
     const list = document.getElementById("communityList");
-    list.innerHTML = "";
+    list.innerHTML = `
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+      </div>
+    `;
 
     if (!term) {
       loadingComList = true;
@@ -2187,8 +2446,9 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
       return;
     }
 
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const userSnap = await getDoc(userRef);
+    if (!list.querySelector(".com-item")) {
+      list.innerHTML = "";
+    }
 
     for (const docSnap of snap.docs) {
       const c = docSnap.data();
@@ -2199,8 +2459,7 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
       wrapper.className = "com-item";
       wrapper.dataset.id = c.id;
 
-      const userData = userSnap.data();
-      const joined = (userData.communities || []).includes(c.id);
+      const joined = (c.members || []).includes(auth.currentUser.uid);
 
       const tagsHtml = (c.tags || [])
       .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
@@ -2216,11 +2475,18 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
                 ${escapeHTML(c.description) || "No description"}
               </span>
             </div>
-            ${joined ? `<div style="color:grey;font-size:15px;margin-left:auto;">Joined</div>` : ""}
+            ${joined ? `
+              <div style="margin-left:auto;display:flex;align-items:Center;gap:5px;">
+                <div style="color:grey;font-size:14px;">Joined</div>
+                <img src="/image/loader.svg" height="20" class="hidden">
+              </div>
+              ` : `
+              <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
+              `}
           </div>
           <span style="color:grey;font-size:14px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block;display:flex;gap:5px;align-items:Center;">
             ${formatNumber(c.posts)} posts •
-            by ${escapeHTML(c.creatorName)} •
+            by @${escapeHTML(c.creatorName)} •
             ${formatNumber(c.membersCount)} members
           </span>
           ${tagsHtml}
@@ -2237,7 +2503,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
 
   if (!loadMore) {
     container.innerHTML = `
-      <div id="communityloadingbitches" style="margin:45px -20px;">  <div class="skeleton-card">
+      <div id="communityloadingbitches">  <div class="skeleton-card">
         <div class="skeleton-header">
           <div class="skeleton-avatar"></div>
           <div class="skeleton-header-lines">
@@ -2323,14 +2589,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
 
           container.appendChild(label);
 
-          await renderTweet(
-            pinnedSnap.data(),
-            pinnedId,
-            user,
-            "append",
-            container,
-            communityId
-          );
+          await renderTweet(pinnedSnap.data(), pinnedId, user, "append", container, communityId);
         }
       } catch (err) {
         console.error("Failed to load pinned post:", err);
@@ -2394,29 +2653,38 @@ document.body.addEventListener("click", async (e) => {
   if (communityLink) {
     const id = communityLink.dataset.id;
     openCommunity(id);
+    if (communityLink.dataset.tweet) {
+      const tweetViewer = document.getElementById("tweetViewer");
+      const box = tweetViewer.querySelector("#appendTweet");
+
+      tweetViewer.classList.remove("hidden");
+      document.body.classList.add("no-scroll");
+
+      const tweetRef = doc(db, "communities", id, "posts", communityLink.dataset.tweet);
+      const tweetSnap = await getDoc(tweetRef);
+
+      if (!tweetSnap.exists()) {
+        loading.classList.remove("show");
+        document.getElementById("commentList").innerHTML = "";
+        box.innerHTML = `
+          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+            <div style="max-width:400px;text-align:left;">
+              <h2 style="margin:0;">No Wynt found</h2>
+              <p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted.</p>
+            </div>
+          </div>`;
+        return;
+      }
+
+      const tweetData = tweetSnap.data();
+      loading.classList.remove("show");
+      window.communityID = id;
+      renderTweetViewer(tweetData, communityLink.dataset.tweet, box, auth.currentUser, id);
+      loadComments(communityLink.dataset.tweet, true, null, null, id);
+      openCommunity(id);
+    }
   }
 });
-
-async function sendCommunityDisbandLog(cData, communityId, reason, screenshotBase64) {
-  const embed = {
-    title: "Community Disbanded",
-    color: 15105570, 
-    fields: [
-      { name: "Name", value: cData.name },
-      { name: "ID", value: communityId },
-      { name: "Creator", value: cData.creatorName },
-      { name: "Total Members", value: `${cData.membersCount}` },
-      { name: "Reason", value: reason || "No reason given" },
-    ],
-    timestamp: new Date(),
-  };
-
-  if (screenshotBase64) {
-    embed.image = { url: "attachment://screenshot.png" };
-  }
-
-  await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
-}
 
 const communityScrollBox = document.querySelector("#communityOverlay .user-box");
 
@@ -2536,3 +2804,243 @@ async function searchTweets(term, reset = true) {
   }
   return results;
 }
+
+let comLastDoc = null;
+let loadingUserCom = false;
+
+document.getElementById("my-com").onclick = () => {
+  openCommunityOverlay(auth.currentUser.uid, true);
+  comLastDoc = null;
+  window.cannotSeeCom = false;
+  window.currentComID = auth.currentUser.uid;
+};
+document.getElementById("com").onclick = () => {
+  openCommunityOverlay(document.getElementById("user-name").dataset.uid, true);
+  comLastDoc = null;
+  window.cannotSeeCom = false;
+  window.currentComID = document.getElementById("user-name").dataset.uid;
+};
+
+async function openCommunityOverlay(uid, reset) {
+  document.getElementById("profileCom").classList.remove("hidden");
+  const container = document.getElementById("profileComList");
+
+  if (reset) {
+    comLastDoc = null;
+    container.innerHTML = `
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+      </div>
+    `;
+
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+
+    if (userData.cannotSeeCom && uid != auth.currentUser.uid) {
+      container.innerHTML = `
+        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+          <div style="max-width:400px;text-align:left;">
+            <h2 style="margin:0;">No permission</h2>
+            <p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p>
+          </div>
+        </div>
+      `;
+      window.cannotSeeCom = true;
+      return;
+    }
+  }
+
+  let q;
+
+  if (!comLastDoc) {
+    q = query(
+      collection(db, "communities"),
+      where("members", "array-contains", uid),
+      limit(10)
+    );
+  } else {
+    q = query(
+      collection(db, "communities"),
+      where("members", "array-contains", uid),
+      startAfter(comLastDoc),
+      limit(10)
+    );
+  }
+
+  const snap = await getDocs(q);
+
+  if (snap.empty && !comLastDoc) {
+    container.innerHTML = `
+      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No communities joined — yet</h2><p style="color:grey;margin:7px 0;">looks like this user is not joined in any community.</p></div></div>
+    `;
+    return;
+  }
+
+  comLastDoc = snap.docs[snap.docs.length - 1];
+
+  for (const docSnap of snap.docs) {
+    const id = docSnap.id;
+    const cData = docSnap.data();
+    if (cData.private === true) continue;
+
+    const div = document.createElement("div");
+    div.className = "com-item communityLink";
+    div.dataset.id = id;
+    div.id = `community-${id}`;
+    const joined = (cData.members || []).includes(auth.currentUser.uid);
+
+    let joinedStatus = joined && uid != auth.currentUser.uid ? `
+      <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
+        <div style="color:grey;font-size:14px;">Joined</div>
+        <img src="/image/loader.svg" height="20" class="hidden">
+      </div>
+    ` : `
+    <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
+    `;
+
+    div.innerHTML = `
+      <div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
+          <div id="com-avatar" style="min-height:47px;min-width:47px;max-height:43px;max-width:45px;margin-top:4px;border-radius:10px;background:url('${base91ToImageSrc(cData.avatar) || "/image/default.png"}') no-repeat center / cover">
+          </div>
+          <div style="display:flex;gap:3px;flex-direction:column;max-width:300px;overflow:hidden;">
+            <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;margin-bottom:3px">
+              ${escapeHTML(cData.name)}
+            </strong>
+            <span style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+              ${escapeHTML(cData.description) || `<span style="color:grey">No description</span>`}
+            </span>
+          </div>
+          ${joinedStatus}
+        </div>
+      </div>
+    `;
+
+    if (!container.querySelector(`#community-${id}`)) {
+      if (!container.querySelector(".com-item")) container.innerHTML = "";
+      container.appendChild(div);
+    }
+  }
+}
+
+const sb = document.querySelector("#profileCom .user-box");
+sb?.addEventListener("scroll", async () => {
+  const nearBottom =
+    sb.scrollTop + sb.clientHeight >= sb.scrollHeight - 150;
+
+  if (!nearBottom) return;
+  if (loadingUserCom) return;
+  if (!comLastDoc) return; 
+
+  loadingUserCom = true;
+  await openCommunityOverlay(window.currentComID, false);
+  loadingUserCom = false;
+});
+
+document.querySelector("#profileCom input")?.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;  
+    const term = e.target.value.trim().toLowerCase();
+
+    const list = document.getElementById("profileComList");
+
+    if (window.cannotSeeCom) {
+      list.innerHTML = `
+        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+          <div style="max-width:400px;text-align:left;">
+            <h2 style="margin:0;">No permission</h2>
+            <p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = `
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+      </div>
+    `;
+
+    if (!term) {
+      loadingUserCom = true;
+      await openCommunityOverlay(window.currentComID, true);
+      loadingUserCom = false;
+      return;
+    }
+
+    const q = query(
+      collection(db, "communities"),
+      where("lowerCase", ">=", term),
+      where("lowerCase", "<=", term + "\uf8ff"),
+      where("members", "array-contains", window.currentComID),
+      orderBy("lowerCase"),
+      limit(7)
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      list.innerHTML = `
+        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
+          <div style="max-width:400px;text-align:left;">
+            <h2 style="margin:0;">No communities found</h2>
+            <p style="color:grey;margin:7px 0;">Try a different name.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    if (!list.querySelector(".com-item")) {
+      list.innerHTML = "";
+    }
+
+    for (const docSnap of snap.docs) {
+      const cData = docSnap.data();
+      if (cData.private === true) continue;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "com-item communityLink";
+      wrapper.dataset.id = cData.id;
+
+      const joined = (cData.members || []).includes(auth.currentUser.uid);
+
+      let joinedStatus = joined ? `
+        <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
+          <div style="color:grey;font-size:14px;">Joined</div>
+          <img src="/image/loader.svg" height="20" class="hidden">
+        </div>
+      ` : `
+      <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
+      `;
+
+      wrapper.innerHTML = `
+        <div>
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
+            <div id="com-avatar" style="min-height:47px;min-width:47px;max-height:43px;max-width:45px;margin-top:4px;border-radius:10px;background:url('${base91ToImageSrc(cData.avatar) || "/image/default.png"}') no-repeat center / cover">
+            </div>
+            <div style="display:flex;gap:3px;flex-direction:column;max-width:300px;overflow:hidden;">
+              <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;margin-bottom:3px">
+                ${escapeHTML(cData.name)}
+              </strong>
+              <span style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+                ${escapeHTML(cData.description) || `<span style="color:grey">No description</span>`}
+              </span>
+            </div>
+            ${joinedStatus}
+          </div>
+        </div>
+      `;
+
+      list.appendChild(wrapper);
+    }
+});

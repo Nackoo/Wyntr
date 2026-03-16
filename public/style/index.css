@@ -6,6 +6,69 @@
   --color: #c0c2c3; 
 }
 
+.suspended-body {
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.suspended-container {
+  width: 100%;
+  padding: 10px;
+}
+
+.suspended-card {
+  max-width: 500px;
+  margin: auto;
+  background: var(--light);
+  border: 1px solid #2f3336;
+  border-radius: 16px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.suspended-card h2 {
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin-bottom: 25px;
+}
+
+.reason-box {
+  background: rgba(255, 0, 0, 0.09);
+  border: 2px solid rgba(255, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 25px;
+  font-weight: bold;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: #db1d23;
+  color: white;
+  font-weight: 500;
+  margin-bottom: 20px;
+  width: 200px;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.support {
+  font-size: 15px;
+  color: gray;
+}
+
 * {
   transition: background 0.2s ease;
 }
@@ -267,12 +330,13 @@ hr {
 
 #post {
   position: fixed;
-  bottom: 65px;
-  right: 20px;
-  background: #00ba7c;
+  bottom: 70px;
+  right: 17px;
+  background: black;
   height: 60px;
   width: 60px;
-  border-radius: 50%;
+  border-radius: 16px;
+  border: 2px solid #2f3336;
   transition: opacity 0.2s ease, bottom 0.3s ease;
 }
 
@@ -384,7 +448,7 @@ span {
   overflow: auto; /* show overflow */
   position: relative !important;
   z-index: 0;
-  max-width: 480px;
+  max-width: 500px;
 }
 
 @media (max-width: 700px) {
@@ -411,8 +475,15 @@ span {
 }
 
 .tweet-media {
-  max-width: 480px;
+  max-width: 500px;
   overflow:auto !important;
+}
+
+#appendTweet .tweet-media,
+#appendTweet .attachment,
+#appendComment .tweet-media,
+#appendComment .attachment {
+  max-width: 100%
 }
 
 @media (max-width: 700px) { 
@@ -421,6 +492,15 @@ span {
   }
   .attachment img{
     max-height:280px !important;
+  }
+  #appendTweet .tweet-media,
+  #appendTweet .attachment,
+  #appendComment .tweet-media,
+  #appendComment .attachment {
+    max-width: 100% !important
+  }
+  .comment-item .attachment {
+    max-width: 100%
   }
 }
 
@@ -608,7 +688,7 @@ a:visited {
   position: fixed;
   padding: 20px;
   width: 100%;
-  max-width: 519px;
+  max-width: 539px;
   overflow-x: hidden;
   border-radius: 15px;
   height: 100vh;
@@ -1002,21 +1082,7 @@ a:visited:not(.i) {
   color: #19a1f2;
 }
 
-@media (min-width:700px) {
-  .skeleton-skibidi {
-    padding: 10px;
-    background: var(--normal);
-    border-radius: 12px;
-    border: var(--border);
-    margin-bottom: 10px;
-  }
-  .skeleton-skibidi .skeleton-card {
-    margin: 7px !important;
-  }
-  #communityOverlay .skeleton-skibidi {
-    margin: 15px -15px;
-  }
-}
+
 
 @media (max-width:700px) {
   .skeleton-skibidi {

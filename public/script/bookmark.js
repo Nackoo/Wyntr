@@ -1,4 +1,4 @@
-import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, startAfter, query, onSnapshot, setDoc, increment, updateDoc, addDoc, serverTimestamp } from './firebase.js';
+import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, startAfter, query, setDoc, increment, updateDoc, addDoc, serverTimestamp, runTransaction } from './firebase.js';
 import { renderTweet } from './index.js';
 import { formatDate, inputDialog, log, confirmDialog } from "./texts.js";
 
@@ -13,7 +13,6 @@ const BOOKMARK_PAGE_SIZE = 5;
 let lastDoc = null;
 let loading = false;
 let noMore = false;
-let bookmarksLoadedOnce = false;
 let folderLastDoc = null;
 let folderNoMore = false;
 let currentFolderId = null;
@@ -34,15 +33,15 @@ async function loadBookmarks(initial = false) {
   loading = true;
   if (initial) {
     bookmarkList.innerHTML = `
-<div class="skeleton-skibidi">
-  <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-</div>
-<div class="skeleton-skibidi">
-  <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-</div>
-<div class="skeleton-skibidi">
-  <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-</div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
+      </div>
+      <div class="skeleton-skibidi">
+        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
+      </div>
     `;
     lastDoc = null;
     noMore = false;
@@ -65,7 +64,8 @@ async function loadBookmarks(initial = false) {
             <h2 style="margin:0;">Save Wynts for later</h2>
             <p style="color:grey;margin:7px 0;">when you bookmark a Wynt, you'll see it here.</p>
           </div>
-        </div>`;
+        </div>
+      `;
     }
     setBtnVisible(loadMoreBtn, false);
     noMore = true;
@@ -78,19 +78,16 @@ async function loadBookmarks(initial = false) {
   for (const folderDoc of folderSnap.docs) {
     if (folderDoc.id === 'index') hasIndex = true;
 
-    const data = folderDoc.data();
-    const count = data.tweetsCount || 0;
+    const folderData = folderDoc.data();
+    const count = folderData.tweetsCount || 0;
 
     const folderItem = document.createElement('div');
     folderItem.className = 'folder-item';
     folderItem.id = `folder-${folderDoc.id}`;
 
-    const folderRef = doc(db, 'users', auth.currentUser.uid, 'bookmarks', folderDoc.id);
-    const folderSnap = await getDoc(folderRef);
-    const folderData = folderSnap.exists() ? folderSnap.data() : {};
     const displayName = folderData.name || folderDoc.id;
     folderItem.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
-    folderItem.innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><img src="/image/folder.svg">  <div class="user-link">${displayName}</div> ${count > 0 ? `<span style="color:grey;margin-left:auto;">${count} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(folderData.lastUpdated) || `[missing value]`} ago</span></div>`;
+    folderItem.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${folderData.icon === "📁" || !folderData.icon ? `<img src="/image/folder.svg">` : `${folderData.icon}`} <div class="user-link">${displayName}</div> ${count > 0 ? `<span style="color:grey;margin-left:auto;">${count} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(folderData.lastUpdated) || `[missing value]`} ago</span></div>`;
     folderItem.onclick = () => loadFolderTweets(folderDoc.id);
     
     if (!bookmarkList.querySelector(`#folder-${folderDoc.id}`)) {
@@ -194,7 +191,9 @@ async function loadFolderTweets(folderId, initial = true) {
     const folderSnap = await getDoc(folderRef);
     const folderData = folderSnap.exists() ? folderSnap.data() : {};
     const displayName = folderData.name || folderId;
-    folderName.innerHTML = `<h3 style="margin:0;" class="user-link">${displayName}</h3> <h3 style="margin:0;color:grey;">folder</h3>`;
+    folderName.innerHTML = `
+      <h3 style="margin:0;" class="user-link">${displayName}</h3> 
+      <h3 style="margin:0;color:grey;">folder</h3>`;
     tweetOverlay.classList.remove('hidden');
   }
 
@@ -241,23 +240,30 @@ async function loadFolderTweets(folderId, initial = true) {
     } else {
       const box = document.createElement('div');
       box.className = 'unavailable';
-      box.style.cssText = 'padding: 10px; border-bottom: var(--border);';
+      box.style.cssText = 'margin:0 -20px;padding:0 20px;padding: 10px; border-bottom: var(--border);';
       box.innerHTML = `
         <div class="flex" style="margin:0"><p style="margin:0;color:grey;font-style:italic">This Wynt is unavailable</p><button style="margin-left:auto" class="close-btn delete-unavailable"><img src="/image/trash.svg"></button></div><div></div>
       `;
+
       const deleteBtn = box.querySelector('.delete-unavailable');
       deleteBtn.onclick = async () => {
+        loading1.classList.add("show");
+
         const uid = auth.currentUser.uid;
         const ref = doc(db, 'users', uid, 'bookmarks', folderId, 'items', tweetId);
-        await deleteDoc(ref);
-
         const folderRef = doc(db, 'users', uid, 'bookmarks', folderId);
-        await updateDoc(folderRef, { 
-          tweetsCount: increment(-1),
-          lastUpdated: serverTimestamp()
+
+        await runTransaction(db, async (tx) => {
+          tx.delete(ref);
+
+          tx.update(folderRef, { 
+            tweetsCount: increment(-1),
+            lastUpdated: serverTimestamp()
+          });
         });
 
         box.remove();
+        loading1.classList.remove("show");
       };
       tweetList.appendChild(box);
     }
@@ -324,9 +330,9 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
       div.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
 
       if (snap.exists()) {
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><img src="/image/folder.svg">  <div class="user-link">${name}</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
+        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">${name}</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
       } else {
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><img src="/image/folder.svg">  <div class="user-link">${name}</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
+        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">${name}</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
       }
 
       div.onclick = () => selectFolder(f.id, tweetId);
@@ -339,13 +345,16 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
 
     if (initial) {
       addBtn.onclick = async () => {
-        const name = await inputDialog("New folder", "type your new folder name");
+        const extra = `<button id="chooseEmoji">📁</button>`;
+
+        const name = await inputDialog("New folder", "type your new folder name", extra);
         if (!name) return;
 
         await addDoc(collection(db, "users", auth.currentUser.uid, "bookmarks"), {
           name,
           tweetsCount: 0,
-          lastUpdated: serverTimestamp()
+          lastUpdated: serverTimestamp(),
+          icon: document.getElementById("chooseEmoji").textContent || "📁",
         });
         openBookmarkOverlay(tweetId, true, true);
         log("green", `folder ${name} created`);
@@ -362,7 +371,7 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
 
   } else {
     if (addBtn) addBtn.style.display = 'none';
-    if (document.getElementById("hh")) document.getElementById("hh").style.display = "inline";
+    if (document.getElementById("hh")) document.getElementById("hh").style.display = "block";
 
     folderList.innerHTML = '';
     const ref = doc(db, 'users', auth.currentUser.uid, 'bookmarks', 'index', 'items', tweetId);
@@ -374,7 +383,8 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
       await setDoc(indexFolderRef, { 
         name: 'index', 
         tweetsCount: 0,
-        lastUpdated: serverTimestamp()
+        lastUpdated: serverTimestamp(),
+        icon: "📁"
       });
       indexSnap = await getDoc(indexFolderRef);
     }
@@ -385,9 +395,9 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
     const div = document.createElement('div');
     div.className = 'folder-item';
     div.innerHTML = snap.exists() ? 
-    `<div style="display:flex;align-items:center;gap:10px;"><img src="/image/folder.svg">  <div class="user-link">Index</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>` 
+    `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">Index</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>` 
     : 
-    `<div style="display:flex;align-items:center;gap:10px;"><img src="/image/folder.svg">  <div class="user-link">Index</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
+    `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">Index</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
     div.onclick = () => selectFolder('index', tweetId, false);
     folderList.appendChild(div);
 
@@ -420,19 +430,23 @@ async function selectFolder(folderId, tweetId, isPremium = true) {
 
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    await deleteDoc(ref);
-    await updateDoc(folderRef, {
-      tweetsCount: increment(-1),
-      lastUpdated: serverTimestamp()
+    await runTransaction(db, async (tx) => {
+      tx.delete(ref);
+      tx.update(folderRef, {
+        tweetsCount: increment(-1),
+        lastUpdated: serverTimestamp()
+      })
     });
     log("green", `Removed from ${displayName}`);
   } else {
-    await setDoc(ref, {
-      bookmarkedAt: new Date()
-    });
-    await updateDoc(folderRef, {
-      tweetsCount: increment(1),
-      lastUpdated: serverTimestamp()
+    await runTransaction(db, async (tx) => {
+      tx.set(ref, {
+        bookmarkedAt: new Date()
+      });
+      tx.update(folderRef, {
+        tweetsCount: increment(1),
+        lastUpdated: serverTimestamp()
+      });
     });
     log("green", `Saved to ${displayName}`);
   }
@@ -469,11 +483,25 @@ document.getElementById('editFolder').addEventListener('click', async () => {
   document.getElementById('folderActionOverlay').classList.add('hidden');
 
   if (!currentFolderId) {
-  log("red", "No folder selected");
-  return;
+    log("red", "No folder selected");
+    return;
   }
 
-  const newName = await inputDialog("folder Name", "Enter new folder name");
+  const emojiElement = document.querySelector(`#folder-${currentFolderId} .emoji`);
+  const foldername = document.querySelector(`#folder-${currentFolderId} .user-link`);
+
+  let extra = `<button id="chooseEmoji">📁</button>`;
+  let inputvalue = null;
+
+  if (emojiElement) {
+    extra = `<button id="chooseEmoji">${emojiElement.alt}</button>`
+  }
+
+  if (foldername) {
+    inputvalue = document.querySelector(`#folder-${currentFolderId} .user-link`).textContent;
+  }
+
+  const newName = await inputDialog("folder Name", "Enter new folder name", extra, inputvalue);
   if (!newName) return;
   loading1.classList.add("show");
 
@@ -487,6 +515,7 @@ document.getElementById('editFolder').addEventListener('click', async () => {
   }
   await updateDoc(folderRef, { 
     name: newName,
+    icon: document.getElementById("chooseEmoji").textContent || "📁",
     lastUpdated: serverTimestamp()
   });
 
@@ -512,18 +541,11 @@ document.getElementById("deleteFolder").addEventListener("click", async () => {
   const uid = auth.currentUser.uid;
   const folderRef = doc(db, "users", uid, "bookmarks", currentFolderId);
 
-  /*
-  const itemsSnap = await getDocs(collection(folderRef, "items"));
-  for (const item of itemsSnap.docs) {
-    await deleteDoc(doc(folderRef, "items", item.id));
-  }
-  */
   await deleteDoc(folderRef);
 
   loading1.classList.remove("show");
   log("green", `Folder "${foldername}" deleted.`);
 
-  // await loadBookmarks(true);
   document.getElementById("bookmarkTweetOverlay").classList.add("hidden");
   document.querySelector(`#folder-${currentFolderId}`).remove();
   currentFolderId = null;
@@ -545,5 +567,3 @@ folderScrollBox.addEventListener("scroll", async () => {
 });
 
 export { selectFolder, openBookmarkOverlay }
-
-//loadbookmarks,, loadfolder

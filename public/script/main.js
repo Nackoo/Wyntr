@@ -1,12 +1,10 @@
 import { auth, db, doc, getDoc, onAuthStateChanged, onSnapshot } from "./firebase.js";
-import { loadNewTweets } from "./newTweets.js";
 import { loadFollowingTweets } from "./followingTweets.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js";
-import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
-import { tokenize, parseMentionsToLinks, info, formatNumber } from "./texts.js";
-import { renderTweet, getUserData, loadComments, } from './index.js'; 
+import { info, formatNumber, escapeHTML, parseMentionsToLinks } from "./texts.js";
+import { currentUserRole, getUserData, loadComments, } from './index.js'; 
 import { base91ToImageSrc } from "./attachments.js";
 
 function positionHoverCard(el, card) {
@@ -46,6 +44,10 @@ document.addEventListener("mouseout", () => {
 });
 
 function fillCommunityHoverCard(c) {
+  const tagsHtml = (c.tags || [])
+    .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
+    .join("");
+
   communityHoverCard.innerHTML = `
     <div style="display:flex;gap:10px;align-items:center;">
       <img src="${base91ToImageSrc(c.avatar) || '/image/default.png'}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">
@@ -62,24 +64,40 @@ function fillCommunityHoverCard(c) {
     <div style="color:grey;font-size:14px;">
       ${formatNumber(c.posts || 0)} posts • ${formatNumber(c.membersCount || 0)} members • ${c.private ? "private" : "public"}
     </div>
+    ${tagsHtml}
   `;
 }
 
 function fillHoverCard(d) {
-  document.getElementById("hover-avatar").style.display = "inline";
-  document.getElementById("hover-avatar").src = base91ToImageSrc(d.photoURL) || "/image/default-avatar.png";
-  document.getElementById("hover-name").textContent = d.displayName || "Unnamed";
-  document.getElementById("hover-title").style.display = "none";
-  document.getElementById("hover-iq").style.display = "inline";
-  document.getElementById("hover-iq").textContent = d.IQ.toFixed(2) || "0.00";
-  document.getElementById("hover-name").style.display = "block";
-  document.getElementById("hover-username").textContent = "@" + d.username;
-  document.getElementById("hover-bio").textContent = d.description || "no description";
-  document.getElementById("hover-followers").textContent = `${formatNumber(d.followers || 0)} Followers` || "0 Followers";
-  document.getElementById("hover-following").textContent = `${formatNumber(d.following || 0)} Following` || "0 Following";
-  if (d.createdAt?.toDate) {
-    const date = d.createdAt.toDate();
-    document.getElementById("hover-joined").textContent = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${String(date.getFullYear()).slice(-2)}` || "some time ago";
+  if (d.banned === true) {
+    document.getElementById("hover-avatar").style.display = "inline";
+    document.getElementById("hover-avatar").src = "/image/default-avatar.jpg";
+    document.getElementById("hover-name").textContent = "Suspended User";
+    document.getElementById("hover-title").style.display = "none";
+    document.getElementById("hover-name").style.display = "block";
+    document.getElementById("hover-username").textContent = "";
+    document.getElementById("hover-bio").textContent = "";
+    document.querySelector(".hover-meta").style.display = "none";
+  } else {
+    document.getElementById("hover-avatar").style.display = "inline";
+    document.getElementById("hover-avatar").src = base91ToImageSrc(d.photoURL) || "/image/default-avatar.png";
+    document.querySelector(".hover-meta").style.display = "flex";
+    document.getElementById("hover-name").textContent = d.displayName || "Unnamed";
+    document.getElementById("hover-title").style.display = "none";
+    document.getElementById("hover-name").style.display = "block";
+    document.getElementById("hover-username").textContent = "@" + d.username;
+    document.getElementById("hover-bio").textContent = d.description || "no description";
+    document.getElementById("hover-followers").textContent = formatNumber(d.followers || 0);
+    document.getElementById("hover-following").textContent = formatNumber(d.following || 0);
+    if (d.createdAt?.toDate) {
+      const date = d.createdAt.toDate();
+      document.getElementById("hover-joined").textContent = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${String(date.getFullYear()).slice(-2)}` || "some time ago";
+    }
+    if (d.suspended) {
+      document.getElementById("user1-suspended").classList.remove("hidden");
+    } else {
+      document.getElementById("user1-suspended").classList.add("hidden");
+    }
   }
 }
 
@@ -115,17 +133,9 @@ if (window.innerWidth > 700) {
       hoverTimeout = setTimeout(async () => {
         const uid = el.dataset.uid;
 
-        let userData;
-        if (hoverCache.has(uid)) {
-          userData = hoverCache.get(uid);
-        } else {
-          const snap = await getDoc(doc(db, "users", uid));
-          if (!snap.exists()) return;
-          userData = snap.data();
-          hoverCache.set(uid, userData);
-        }
+        const { d } = await getUserData(uid);
 
-        fillHoverCard(userData);
+        fillHoverCard(d);
         positionHoverCard(el, hoverCard);
         hoverCard.classList.remove("hidden");
       }, 400);
@@ -133,7 +143,7 @@ if (window.innerWidth > 700) {
     const el2 = e.target.closest(".viewbtn");
     if (el2) {
       hoverTimeout = setTimeout(async () => {
-        fillHoverCard1("Views", "Times this Wynt was seen.");
+        fillHoverCard1("Views", "Times this post was opened.");
         positionHoverCard(el2, hoverCard);
         hoverCard.classList.remove("hidden");
       }, 400);
@@ -147,11 +157,12 @@ function fillHoverCard1(name, desc) {
   document.getElementById("hover-title").textContent = name;
   document.getElementById("hover-title").style.display = "inline";
   document.getElementById("hover-username").textContent = "";
-  document.getElementById("hover-iq").style.display = "none";
   document.getElementById("hover-bio").textContent = desc;
   document.getElementById("hover-followers").textContent = "";
   document.getElementById("hover-following").textContent = "";
   document.getElementById("hover-joined").textContent = "";
+  document.querySelector(".hover-meta").style.display = "none";
+  document.getElementById("user1-suspended").classList.add("hidden");
 }
 
 document.addEventListener("mouseout", () => {
@@ -177,7 +188,7 @@ function updatePostZIndex() {
 
   if (window.communityID == null && window.innerWidth < 700) {
     post.style.zIndex = "2";
-  } else if (window.communityID != null) {
+  } else if (window.communityID != null && window.isJoined) {
     post.style.zIndex = "7";
   }
 }
@@ -188,7 +199,7 @@ function updateCbDisplay() {
   if (!cb) return;
   if (!cd) return;
 
-  if (window.communityID != null && window.isOnPrivate === false) {
+  if (window.communityID != null && window.isOnPrivate === false && window.isJoined) {
     cb.style.display = "flex";
     cd.style.display = "flex";
   } else {
@@ -309,7 +320,6 @@ document.querySelectorAll(".tab1").forEach(tab => {
 });
 
 let followingLoadedOnce = false;
-let newLoadedOnce = false;
 
 const scrollCache = new Map();
 
@@ -327,7 +337,6 @@ document.querySelectorAll(".tab").forEach(tab => {
 
     document.getElementById("timeline").classList.add("hidden");
     document.getElementById("following1").classList.add("hidden");
-    document.getElementById("new").classList.add("hidden");
 
     const target = tab.dataset.target;
     const targetEl = document.getElementById(target);
@@ -336,11 +345,6 @@ document.querySelectorAll(".tab").forEach(tab => {
     if (target === "following1" && !followingLoadedOnce) {
       await loadFollowingTweets(true);
       followingLoadedOnce = true;
-    }
-
-    if (target === "new" && !newLoadedOnce) {
-      await loadNewTweets(true);
-      newLoadedOnce = true;
     }
 
     requestAnimationFrame(() => {
@@ -377,8 +381,8 @@ export function updateAllCounters() {
   ["tweetInput", "retweetText", "commentInput", "deleteReasonInput", "replyInput", "editTextArea"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const parent = el.parentNode?.parentNode;
-    const counter = parent?.querySelector?.(".char-counter");
+    const overlay = el.closest(".overlay");
+    const counter = overlay?.querySelector(".char-counter");
     const max = maxLengths[id] || 1000;
     if (counter) counter.textContent = `${el.value.length}/${max}`;
   });
@@ -530,13 +534,10 @@ document.addEventListener("click", async (e) => {
         const snap = await getDoc(doc(db, "communities", communityId));
         const data = snap.data();
 
-        if (data.private === true) {
-          const memberSnap = await getDoc(doc(db, "communities", communityId, "members", auth.currentUser.uid));
-          if (!memberSnap.exists()) {
-            loading.classList.remove("show");
-            info("x", "No access", "This is a private community and you don't have permission to view this community.");
-            return;
-          }
+        if (data.private === true && !(data.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "This is a private community and you don't have permission to view this community.");
+          return;
         }
         loading.classList.remove("show");
         return await openCommunity(communityId);
@@ -560,16 +561,10 @@ document.addEventListener("click", async (e) => {
 
         const cData = comSnap.data();
 
-        if (cData.private === true) {
-          const memberRef = doc(db, "communities", communityId, "members", auth.currentUser.uid);
-          const memberSnap = await getDoc(memberRef);
-          const isMember = memberSnap.exists();
-
-          if (!isMember) {
-            loading.classList.remove("show");
-            info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this reply.");
-            return;
-          }
+        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this reply.");
+          return;
         }
 
         const overlay = document.getElementById("commentViewer");
@@ -577,7 +572,6 @@ document.addEventListener("click", async (e) => {
         const replyList = overlay.querySelector("#replyList");
 
         overlay.classList.remove("hidden");
-        box.innerHTML = "";
         replyList.innerHTML = "";
 
         const commentRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId);
@@ -592,19 +586,13 @@ document.addEventListener("click", async (e) => {
           if (tweetviewer && !document.querySelector(`#appendTweet #tweet-${tweetId}`)) {
             await tweetviewer.classList.add("hidden");
           }
-          await renderCommentViewer(commentData, commentId, tweetId, box, communityId, true);
-          await loadComments(tweetId, true, commentId, replyList, communityId);
-          await openCommunity(communityId);
+          renderCommentViewer(commentData, commentId, tweetId, box, communityId, true);
+          loadComments(tweetId, true, commentId, replyList, communityId);
+          openCommunity(communityId);
           document.body.classList.add("no-scroll");
         } else {
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No reply found</h2>
-                <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-              </div>
-            </div>`;
-          replyList.innerHTML = "";
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
         }
         
         loading.classList.remove("show");
@@ -623,22 +611,15 @@ document.addEventListener("click", async (e) => {
 
         const cData = comSnap.data();
 
-        if (cData.private === true) {
-          const memberRef = doc(db, "communities", communityId, "members", auth.currentUser.uid);
-          const memberSnap = await getDoc(memberRef);
-          const isMember = memberSnap.exists();
-
-          if (!isMember) {
-            loading.classList.remove("show");
-            info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this Wynt.");
-            return;
-          }
+        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
+          loading.classList.remove("show");
+          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this Wynt.");
+          return;
         }
 
         const tweetViewer = document.getElementById("tweetViewer");
         const box = tweetViewer.querySelector("#appendTweet");
 
-        box.innerHTML = "";
         tweetViewer.classList.remove("hidden");
         document.body.classList.add("no-scroll");
 
@@ -649,20 +630,15 @@ document.addEventListener("click", async (e) => {
           loading.classList.remove("show");
           document.getElementById("commentList").innerHTML = "";
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No Wynt found</h2>
-                <p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted.</p>
-              </div>
-            </div>`;
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
           return;
         }
 
         loading.classList.remove("show");
         const tweetData = tweetSnap.data();
-        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, true);
-        await loadComments(tweetId, true, null, null, communityId);
-        await openCommunity(communityId);
+        renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, true);
+        loadComments(tweetId, true, null, null, communityId);
+        openCommunity(communityId);
         return;
       }
 
@@ -671,7 +647,6 @@ document.addEventListener("click", async (e) => {
         const tweetViewer = document.getElementById("tweetViewer");
         const box = tweetViewer.querySelector("#appendTweet");
 
-        box.innerHTML = "";
         tweetViewer.classList.remove("hidden");
         document.body.classList.add("no-scroll");
 
@@ -681,18 +656,13 @@ document.addEventListener("click", async (e) => {
         if (!tweetSnap.exists()) {
           document.getElementById("commentList").innerHTML = "";
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No Wynt found</h2>
-                <p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted.</p>
-              </div>
-            </div>`;
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this wynt have been deleted or you don't have permission to view it.</p></div></div>`;
           return;
         }
 
         const tweetData = tweetSnap.data();
-        await renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
-        return await loadComments(tweetId);
+        renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
+        return loadComments(tweetId);
       }
 
       if (replyMatch) {
@@ -704,7 +674,6 @@ document.addEventListener("click", async (e) => {
         const replyList = overlay.querySelector("#replyList");
 
         overlay.classList.remove("hidden");
-        box.innerHTML = "";
         replyList.innerHTML = "";
 
         const commentRef = doc(db, "tweets", tweetId, "comments", commentId);
@@ -716,18 +685,12 @@ document.addEventListener("click", async (e) => {
           if (tweetviewer && !document.querySelector(`#appendTweet #tweet-${tweetId}`)) {
             await tweetviewer.classList.add("hidden");
           }
-          await renderCommentViewer(commentData, commentId, tweetId, box);
-          await loadComments(tweetId, true, commentId, replyList);
+          renderCommentViewer(commentData, commentId, tweetId, box);
+          loadComments(tweetId, true, commentId, replyList);
           document.body.classList.add("no-scroll");
         } else {
           box.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No reply found</h2>
-                <p style="color:grey;margin:7px 0;">Seems like this reply has been deleted.</p>
-              </div>
-            </div>`;
-          replyList.innerHTML = "";
+          div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
         }
         return;
       }
@@ -745,3 +708,57 @@ const titleInput1 = document.getElementById("retweetTitle");
 titleInput1.addEventListener("input", () => {
   titleInput1.value = titleInput1.value.slice(0, 100);
 });
+
+function setupPollToggle(inputId) {
+  const poll = document.getElementById(inputId);
+  const label = document.querySelector(`label[for='${inputId}']`);
+
+  if (!poll || !label) return;
+
+  const renderIcon = () => {
+    label.innerHTML = `
+      <svg fill="${poll.checked ? '#00ba7c' : 'var(--color)'}"
+           width="24px"
+           height="24px"
+           viewBox="0 0 24 24"
+           xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 11h7v2H7zm0-4h10.97v2H7zm0 8h13v2H7zM4 4h2v16H4z"></path>
+      </svg>
+    `;
+  };
+
+  poll.addEventListener("click", renderIcon);
+  renderIcon();
+}
+
+setupPollToggle("includePoll");
+setupPollToggle("includePollComment");
+setupPollToggle("includePollRetweet");
+
+document.getElementById("tweetOptions").addEventListener("click", () => {
+  document.getElementById("tweetOption").classList.remove("hidden");
+});
+
+document.getElementById("retweetOptions").addEventListener("click", () => {
+  document.getElementById("retweetOption").classList.remove("hidden");
+});
+
+document.getElementById("commentOptions").addEventListener("click", () => {
+  document.getElementById("commentOption").classList.remove("hidden");
+});
+
+document.getElementById("replyOptions").addEventListener("click", () => {
+  document.getElementById("replyOption").classList.remove("hidden");
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("privateOK").checked = true;
+  document.getElementById("rtprivateOK").checked = true;
+});
+
+export async function showOriginal(text, mentions, title) {
+  const parsedText = await parseMentionsToLinks(text, mentions || []);
+  document.getElementById("originalEdited").classList.remove("hidden");
+  document.getElementById("originalText").innerHTML = parsedText;
+  if (title && title != "") document.getElementById("originalTitle").textContent = title;
+}

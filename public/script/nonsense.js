@@ -16,6 +16,9 @@ export const commentViewer     = document.getElementById("commentViewer");
 export const premiumsvg        = document.getElementById("premiumOverlay1");
 export const community         = document.getElementById("communityOverlay");
 export const comsearch         = document.getElementById("communitySearch");
+export const block             = document.getElementById("blockOverlay");
+export const profilecom        = document.getElementById("profileCom");
+export const quote             = document.getElementById("quoteViewer");
 
 export const bookmarksvg       = document.getElementById("bookmarksvg");
 export const homesvg           = document.getElementById("homesvg");
@@ -39,19 +42,13 @@ const tabcontent               = document.querySelectorAll(".tab-content");
 const tweetsTab                = document.querySelector('.tab1[data-target="tweetsView"]');
 const tweetsView               = document.getElementById("tweetsView");
 const tab1                     = document.querySelectorAll(".tab1");
-
 const tab3                     = document.querySelectorAll(".tab3");
 const tweetsTab1               = document.querySelector(".tab3[data-target='userList']")
-const tweetsView1              = document.getElementById("userList");
-const tabcontent1              = document.querySelectorAll(".tab-container");
-
 const list                     = document.getElementById("youList");
 const usermentionedList        = document.getElementById("mentionedList");
 const list1                    = document.getElementById("userList");
 const usermentionedList1       = document.getElementById("usermentionedList");
 const comRule                  = document.getElementById("comRule");
-
-const loading                  = document.getElementById("loadingOverlay");
 
 import { loadCommunities } from "./community.js";
 
@@ -95,7 +92,10 @@ const panelsToHide = () => [
   bookmarkoverlay, 
   bookmarktweet, 
   premiumsvg, 
-  community
+  community,
+  block,
+  profilecom,
+  quote
 ];
 
 const filledIcons = [
@@ -178,6 +178,7 @@ function hideCom() {
   comsearch.classList.add("hidden");
   document.getElementById("commentSearch").classList.add("hidden");
   document.getElementById("memberOverlay").classList.add("hidden");
+  document.getElementById("inviteOverlay").classList.add("hidden");
   document.getElementById("banOverlay").classList.add("hidden");
 }
 
@@ -224,7 +225,6 @@ function hidenotif() {
 function closeUser() {
   usersub?.classList.add('hidden');
   user.classList.remove('hidden');
-  document.querySelector("#tab-content #notifications")?.classList.remove("hidden");
   tweetviewactive();
 }
 
@@ -249,6 +249,7 @@ document.body.addEventListener("click", async (e) => {
     const uid = userLink.dataset.uid;
     if (uid) {
       hideCom();
+      quote.classList.add("hidden");
       usersub.classList.remove("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
@@ -267,6 +268,7 @@ document.body.addEventListener("click", async (e) => {
       searchfilled.classList.remove('hidden');
       profile.classList.add('hidden');
       userfilled.classList.add('hidden');
+      block.classList.add("hidden");
       usersvg.classList.remove('hidden');
       notiffilled.classList.add('hidden');
       notifsvg.classList.remove('hidden');
@@ -286,14 +288,17 @@ document.body.addEventListener("click", async (e) => {
   const communityLink = e.target.closest(".communityLink");
   if (communityLink && communityLink.dataset.id) {
       community.classList.remove("hidden");
+      quote.classList.add("hidden");
       document.getElementById("myCommunities").classList.add("hidden");
       document.getElementById("communityList").classList.remove("hidden");
       document.querySelector(".tab5[data-target='myCommunities']").classList.remove("active");
       document.querySelector(".tab5[data-target='communityList']").classList.add("active");
       document.getElementById("searchCom").classList.remove("hidden");
+      document.getElementById("searchMyCom").classList.add("hidden");
       if (!document.querySelector("#communityList .com-item")) {
         loadCommunities();
       }
+      profilecom.classList.add("hidden");
       communitysvg.classList.add("hidden");
       communityfilled.classList.remove("hidden");
       document.getElementById("memberOverlay").classList.add("hidden");
@@ -335,6 +340,7 @@ document.body.addEventListener("click", async (e) => {
     const tag = tagLink.dataset.tag;
     if (tag) {
       hideCom();
+      quote.classList.add("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
       premium.classList.remove("hidden");
@@ -410,7 +416,9 @@ document.body.addEventListener("click", (e) => {
   const closeTweetMenu = e.target.closest(".close-menu");
   const closeCMenu     = e.target.closest(".close-cmenu");
   const closecomrule   = e.target.closest("#close-com-rule");
+  const closenotif     = e.target.closest(".close-notif-menu");
 
+  if (closenotif) {document.getElementById("notifMenuOverlay").classList.add("hidden");}
   if (closecomrule) { document.getElementById("skibidicome").classList.add("hidden") }
   if (closecom) {community.classList.add('hidden'); communitysvg.classList.remove("hidden"); communityfilled.classList.add("hidden"); homesvg.classList.add("hidden"); homefilled.classList.remove("hidden"); comRule.style.display = "none";}
   if (closeWelcome) {document.getElementById("welcomeOverlay").classList.add("hidden");}

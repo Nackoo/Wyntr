@@ -96,16 +96,6 @@
   font-size: 13px;
 }
 
-#replyPermission,
-#replyPermission1 {
-  margin-bottom: 13px;
-  background: black;
-  border-radius: 15px;
-  padding: 10px;
-  border: var(--border);
-  color: white;
-}
-
 #tweetViewer .tweet {
   border: var(--border);
   border-radius: 15px;
@@ -372,12 +362,7 @@
 #tweetViewer .quoted-comment:first-child {
   margin-bottom: -23px !important;
 }
-
-#appendEdit .tweet {
-  border: var(--border);
-  background: var(--normal);
-}
-
+                     
 #appendCommunityTweet .tweet {
   margin: 0 -20px;
 }
@@ -387,10 +372,6 @@
 }
 
 @media (max-width: 700px) {
-  #appendEdit .tweet {
-    border: var(--border) !important;
-    border-radius: 15px;
-  }
   #appendCommunityTweet .tweet {
     margin: 15px -5px;
   }
@@ -544,7 +525,11 @@
 }
 
 #replyPermission,
-#replyPermission1 {
+#replyPermission1,
+#replyPermission2,
+#replyPermission3,
+#blockDuration,
+#suspendDuration {
   margin-bottom: 13px;
   background: black;
   border-radius: 15px;
@@ -832,8 +817,24 @@
 }
 
 #appendEdit .tweet {
-  border: var(--border);
-  background: var(--normal);
+  border: none !important;
+  padding: 5px;
+}
+
+#editTextArea {
+  border: var(--border) !important;
+  padding: 13px !important;
+  border-radius: 15px !important;
+  margin: 15px 0 !important;
+}
+
+#editTitle {
+  border: var(--border) !important;
+  padding: 13px !important;
+  border-radius: 15px !important;
+  margin-bottom: -1px !important;
+  margin-top: 10px !important;
+  font-size: 16px !important;
 }
 
 #appendCommunityTweet .tweet {
@@ -845,10 +846,6 @@
 }
 
 @media (max-width: 700px) {
-  #appendEdit .tweet {
-    border: var(--border) !important;
-    border-radius: 15px;
-  }
   #appendCommunityTweet .tweet {
     margin: 15px -5px;
   }
@@ -863,19 +860,6 @@
 
 .useroverlay:not(#bookmarkTweetOverlay):not(.communityo) .user-box .bread {
   margin-bottom: 0 !important;
-}
-
-@media (min-width:700px) {
-  .useroverlay:not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
-    border-radius: 15px !important;
-    margin: 15px -10px;
-    padding: 10px 10px !important;
-    margin-bottom: 0;
-  }
-  
-  .useroverlay:not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
-    margin-top:0 !important
-  }
 }
 
 img[src="/image/three-dots.svg"]:hover {
@@ -1058,3 +1042,52 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 .renderedparent {
   margin-bottom: -25px !important;
 } 
+
+@media (min-width:700px) {
+  .useroverlay:not(#quoteViewer):not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
+    border-radius: 15px !important;
+    margin: 15px -10px;
+    padding: 10px 10px !important;
+    margin-bottom: 0;
+  }
+  
+  .useroverlay:not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
+    margin-top:0 !important
+  }
+}
+
+#profileOverlay .tweet,
+#profileOverlay .tweet:hover,
+#userSubOverlay .tweet, 
+#userSubOverlay .tweet:hover,
+#bookmarkTweetOverlay .tweet,
+#bookmarkTweetOverlay .tweet:hover {
+  margin-left: -20px !important;
+  margin-right: -20px !important;
+  padding-right: 20px !important;
+  padding-left: 20px !important;
+}
+
+@media (max-width:700px) {
+  #appendCommunityTweet {
+    margin-left: -10px;
+    margin-right: -10px;
+  }
+  #appendCommunityTweet .tweet {
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+  }
+  #appendCommunityTweet .pinlabel {
+    margin-left: 5px !important;
+  }
+}
+
+@media (min-width:700px) {
+.comment-box .attachment {
+  max-width: 444px
+}
+}
+
+#quoteList .tweet:first-child {
+  padding-top: 0 !important;
+}
