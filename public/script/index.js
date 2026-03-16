@@ -4928,13 +4928,9 @@ function resolveScrollBox(container) {
 }
 
 async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, ownerPrivate, postedInPublic) {
-  const el = document.getElementById(`${id}`);
+  const el = document.getElementById(id);
 
-  let isCommentSearch = false;
-  const thirdParent = el?.parentElement?.parentElement;
-  if (thirdParent && thirdParent.id === "appendCommentSearch") {
-    isCommentSearch = true;
-  }
+  let isCommentSearch = !!el?.closest("#appendCommentSearch");
 
   if (!el.querySelector(`#expandComment-${id}`)) {
     el.innerHTML = `
