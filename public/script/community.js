@@ -901,10 +901,14 @@ async function joinCommunity(communityId) {
     const creatorRef = doc(db, "users", comData.creatorId);
     const creatorReward = Math.floor(req.joinFee * 0.8);
 
-    await Promise.all([
-      updateDoc(userRef, { balance: increment(-req.joinFee) }),
-      updateDoc(creatorRef, { balance: increment(creatorReward) })
-    ]);
+    await runTransaction(db, async (tx) => {
+      tx.update(userRef, { 
+        balance: increment(-req.joinFee) 
+      });
+      tx.update(creatorRef, { 
+        balance: increment(creatorReward) 
+      });
+    });
   }
 
   const memberRef = doc(db, "communities", communityId, "members", user.uid);
