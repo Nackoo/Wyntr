@@ -4930,6 +4930,12 @@ function resolveScrollBox(container) {
 async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, ownerPrivate, postedInPublic) {
   const el = document.getElementById(`${id}`);
 
+  let isCommentSearch = false;
+  const thirdParent = el?.parentElement?.parentElement;
+  if (thirdParent && thirdParent.id === "appendCommentSearch") {
+    isCommentSearch = true;
+  }
+
   if (!el.querySelector(`#expandComment-${id}`)) {
     el.innerHTML = `
       <div id="${id}" class="ownerr">
@@ -4966,7 +4972,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
 
   if (!snap.exists()) {
     ownerHTML1 = `
-      <div class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px 0 !important;padding-bottom:0 !important;background:none;">
+      <div class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
         <img loading='lazy' src="/image/default-avatar.jpg" class="avatar comment-avatar" style="z-index:1">
         <div style="display:flex;flex-direction:column;width:100%;">
           <div class="flex comment-header" style="gap:10px;margin:0;">
@@ -5074,7 +5080,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
 
     if (d.banned === true && currentUserRole != "admin") {
       ownerHTML1 = `
-        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px 0 !important;padding-bottom:0 !important;background:none;">
+        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
           <img loading='lazy' src="${escapeHTML(avatar3)}" onerror="this.src='/image/default-avatar.jpg'" class="avatar comment-avatar" style="z-index:1">
           <div style="display:flex;flex-direction:column;width:100%">
             <div class="flex comment-header" style="gap:10px;margin:0;">
@@ -5096,7 +5102,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
       `;
     } else {
       ownerHTML1 = `
-        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px 0 !important;padding-bottom:0 !important;background:none;">
+        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
           <img loading='lazy' src="${escapeHTML(avatar3)}" onerror="this.src='/image/default-avatar.jpg'" class="avatar comment-avatar" style="z-index:1">
           <div style="display:flex;flex-direction:column;width:100%">
             <div class="flex comment-header" style="gap:10px;margin:0;">

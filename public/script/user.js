@@ -1496,7 +1496,7 @@ async function loadIfFollow(uid) {
 
   const snap = await getDoc(myFollowingRef);
   followBtn.textContent = snap.exists() ? "Following" : "Follow";
-  followBtn.style.cssText = snap.exists() ? "padding: 10px 32px; background:none;border:1px solid var(--color);color:var(--color);margin-right:10px;margin-bottom: -10px;" : "padding: 10px 32px;background:white;color:black;margin-right:10px;margin-bottom: -10px;";
+  followBtn.style.cssText = snap.exists() ? "padding: 10px 32px; background:rgba(0,0,0,0.8);border:1px solid var(--color);color:var(--color);margin-right:10px;margin-bottom: -10px;" : "padding: 10px 32px;background:white;color:black;margin-right:10px;margin-bottom: -10px;border:1px solid black;";
 }
 
 async function renderPinned(d, uid) {
