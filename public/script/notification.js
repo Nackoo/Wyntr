@@ -635,6 +635,7 @@ if (notification.type === "communityJoinRequest") {
           joinedAt: new Date(),
           username: userData.username,
           photoURL: userData.photoURL,
+          displayName: userData.displayName,
           role: 1
         });
         tx.update(userRef, {

@@ -2833,13 +2833,13 @@ async function openCommunityOverlay(uid, reset) {
     comLastDoc = null;
     container.innerHTML = `
       <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
       </div>
       <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
       </div>
       <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
       </div>
     `;
 
@@ -2968,10 +2968,10 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
 
     list.innerHTML = `
       <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
       </div>
       <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
+        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
       </div>
     `;
 
