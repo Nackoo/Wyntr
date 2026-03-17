@@ -500,7 +500,7 @@ span {
     max-width: 100% !important
   }
   .comment-item .attachment {
-    max-width: 100%
+    min-width: 100%;
   }
 }
 
@@ -1118,4 +1118,22 @@ a:visited:not(.i) {
 
 .spoiler-overlay {
   border-radius: 10px;
+}
+
+.poll-option {
+  margin: 0 15px;
+  width: calc(100% - 30px);
+}
+
+.poll-option-wrapper {
+  padding: 0 15px;
+}
+
+.poll-option-wrapper .poll-option {
+  margin: 0;
+  margin-bottom: 10px;
+}
+
+select:focus {
+  outline: none;
 }
