@@ -7,7 +7,7 @@ const observer = new MutationObserver(() => {
   if (loading.classList.contains("show")) {
     if (!timer) {
       timer = setTimeout(() => {
-        log("var(--light)", "we removed the loading for you, thought you were stuck there")
+        log("grey", "we removed the loading for you, thought you were stuck there")
         loading.classList.remove("show");
         timer = null;
       }, 20000);

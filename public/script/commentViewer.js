@@ -47,7 +47,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   let donationHTML = "";
   if (c.donationReceived) {
     donationHTML = `
-    <span style="color:#0485b7;font-size:15px;padding-bottom:10px;display:block">
+    <span style="color:#0485b7;font-size:15px;padding-bottom:15px;display:block">
       <img draggable="false" class="emoji" alt="🎁" src="https://ox7jbzyn-13kwt53x-purp2e2u.netlify.app/twemoji/svg/1f381.svg"> Gifted <span style="color:#f91880;font-weight:bold;">${formatNumber(c.donationReceived)}</span> Wcoins
     </span>`;
   }

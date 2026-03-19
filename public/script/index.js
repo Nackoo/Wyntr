@@ -2923,15 +2923,7 @@ document.body.addEventListener("click", async (e) => {
 
       mute.checked = data.muteNotif;
       sensitive.checked = data.sensitiveMedia;
-      privateOK.checked = data.noPrivateReply;
-
-      /*
-        const muteNotif = mute.checked;
-        const sensitiveMedia = sensitive.checked;
-
-        mute.checked = false;
-        sensitive.checked = false;
-      */
+      privateOK.checked = !data.noPrivateReply;
 
       const saveBtn = document.getElementById("saveEdit");
       saveBtn.onclick = async () => {
@@ -3522,13 +3514,34 @@ banner.onclick = async () => {
   });
   await resetMainListener();
 };
+
 async function loadTweets(initial = false, direction = "down", count = 10) {
   const tweetsRef = collection(db, "tweets");
   let baseQuery;
   if (direction === "down") {
-    baseQuery = newestSnapshotNewest ? query(tweetsRef, orderBy("createdAt", "desc"), startAfter(newestSnapshotNewest), limit(count)) : query(tweetsRef, orderBy("createdAt", "desc"), limit(count));
+    baseQuery = newestSnapshotNewest ? 
+      query(tweetsRef, 
+        orderBy("createdAt", "desc"), 
+        startAfter(newestSnapshotNewest), 
+        limit(count)
+      ) 
+    : 
+      query(tweetsRef, 
+        orderBy("createdAt", "desc"),
+        limit(count)
+      );
   } else {
-    baseQuery = oldestSnapshotNewest ? query(tweetsRef, orderBy("createdAt", "asc"), startAfter(oldestSnapshotNewest), limit(count)) : query(tweetsRef, orderBy("createdAt", "asc"), limit(count));
+    baseQuery = oldestSnapshotNewest ? 
+      query(tweetsRef, 
+        orderBy("createdAt", "asc"), 
+        startAfter(oldestSnapshotNewest), 
+        limit(count)
+      ) 
+    : 
+      query(tweetsRef, 
+        orderBy("createdAt", "asc"), 
+        limit(count)
+      );
   }
   const snap = await getDocs(baseQuery);
   const tweetObjs = snap.docs.map((docSnap) => {
@@ -3539,9 +3552,11 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
       _score: scoreTweet(data, currentUserFollowing),
     };
   });
+
   tweetObjs.sort((a, b) => b._score - a._score);
   if (direction === "down") {
     let firstTweetRendered = false;
+
     for (const t of tweetObjs) {
       await renderTweet(t, t.id, auth.currentUser, "append");
       if (!firstTweetRendered) {
@@ -3555,6 +3570,7 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
     let firstTweetRendered = false;
     for (const t of tweetObjs.reverse()) {
       await renderTweet(t, t.id, auth.currentUser, "prepend");
+
       if (!firstTweetRendered) {
         const loadingEl = document.getElementById("loading");
         if (loadingEl) loadingEl.remove();
@@ -3564,6 +3580,7 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
     oldestSnapshotNewest = snap.docs[snap.docs.length - 1] || oldestSnapshotNewest;
   }
   loadingMore = false;
+
   if (!firstVisibleMain && snap.docs && snap.docs.length) {
     firstVisibleMain = snap.docs[0];
   }
@@ -3571,14 +3588,17 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
     await resetMainListener();
   }
 }
+
 window.addEventListener("scroll", async () => {
   const tweets = document.querySelectorAll(".tweet");
   if (loadingMore) return;
   if (!tweets.length) return;
+
   const scrollTop = window.scrollY;
   const viewportHeight = window.innerHeight;
   const scrollHeight = document.documentElement.scrollHeight;
   const atBottom = scrollTop + viewportHeight >= scrollHeight - 150;
+
   if (atBottom) {
     await loadTweets(false, "down", 10);
   }
@@ -4275,6 +4295,14 @@ document.body.addEventListener("click", async (e) => {
             const communityName = window.communityID
               ? await getCommunityNameById(window.communityID)
               : null;
+
+            const invalidMentions = mentions.filter(
+              (uid) => uid !== auth.currentUser.uid && uid !== tweetData.uid
+            );
+
+            if (isPrivate && invalidMentions.length > 0) {
+              info("x", "Error", "reply sent, but.. since you set it as private reply, users weren't mentioned.");
+            }
 
             if (!isPrivate) {
               await Promise.all(
@@ -5551,7 +5579,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
                   this.classList.add('hidden');
                   document.getElementById('commentOwner-${commentId}').classList.remove('hidden');
                   document.getElementById('commentItem-${commentId}').classList.remove('hidden');">
-                  <p style="margin:0;font-size:15px;">This reply ${d.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${comment.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
+                  <p style="margin:0;font-size:15px;">This reply ${d.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${comment.hiddenByAdmin ? "community admin" : "Wynt author"}.`} click to view content</p>
                 </button>
                 <div class="hidden" id="commentItem-${commentId}">
                   ${content}

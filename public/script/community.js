@@ -330,37 +330,6 @@ async function showCreateCommunityOverlay(communityId = null) {
         <span>Description</span>
         <input id="communityDescInput" type="text" placeholder="a community on wyntr" style="border:none;padding:0;">
       </div>
-      
-      <p>Requirements</p>
-      <p style="color:grey;font-size:15px;">Requirements users must have to join this community</a></p>
-
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:5px;margin:5px 0;">
-          <span>Only people who follow you</span>
-          <div class="switch-row" style="margin-left:auto">
-            <input id="onlyFollowers" type="checkbox">
-            <label for="onlyFollowers" class="switch-label" aria-hidden="true">
-              <span class="switch-track">
-                <span class="switch-knob" aria-hidden="true"></span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:9px;margin:5px 0;">
-          <input id="minFollowersInput" type="number" placeholder="no" style="border:none;padding:0;margin:0;width:60px;background:var(--light);border-radius:5px;padding:3px;">
-          <span>Minimum Followers</span>
-        </div>
-      </div>
-
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:9px;margin:5px 0;">
-          <input id="joinFeeInput" type="number" placeholder="no" style="border:none;padding:0;margin:0;width:60px;background:var(--light);border-radius:5px;padding:3px;">
-          <span>joining Fee (in Wcoins, max 500)</span>
-        </div>
-      </div>
 
       <div id="comTags">
         <p>Select up to 3 tags</p>
@@ -570,12 +539,6 @@ document.getElementById("createCommunityBtn").onclick = async () => {
   }
 
   if (typeof editingId !== "string" || !editingId) {
-    const reqs = {
-      minFollowers: getValidNum("minFollowersInput"),
-      joinFee: getValidNum("joinFeeInput", 500),
-      mustFollow: document.getElementById("onlyFollowers").checked,
-    };
-
     const banner = document.getElementById("com-banner-preview").dataset.image || "/image/default-banner.png";
     const avatar = document.getElementById("com-ava-preview").dataset.image    || "/image/default-avatar.jpg";
 
@@ -602,7 +565,6 @@ document.getElementById("createCommunityBtn").onclick = async () => {
         createdAt: Date.now(),
         banner,
         avatar,
-        requirements: reqs,
         members: arrayUnion(user.uid),
         posts: 0,
         membersCount: 1,
@@ -673,16 +635,15 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       : cData.avatar;
 
     await updateDoc(comRef, {
-      name:                  comName,
-      lowerCase:             lowerName,
-      description:           desc,
-      banner:                bannerImage,
-      avatar:                avatarImage,
+      name: comName,
+      lowerCase: lowerName,
+      description: desc,
+      banner: bannerImage,
+      avatar: avatarImage,
       acceptingApplications: document.getElementById("acceptApplicationCheck").checked,
-      private:               document.getElementById("privateCheck").checked,
-      tags:                  selectedTags,
-      requirements:          reqs,
-      rules:                 rules,
+      private: document.getElementById("privateCheck").checked,
+      tags: selectedTags,
+      rules: rules,
     });
 
     const comitem1 = document.querySelector(`.com-item#yanto-${editingId}`);
@@ -775,8 +736,15 @@ export async function loadCommunities(reset = false) {
 
   let queryRef = collection(db, "communities");
   let q = lastCommunityDoc
-    ? query(queryRef, orderBy("membersCount", "desc"), startAfter(lastCommunityDoc), limit(10))
-    : query(queryRef, orderBy("membersCount", "desc"), limit(10));
+    ? query(queryRef, 
+        orderBy("membersCount", "desc"), 
+        startAfter(lastCommunityDoc), 
+        limit(10)
+      )
+    : query(queryRef, 
+        orderBy("membersCount", "desc"),
+        limit(10)
+      );
 
   const snapshot = await getDocs(q);
 
@@ -846,71 +814,30 @@ async function joinCommunity(communityId) {
 
   const userRef = doc(db, "users", user.uid);
   const comRef = doc(db, "communities", communityId);
+  const banRef = doc(db, "communities", communityId, "bans", user.uid);
 
-  const [userSnap, comSnap] = await Promise.all([
-    getDoc(userRef), getDoc(comRef)
+  const [userSnap, comSnap, bannedSnap] = await Promise.all([
+    getDoc(userRef), 
+    getDoc(comRef),
+    getDoc(banRef)
   ]);
+
   if (!comSnap.exists()) return log("red", "Community not found");
 
   const userData = userSnap.data();
   const comData = comSnap.data();
-  const bannedSnap = await getDoc(doc(db, "communities", communityId, "bans", user.uid));
 
   if (bannedSnap.exists()) {
     info("x", "Insufficient permission", "You were banned from this community. Please try again later.");
     return;
   }
-  const req = comData.requirements || {}; 
-
-  const followingRef = doc(db, "users", user.uid, "following", comData.creatorId);
-  const followingSnap = await getDoc(followingRef);
-
-  const balance = userData.balance || 0;
-  const followers = userData.followers || 0;
-
-  const reasons = [];
-
-  if (req.minFollowers && followers < req.minFollowers) {
-    reasons.push(`You need at least ${req.minFollowers} followers.`);
-  }
-  if (req.joinFee && balance < req.joinFee) {
-    reasons.push(`You need at least ${req.joinFee} Wcoins.`);
-  }
-  if (req.mustFollow === true && !followingSnap.exists()) {
-    reasons.push(`You must be following ${comData.creatorName} to join.`);
-  }
-  if (reasons.length > 0) {
-    info("x", "Insufficient permission", reasons.join(" "));
-    return;
-  }
 
   if (comData.acceptingApplications) {
-    const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply${req.joinFee ? ` and pay ${req.joinFee} Wcoins` : ""}?`);
+    const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply?`);
     if (!confirmApply) return;
 
-    if (req.joinFee && req.joinFee > 0) {
-      await updateDoc(userRef, { balance: increment(-req.joinFee) });
-    }
-
-    await sendCommunityJoinRequest(comData.creatorId, communityId, comData.name, req.joinFee || 0);
+    await sendCommunityJoinRequest(comData.creatorId, communityId, comData.name);
     return log("green", "Join request sent");
-  }
-
-  if (req.joinFee && req.joinFee > 0) {
-    const confirmJoin = await confirmDialog("pay to join?", `Are you sure you want to join "${comData.name}" for ${req.joinFee} Wcoins? Once paid, Fee will not be refundable`);
-    if (!confirmJoin) return;
-
-    const creatorRef = doc(db, "users", comData.creatorId);
-    const creatorReward = Math.floor(req.joinFee * 0.8);
-
-    await runTransaction(db, async (tx) => {
-      tx.update(userRef, { 
-        balance: increment(-req.joinFee) 
-      });
-      tx.update(creatorRef, { 
-        balance: increment(creatorReward) 
-      });
-    });
   }
 
   const memberRef = doc(db, "communities", communityId, "members", user.uid);
@@ -1043,7 +970,7 @@ export async function openCommunity(communityId) {
 
   overlay.innerHTML = `
     <div class="user-box" style="width:100%;max-width:539px;pointer-events:auto">
-      <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.9);
+      <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border);
         margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
         <h2 style="display:flex;align-items:center;margin:15px 0;">
@@ -1282,26 +1209,10 @@ export async function openCommunity(communityId) {
 }
 
 function renderCommunityRequirements(cData) {
-  const req = cData.requirements || {};
-  const hasReqs =
-    req.joinFee != null ||
-    req.minFollowers != null ||
-    req.mustFollow === true;
-
   return `
     <div style="color:grey;font-size:14px;margin-top:10px;margin-bottom:5px">
       ${cData.acceptingApplications ? "<span style='color:#c9a413'>Accepting applications</span><br>" : ""}
-      ${cData.acceptingApplications === false && hasReqs ? "<span style='color:var(--color)'>Requirements</span><br>" : ""}
-      ${
-        hasReqs
-          ? `
-            ${req.joinFee != null ? `- ${escapeHTML(req.joinFee)} Wcoins join fee<br>` : ""}
-            ${req.minFollowers != null ? `- ${req.escapeHTML(minFollowers)} followers minimum<br>` : ""}
-            ${req.mustFollow != false ? `- must follow ${escapeHTML(cData.creatorName)}<br>` : ""}
-          `
-          : ""
-      }
-      ${req.joinFee == null && req.minFollowers == null && req.mustFollow === false && cData.private === false && cData.acceptingApplications === false ? "<span style='color:#04aa6d'>open community</span>" : ""}
+      ${cData.private === false && cData.acceptingApplications === false ? "<span style='color:#04aa6d'>open community</span>" : ""}
     </div>
   `;
 }
@@ -2230,10 +2141,6 @@ window.openComMenu = async function (communityId) {
     const avaPreview = document.getElementById("com-ava-preview");
     avaPreview.style.background = `url('${base91ToImageSrc(cData.avatar) || "/image/default-avatar.jpg"}') no-repeat center / cover`;
 
-    const reqs = cData.requirements || {};
-    document.getElementById("minFollowersInput").value = reqs.minFollowers ?? "";
-    document.getElementById("joinFeeInput").value = reqs.joinFee ?? "";
-    document.getElementById("onlyFollowers").checked = reqs.mustFollow ?? false;
     document.getElementById("acceptApplicationCheck").checked = !!cData.acceptingApplications;
     document.getElementById("privateCheck").checked = !!cData.private;
     selectedTags = [...(cData.tags || [])];

@@ -641,13 +641,6 @@ if (notification.type === "communityJoinRequest") {
         tx.update(userRef, {
           communitiesCount: increment(1)
         });
-
-        if (notification.joinFee > 0) {
-          tx.update(creatorRef, {
-            balance: increment(Math.floor(notification.joinFee * 0.8))
-          });
-        }
-
         tx.delete(doc(db, "users", ownerId, "notifications", notification.id));
       });
 
@@ -680,16 +673,10 @@ if (notification.type === "communityJoinRequest") {
     const comData = comSnap.data();
     if (comData.creatorId !== ownerId) return log("red", "you aren't the community owner");
 
-    const applicantRef = doc(db, "users", notification.senderId);
-
     try {
-      if (notification.joinFee > 0) {
-        await updateDoc(applicantRef, { balance: increment(notification.joinFee) })
-      }
-
       await deleteDoc(doc(db, "users", ownerId, "notifications", notification.id));
       div.remove();
-      log("green", "Rejected join request from ${notification.senderName}. Fee refunded");
+      log("green", `Rejected join request from ${notification.senderName}`);
     } catch (err) {
       console.error("Error rejecting join request:", err);
       log("red", "Something went wrong while rejecting the request");
@@ -1150,13 +1137,7 @@ export async function sendCommunityCommentNotification(tweetId, commentText, com
   if (authorId === sender.uid) return;
   const { username : senderName } = await getUserData(sender.uid);
 
-  const notificationRef = doc(
-    db,
-    "users",
-    authorId,
-    "notifications",
-    `${tweetId}-comment-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", authorId, "notifications", `comment-${tweetId}-${commentId}-${communityId}`);
 
   await setDoc(notificationRef, {
     type: "community-comment",
@@ -1176,18 +1157,11 @@ export async function sendCommunityCommentNotification(tweetId, commentText, com
 export async function sendCommentNotification(tweetId, commentText, commentId, tweetText, authorId) {
   const sender = auth.currentUser;
   if (!sender) return;
-
   if (authorId === sender.uid) return;
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const notificationRef = doc(
-    db,
-    "users",
-    authorId,
-    "notifications",
-    `${tweetId}-comment-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", authorId, "notifications", `comment-${tweetId}-${commentId}`);
 
   await setDoc(notificationRef, {
     type: "comment",
@@ -1208,25 +1182,10 @@ export async function sendCommunityMentionNotification(tweetId, mentionedUserId,
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
-  const notificationRef = doc(
-    db,
-    "users",
-    mentionedUserId,
-    "notifications",
-    `${tweetId}-mention-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", mentionedUserId, "notifications", `mention-${tweetId}-${communityId}`);
 
   await setDoc(notificationRef, {
     type: "community-mention",
@@ -1248,25 +1207,10 @@ export async function sendMentionNotification(tweetId, mentionedUserId, tweetTex
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
-  const notificationRef = doc(
-    db,
-    "users",
-    mentionedUserId,
-    "notifications",
-    `${tweetId}-mention-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", mentionedUserId, "notifications", `mention-${tweetId}}`);
 
   await setDoc(notificationRef, {
     type: "mention",
@@ -1287,25 +1231,10 @@ export async function sendCommunityRetweetNotification(originalTweetId, replyTex
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
-  const notificationRef = doc(
-    db,
-    "users",
-    authorId,
-    "notifications",
-    `${retweetId}-retweet-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", authorId, "notifications", `retWynt-${retweetId}-${communityId}`);
 
   await setDoc(notificationRef, {
     type: "community-retweet",
@@ -1328,27 +1257,12 @@ export async function sendRetweetNotification(originalTweetId, replyText, retwee
   if (!sender) return;
   if (sender.uid === authorId) return;
 
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
+
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
-
-  const notificationRef = doc(
-    db,
-    "users",
-    authorId,
-    "notifications",
-    `${retweetId}-retweet-${Date.now()}`
-  );
+  const notificationRef = doc(db, "users", authorId, "notifications", `reWynt-${retweetId}`);
 
   await setDoc(notificationRef, {
     type: "retweet",
@@ -1371,24 +1285,15 @@ export async function sendCommunityReplyRetweetNotification(originalTweetId, com
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notificationRef = doc(
     db,
     "users",
     authorId,
     "notifications",
-    `${retweetId}-reply-retweet-${Date.now()}`
+    `replyReWynt-${retweetId}-${commentId}-${communityId}`
   );
 
   await setDoc(notificationRef, {
@@ -1415,24 +1320,15 @@ export async function sendReplyRetweetNotification(originalTweetId, commentId, r
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", authorId, "blocks", sender.uid);     
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notificationRef = doc(
     db,
     "users",
     authorId,
     "notifications",
-    `${retweetId}-reply-retweet-${Date.now()}`
+    `replyReWynt-${retweetId}-${commentId}`
   );
 
   await setDoc(notificationRef, {
@@ -1455,24 +1351,15 @@ export async function sendCommunityCommentMentionNotification(tweetId, mentioned
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notificationRef = doc(
     db,
     "users",
     mentionedUserId,
     "notifications",
-    `${tweetId}-commentmention-${Date.now()}`
+    `replyMention-${tweetId}-${commentId}-${communityId}`
   );
 
   await setDoc(notificationRef, {
@@ -1496,24 +1383,15 @@ export async function sendCommentMentionNotification(tweetId, mentionedUserId, c
 
   const { username : senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notificationRef = doc(
     db,
     "users",
     mentionedUserId,
     "notifications",
-    `${tweetId}-commentmention-${Date.now()}`
+    `replyMention-${tweetId}-${commentId}`
   );
 
   await setDoc(notificationRef, {
@@ -1545,7 +1423,7 @@ async function isBlocked(uid) {
   return false;
 }
 
-export async function sendCommunityJoinRequest(ownerId, communityId, communityName, joinFee = 0) {
+export async function sendCommunityJoinRequest(ownerId, communityId, communityName) {
   const sender = auth.currentUser;
   const blocked = await isBlocked(sender.uid);
   if (blocked) return;
@@ -1561,7 +1439,6 @@ export async function sendCommunityJoinRequest(ownerId, communityId, communityNa
     senderId: sender.uid,
     communityId,
     communityName,
-    joinFee,
     createdAt: serverTimestamp(),
     read: false,
     SENDERUID: sender.uid
@@ -1618,7 +1495,7 @@ export async function sendCommunityDonationNotification(tweetId, donationAmount,
   const blocked = await isBlocked(creatorId);
   if (blocked) return;
 
-  const notificationRef = doc(db, "users", creatorId, "notifications", `${tweetId}-donation-${Date.now()}`);
+  const notificationRef = doc(db, "users", creatorId, "notifications", `donation-${tweetId}-${commentId}-${communityId}`);
 
   await setDoc(notificationRef, {
     type: "community-donation",
@@ -1648,24 +1525,15 @@ export async function sendDonationNotification(tweetId, donationAmount, donation
 
   const { username: senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", creatorId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notificationRef = doc(
     db,
     "users",
     creatorId,
     "notifications",
-    `${tweetId}-donation-${Date.now()}`
+    `donation-${tweetId}-${commentId}`
   );
 
   await setDoc(notificationRef, {
@@ -1695,24 +1563,15 @@ export async function sendCommunityReplyNotification(tweetId, parentCommentId, r
 
   const { username: senderName } = await getUserData(sender.uid);
   
-  const blockRef = doc(db, "users", parentOwnerId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     parentOwnerId,
     "notifications",
-    `${parentCommentId}-reply-${Date.now()}`
+    `reply-${tweetId}-${parentCommentId}-${replyId}-${communityId}`
   );
 
   await setDoc(notifRef, {
@@ -1743,17 +1602,8 @@ export async function sendReplyNotification(tweetId, parentCommentId, replyText,
   const parentOwnerId = parentData.uid;
   if (parentOwnerId === sender.uid) return;
 
-  const blockRef = doc(db, "users", parentOwnerId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const { username: senderName } = await getUserData(sender.uid);
 
@@ -1762,7 +1612,7 @@ export async function sendReplyNotification(tweetId, parentCommentId, replyText,
     "users",
     parentOwnerId,
     "notifications",
-    `${parentCommentId}-reply-${Date.now()}`
+    `reply-${tweetId}-${parentCommentId}-${replyId}`
   );
 
   await setDoc(notifRef, {
@@ -1786,24 +1636,15 @@ export async function sendCommunityReplyMentionNotification(tweetId, parentComme
 
   const { username: senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     mentionedUserId,
     "notifications",
-    `${parentCommentId}-replymention-${Date.now()}`
+    `replyMention-${tweetId}-${parentCommentId}-${replyId}-${communityId}`
   );
 
   await setDoc(notifRef, {
@@ -1829,24 +1670,15 @@ export async function sendReplyMentionNotification(tweetId, parentCommentId, men
 
   const { username: senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", mentionedUserId, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     mentionedUserId,
     "notifications",
-    `${parentCommentId}-replymention-${Date.now()}`
+    `replyMention-${tweetId}-${parentCommentId}-${replyId}`
   );
 
   await setDoc(notifRef, {
@@ -1868,24 +1700,15 @@ export async function sendCommunityPinNotification1(communityId, communityName, 
   if (!sender) return;
   if (sender.uid === receiverId) return;  
 
-  const blockRef = doc(db, "users", receiverId, "blocks", sender.uid);  
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     receiverId,
     "notifications",
-    `communityPin-${Date.now()}`
+    `communityPin-${communityId}-${Date.now()}`
   );
 
   await setDoc(notifRef, {
@@ -1906,24 +1729,15 @@ export async function sendCommunityPinNotification(tweetOwner, replyText, tweetI
 
   const { username: senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", tweetOwner, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     tweetOwner,
     "notifications",
-    `${commentId}-pin-${Date.now()}`
+    `pin-${tweetId}-${commentId}-${communityId}-${Date.now()}`
   );
 
   await setDoc(notifRef, {
@@ -1947,24 +1761,15 @@ export async function sendPinNotification(tweetOwner, replyText, tweetId, commen
 
   const { username: senderName } = await getUserData(sender.uid);
 
-  const blockRef = doc(db, "users", tweetOwner, "blocks", sender.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const notifRef = doc(
     db,
     "users",
     tweetOwner,
     "notifications",
-    `${commentId}-pin-${Date.now()}`
+    `pin-${tweetId}-${commentId}-${Date.now()}`
   );
 
   await setDoc(notifRef, {
@@ -2002,24 +1807,12 @@ export async function sendHideNotification(text, targetUserId, reason) {
 export async function sendCommunityReplyDeleteNotification(targetUserId, text, reason, name, communityId) {
   if (!targetUserId) return;
 
-  const blockRef = doc(db, "users", targetUserId, "blocks", auth.currentUser.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
-
   const warningRef = doc(
     db,
     "users",
     targetUserId,
     "notifications",
-    `communityReplyDelete-${Date.now()}`
+    `replyDelete-${communityId}-${Date.now()}`
   );
 
   await setDoc(warningRef, {
@@ -2037,24 +1830,12 @@ export async function sendCommunityReplyDeleteNotification(targetUserId, text, r
 export async function sendCommunityTweetDeleteNotification(targetUserId, text, reason, name, communityId) {
   if (!targetUserId) return;
 
-  const blockRef = doc(db, "users", targetUserId, "blocks", auth.currentUser.uid);
-  const blockSnap = await getDoc(blockRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
-
   const warningRef = doc(
     db,
     "users",
     targetUserId,
     "notifications",
-    `communityTweetDelete-${Date.now()}`
+    `wyntDelete-${communityId}-${Date.now()}`
   );
 
   await setDoc(warningRef, {
@@ -2077,7 +1858,7 @@ export async function sendTweetWarningNotification(targetUserId, text, reason) {
     "users",
     targetUserId,
     "notifications",
-    `tweetwarning-${Date.now()}`
+    `wyntDelete-${Date.now()}`
   );
 
   await setDoc(warningRef, {
@@ -2097,7 +1878,7 @@ export async function sendCommentWarningNotification(targetUserId, text, reason)
     "users",
     targetUserId,
     "notifications",
-    `commentwarning-${Date.now()}`
+    `replyDelete-${Date.now()}`
   );
 
   await setDoc(warningRef, {
@@ -2117,7 +1898,7 @@ export async function sendCommunityWarningNotification(targetUserId, name, reaso
     "users",
     targetUserId,
     "notifications",
-    `communityWarning-${Date.now()}`
+    `communityDelete-${Date.now()}`
   );
 
   await setDoc(warningRef, {
@@ -2130,19 +1911,12 @@ export async function sendCommunityWarningNotification(targetUserId, name, reaso
 }
 
 export async function sendAdminNotification(targetUserId, communityId, communityName, ownerName, ownerId) {
-  const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
 
-  const blockedRef = doc(db, "users", targetUserId, "blocks", ownerId);
-  const blockSnap = await getDoc(blockedRef);
-  if (blockSnap.exists()) {
-    const blockData = blockSnap.data();
-    if (
-      (blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) ||
-      blockData.permanent === true
-    ) {
-      return;
-    } 
-  }
+  const today = new Date().toISOString().split("T")[0];
+  const notifRef = doc(db, "users", targetUserId, "notifications", `adminNotif-${communityId}-${today}`);
+
+  const blocked = await isBlocked(auth.currentUser.uid);
+  if (blocked) return;
 
   await setDoc(notifRef, {
     id: notifRef.id,
@@ -2153,12 +1927,13 @@ export async function sendAdminNotification(targetUserId, communityId, community
     communityId,
     createdAt: new Date(),
     read: false,
-    SENDERUID: ownerId
-  });
+    SENDERUID: ownerId,
+  }, { merge: true });
 }
 
 export async function sendadminDismissedNotification(targetUserId, communityId, communityName, name) {
-  const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
+  const notifRef = doc(db, "users", targetUserId, "notifications", `adminDismiss-${communityId}-${Date.now()}`);
+
   await setDoc(notifRef, {
     id: notifRef.id,
     type: "communityAdminDismissed",
@@ -2171,7 +1946,8 @@ export async function sendadminDismissedNotification(targetUserId, communityId, 
 } 
 
 export async function sendAcceptedNotification(targetUserId, communityId, communityName) {
-  const notifRef = doc(collection(db, "users", targetUserId, "notifications"));
+  const notifRef = doc(db, "users", targetUserId, "notifications", `communityAccepted-${communityId}-${Date.now()}`);
+  
   await setDoc(notifRef, {
     id: notifRef.id,
     type: "communityJoinAccepted",
