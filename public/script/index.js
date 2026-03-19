@@ -3888,7 +3888,7 @@ document.body.addEventListener("click", async (e) => {
       const src = base91ToImageSrc(tweetData.media);
       if (containsSpoiler) {
         mediaHTML = `
-            <div style="margin-bottom:10px;" class="attachment spoiler-media" onclick="this.classList.add('revealed')">
+            <div style="margin:10px 0;" class="attachment spoiler-media" onclick="this.classList.add('revealed')">
               <div class="spoiler-overlay">
                 <div class="spoilertxt">sensitive</div>
               </div>
@@ -3896,7 +3896,7 @@ document.body.addEventListener("click", async (e) => {
             </div>`;
       } else {
         mediaHTML = `
-            <div class="attachment" style="margin-bottom:10px;">
+            <div class="attachment" style="margin:10px 0;">
               <img src="${src}" onerror="this.onerror=null;this.src='/image/image-error.png';" />
             </div>`;
       }

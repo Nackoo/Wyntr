@@ -26,18 +26,6 @@
   overflow-y: auto;
 }
 
-.comment-box {
-  padding: 20px;
-  width: 100%;
-  max-width: 500px;
-  border-radius: 15px;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: var(--dark);
-  color: var(--color);
-  border: var(--border);
-}
-
 .comment-scrollbox textarea {
   border: 1px solid grey;
 }
@@ -399,7 +387,7 @@
 .comment-box {
   padding: 20px;
   width: 100%;
-  max-width: 500px;
+  max-width: 535px;
   border-radius: 15px;
   max-height: 90vh;
   overflow-y: auto;

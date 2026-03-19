@@ -395,10 +395,7 @@ async function uploadToSupabase(file, uid) {
       const compressedFile = await compressVideoTo480(file);
 
       const filePath = `wints/${uid}-${Date.now()}.mp4`;
-      const {
-        data,
-        error
-      } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from("wints")
         .upload(filePath, compressedFile, {
           upsert: true
