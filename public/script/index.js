@@ -561,7 +561,10 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     const tagMatches = text.match(/#(\w+)/g) || [];
     const tags = [...new Set(tagMatches.map(tag => tag.slice(1).toLowerCase().slice(0, 30)))];
 
-    const permission = document.getElementById("replyPermission").value;
+    let permission = "everyone";
+    if (document.getElementById("replyPermissionMentioned").checked === true) {
+      permission = "mentioned";
+    }
     const editUntil = new Date(Date.now() + 10 * 60 * 1000);
 
     let tweetRef;
@@ -718,6 +721,8 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     document.getElementById("mediaInput").value = "";
     document.getElementById("tweetPreview").innerHTML = "";
     document.getElementById("privateOK").checked = true;
+    document.getElementById("replyPermissionEveryone").checked = true;
+    document.getElementById("replyPermissionMentioned").checked = false;
     document.getElementById("mute").checked = false;
     document.getElementById("sensitive").checked = false;
     log("green", "Wynt posted");
@@ -1936,14 +1941,14 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
   if (t.communityId && window.communityID == null) {
     const communityName = await getCommunityNameById(t.communityId);
     communityHTML = `
-    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;">
+    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;align-items:center;margin-top:10px;">
       <img loading='lazy' height="17" src="/image/community-filled.svg">
       <span style="font-size:14px;" class="communityLink" ${t.postedInPublic ? `data-tweet=${t.connectedWynt}` : ""} data-id="${t.communityId}">posted in @${escapeHTML(communityName)}</span>
     </div>`;
   } else if (t.sharedFromCommunity && window.communityID == null) {
     const communityName = await getCommunityNameById(t.sharedFromCommunity);
     communityHTML = `
-    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;">
+    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;align-items:center;margin-top:10px;">
       <img loading='lazy' height="17" src="/image/community-filled.svg">
       <span style="font-size:14px;" class="communityLink" ${t.postedInPublic ? `data-tweet=${t.connectedWynt}` : ""} data-id="${t.sharedFromCommunity}">posted in @${escapeHTML(communityName)}</span>
     </div>`;
@@ -2694,7 +2699,7 @@ document.body.addEventListener("click", async (e) => {
       }
       const data = commentSnap.data();
       const userId = data.uid;
-      const {displayName, username, avatar, premium } = await getUserData(userId);
+      const {displayName, username, avatar} = await getUserData(userId);
       const dateStr = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
 
       const commentHTML = `
@@ -2712,7 +2717,6 @@ document.body.addEventListener("click", async (e) => {
                     }`
                   }
                   <strong class="user-link" data-uid="${userId}" style="cursor:pointer;font-size:17px;">${displayName}</strong>
-                  ${premium ? `<img loading='lazy' src="/image/check.svg" style="margin:0 -5px;">` : ""}
                   <span style="color:#757779;font-size:12px">
                     <span class="usernamee">@${username} •</span> ${formatDate(dateStr)}
                   </span>
@@ -2740,6 +2744,19 @@ document.body.addEventListener("click", async (e) => {
       const appendEdit = document.getElementById("appendEdit");
       appendEdit.innerHTML = commentHTML;
       overlay.classList.remove("hidden");
+
+      const tweetOptionsEdit = document.getElementById("tweetOptionsEdit");
+      const commentOptionsEdit = document.getElementById("commentOptionsEdit");
+
+      tweetOptionsEdit.classList.add("hidden");
+      commentOptionsEdit.classList.remove("hidden");
+
+      const mute = document.getElementById("cmute");
+      const sensitive = document.getElementById("csensitive");
+
+      mute.checked = data.muteNotif;
+      sensitive.checked = data.sensitiveMedia;
+
       const saveBtn = document.getElementById("saveEdit");
       saveBtn.onclick = async () => {
         saveBtn.classList.add("disabled");
@@ -2792,13 +2809,21 @@ document.body.addEventListener("click", async (e) => {
           } else {
             editAfterComment = true;
           }
+          const muteNotif = mute.checked;
+          const sensitiveMedia = sensitive.checked;
+
           await updateDoc(commentRef, {
             text: newText,
             edited: new Date(),
             language: detectedLanguage,
-            editAfterComment
+            editAfterComment,
+            muteNotif,
+            sensitiveMedia
           });
+
           log("green", "Reply updated");
+          mute.checked = false;
+          sensitive.checked = false;
           overlay.classList.add("hidden");
         } catch (err) {
           console.error("Error saving edited comment:", err);
@@ -2834,9 +2859,10 @@ document.body.addEventListener("click", async (e) => {
         log("red", "This Wynt no longer exists");
         return;
       }
+
       const data = tweetSnap.data();
       const userId = data.uid;
-      const {displayName, username, avatar, premium} = await getUserData(userId);
+      const {displayName, username, avatar} = await getUserData(userId);
       const dateStr = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
       const tweetHTML = `
         <div class="tweet">
@@ -2849,7 +2875,6 @@ document.body.addEventListener("click", async (e) => {
                   ""
                 }
                 <strong class="user-link" data-uid="${userId}" style="cursor:pointer;font-size:17px;">${displayName}</strong>
-                ${premium ? `<img loading='lazy' src="/image/check.svg" style="margin:0 -5px;">` : ""}
                 <span style="color:#757779;font-size:12px">
                   <span class="usernamee">@${username} •</span> ${formatDate(dateStr)}
                 </span>
@@ -2885,6 +2910,29 @@ document.body.addEventListener("click", async (e) => {
       editTitle.addEventListener("input", () => {
         editTitle.value = editTitle.value.slice(0, 100);
       });
+
+      const tweetOptionsEdit = document.getElementById("tweetOptionsEdit");
+      const commentOptionsEdit = document.getElementById("commentOptionsEdit");
+
+      tweetOptionsEdit.classList.remove("hidden");
+      commentOptionsEdit.classList.add("hidden");
+
+      const mute = document.getElementById("mute");
+      const sensitive = document.getElementById("sensitive");
+      const privateOK = document.getElementById("privateOK");
+
+      mute.checked = data.muteNotif;
+      sensitive.checked = data.sensitiveMedia;
+      privateOK.checked = data.noPrivateReply;
+
+      /*
+        const muteNotif = mute.checked;
+        const sensitiveMedia = sensitive.checked;
+
+        mute.checked = false;
+        sensitive.checked = false;
+      */
+
       const saveBtn = document.getElementById("saveEdit");
       saveBtn.onclick = async () => {
         saveBtn.classList.add("disabled");
@@ -2936,12 +2984,20 @@ document.body.addEventListener("click", async (e) => {
           } else {
             editAfterComment = true;
           }
+
+          const muteNotif = mute.checked;
+          const sensitiveMedia = sensitive.checked;
+          const noPrivateReply = !privateOK.checked;
+
           await updateDoc(tweetRef, {
             text: newText,
             title: newTitle,
             edited: new Date(),
             language: detectedLanguage,
-            editAfterComment
+            editAfterComment,
+            muteNotif,
+            sensitiveMedia,
+            noPrivateReply
           });
           if (data.connectedWynt && data.postedInPublic === false) {
             const connectedRef = doc(db, "tweets", data.connectedWynt);
@@ -2953,6 +3009,11 @@ document.body.addEventListener("click", async (e) => {
               editAfterComment
             });    
           }
+
+          mute.checked = false;
+          sensitive.checked = false;
+          privateOK.checked = true;
+
           log("green", "Post updated");
           overlay.classList.add("hidden");
           if (typeof renderTweet === "function") {
@@ -5317,7 +5378,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       ownerHTML = `
         <div id="${id}" class="ownerr">
           <button style="display:none;" id="expandComment-${id}" onclick="
-            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID}', '${id}', '${d.communityId}', ${d.isPrivateParent}, ${tweetData.postedInPublic});
+            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID || communityId}', '${id}', '${d.communityId}', ${d.isPrivateParent}, ${tweetData.postedInPublic});
             document.getElementById('${commentBodyId}').style.cssText = 'margin-left: -28px; border-left: 2px solid rgba(255, 255, 255, 0.3); padding-left: 26px; margin-bottom: -30px; padding-bottom: 30px;';
           ">
           </button>
@@ -6456,7 +6517,10 @@ sendRetweet.onclick = async () => {
       }
     }
 
-    const permission = document.getElementById("replyPermission1").value;
+    let permission = "everyone";
+    if (document.getElementById("replyPermissionMentioned").checked === true) {
+      permission = "mentioned";
+    }
     const mentionsRaw = await extractMentions(text);
     let processedText = text;
 
@@ -6789,6 +6853,8 @@ sendRetweet.onclick = async () => {
     document.getElementById("rtmute").checked = false;
     document.getElementById("rtsensitive").checked = false;
     document.getElementById("rtprivateOK").checked = true;
+    document.getElementById("replyPermission1Everyone").checked = true;
+    document.getElementById("replyPermission1Mentioned").checked = false;
     if (window.communityID) {
       openCommunity(window.communityID);
     }

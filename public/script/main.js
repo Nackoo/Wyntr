@@ -3,7 +3,7 @@ import { loadFollowingTweets } from "./followingTweets.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js";
-import { info, formatNumber, escapeHTML, parseMentionsToLinks } from "./texts.js";
+import { info, formatNumber, escapeHTML, parseMentionsToLinks, log } from "./texts.js";
 import { currentUserRole, getUserData, loadComments, } from './index.js'; 
 import { base91ToImageSrc } from "./attachments.js";
 
@@ -737,6 +737,12 @@ setupPollToggle("includePollRetweet");
 
 document.getElementById("tweetOptions").addEventListener("click", () => {
   document.getElementById("tweetOption").classList.remove("hidden");
+  document.getElementById("permissionOnEdit").classList.remove("hidden");
+});
+
+document.getElementById("tweetOptionsEdit").addEventListener("click", () => {
+  document.getElementById("tweetOption").classList.remove("hidden");
+  document.getElementById("permissionOnEdit").classList.add("hidden");
 });
 
 document.getElementById("retweetOptions").addEventListener("click", () => {
@@ -745,15 +751,69 @@ document.getElementById("retweetOptions").addEventListener("click", () => {
 
 document.getElementById("commentOptions").addEventListener("click", () => {
   document.getElementById("commentOption").classList.remove("hidden");
+  document.getElementById("permissionOnEdit2").classList.remove("hidden");
+});
+
+document.getElementById("commentOptionsEdit").addEventListener("click", () => {
+  document.getElementById("commentOption").classList.remove("hidden");
+  document.getElementById("permissionOnEdit2").classList.add("hidden");
 });
 
 document.getElementById("replyOptions").addEventListener("click", () => {
   document.getElementById("replyOption").classList.remove("hidden");
 });
 
+const everyone = document.getElementById("replyPermissionEveryone");
+const mentioned = document.getElementById("replyPermissionMentioned");
+
+everyone.addEventListener("change", () => {
+  if (everyone.checked === true) {
+    mentioned.checked = false;
+  }
+  if (everyone.checked === false) {
+    everyone.checked = true;
+    log("red", "one option is required");
+  }
+});
+
+mentioned.addEventListener("change", () => {
+  if (mentioned.checked === true) {
+    everyone.checked = false;
+  }
+  if (mentioned.checked === false) {
+    mentioned.checked = true;
+    log("red", "one option is required");
+  }
+});
+
+const everyone1 = document.getElementById("replyPermission1Everyone");
+const mentioned1 = document.getElementById("replyPermission1Mentioned");
+
+everyone1.addEventListener("change", () => {
+  if (everyone1.checked === true) {
+    mentioned1.checked = false;
+  }
+  if (everyone1.checked === false) {
+    everyone1.checked = true;
+    log("red", "one option is required");
+  }
+});
+
+mentioned1.addEventListener("change", () => {
+  if (mentioned1.checked === true) {
+    everyone1.checked = false;
+  }
+  if (mentioned1.checked === false) {
+    mentioned1.checked = true;
+    log("red", "one option is required");
+  }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("privateOK").checked = true;
   document.getElementById("rtprivateOK").checked = true;
+  document.getElementById("replyPermissionEveryone").checked = true;
+  document.getElementById("replyPermission1Everyone").checked = true;
 });
 
 export async function showOriginal(text, mentions, title) {
@@ -762,3 +822,4 @@ export async function showOriginal(text, mentions, title) {
   document.getElementById("originalText").innerHTML = parsedText;
   if (title && title != "") document.getElementById("originalTitle").textContent = title;
 }
+

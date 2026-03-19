@@ -847,7 +847,9 @@ async function joinCommunity(communityId) {
   const userRef = doc(db, "users", user.uid);
   const comRef = doc(db, "communities", communityId);
 
-  const [userSnap, comSnap] = await Promise.all([getDoc(userRef), getDoc(comRef)]);
+  const [userSnap, comSnap] = await Promise.all([
+    getDoc(userRef), getDoc(comRef)
+  ]);
   if (!comSnap.exists()) return log("red", "Community not found");
 
   const userData = userSnap.data();
@@ -963,26 +965,28 @@ document.addEventListener("click", async (e) => {
 export async function openCommunity(communityId) {
   const user = auth.currentUser;
   window.isJoined = false;
+  window.communityID = communityId;
 
   if (!user) {
     log("red", "You must be logged in");
     return;
   }
 
-  const comRef  = doc(db, "communities", communityId);
   document.getElementById("skibidicome").classList.add("hidden");
 
-  const comSnap = await getDoc(comRef);
-  if (!comSnap.exists()) return log("red", "Community not found");
+  const comRef  = doc(db, "communities", communityId);
+  const memberRef = doc(db, "communities", communityId, "members", user.uid);
 
+  const [comSnap, memberSnap] = await Promise.all([
+    getDoc(comRef),
+    getDoc(memberRef)
+  ]);
+
+  if (!comSnap.exists()) return log("red", "Community not found");
   const cData = comSnap.data();
   window.cData = cData;
 
-  const memberRef = doc(db, "communities", communityId, "members", user.uid);
-  const memberSnap = await getDoc(memberRef);
   const isJoined = memberSnap.exists();
-
-  window.communityID = communityId;
 
   if (isJoined) { 
     window.isJoined = true;
@@ -2146,31 +2150,50 @@ window.openComMenu = async function (communityId) {
           btn.disabled = true;
           btn.classList.add("disabled");
 
-          const followingRef = doc(db, "users", auth.currentUser.uid, "following", docSnap.id);
-          const followerRef = doc(db, "users", docSnap.id, "followers", auth.currentUser.uid);
+          const followingRef = doc(db, "users", docSnap.id, "following", auth.currentUser.uid);
           const memberRef = doc(db, "communities", window.communityID, "members", docSnap.id);
           const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
+          const userRef = doc(db, "users", docSnap.id)
+          const blockRef = doc(db, "users", docSnap.id, "blocks", auth.currentUser.uid);
 
-          const [followingSnap, followerSnap, memberSnap, banSnap] = await Promise.all([
-            getDoc(followingRef),
-            getDoc(followerRef),
+          const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, communityName] = await Promise.all([
             getDoc(memberRef),
-            getDoc(banRef)
+            getDoc(banRef),
+            getDoc(followingRef),
+            getDoc(userRef),
+            getDoc(blockRef),
+            getCommunityNameById(window.communityID)
           ]);
 
-          if (followingSnap.exists() && followerSnap.exists() && !memberSnap.exists() && !banSnap.exists()) {
-            const communityName = await getCommunityNameById(window.communityID);
-            await sendInviteNotification(docSnap.id, window.communityID, communityName);
-            log("green", "Invite sent");
+          let blockData;
+          if (blockSnap.exists()) {
+            blockData = blockSnap.data();
+          }
+
+          const userData = userSnap.data();
+
+          if (memberSnap.exists()) {
+            log("red", "this user is already joined");
+          } else if (blockSnap.exists() && ((blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) || blockData.permanent === true)) {
+            log("red", "user grants no permission");
+          } else if (banSnap.exists()) {
+            log("red", "this user is banned from the community")
           } else {
-            if (memberSnap.exists()) {
-              log("red", "This user is already joined");
-            } else if (banSnap.exists()) {
-              log("red", "This user is banned from the community");
-            } else {
-              log("red", "both of you need to follow each other to invite");
+            if (!userData.invitePermission || userData.invitePermission === "everyone") {
+              await sendInviteNotification(docSnap.id, window.communityID, communityName);
+              log("green", "user invited");
+            } else if (userData.invitePermission === "follow") {
+              if (!followingSnap.exists()) {
+                log("red", "user grants no permission");
+              } else {
+                await sendInviteNotification(docSnap.id, window.communityID, communityName);
+                log("green", "user invited");
+              }
+            } else if (userData.invitePermission === "no") {
+              log("red", "user grants no permission");
             }
           }
+
           btn.disabled = false;
           btn.classList.remove("disabled");
         };
@@ -2377,7 +2400,7 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
 
       const wrapper = document.createElement("div");
       wrapper.className = "com-item";
-      wrapper.dataset.id = `community-${c.id}`;
+      wrapper.dataset.id = c.id;
 
       const tagsHtml = (c.tags || [])
       .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
@@ -2388,8 +2411,8 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
           <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
             <div id="com-avatar" style="min-height:43px;min-width:43px;border-radius:5px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
             <div style="display:flex;flex-direction:column;max-width:300px;">
-              <strong id="com-name">${escapeHTML(c.name)}</strong>
-              <span id="com-name" style="color:grey;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;margin-bottom:3px" id="com-name">${escapeHTML(c.name)}</strong>
+              <span id="com-desc" style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
                 ${escapeHTML(c.description) || "No description"}
               </span>
             </div>
@@ -2399,6 +2422,7 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
             ${formatNumber(c.posts)} posts •
             by @${escapeHTML(c.creatorName)} •
             ${formatNumber(c.membersCount)} members
+            ${c.private ? "• private" : ""}
           </span>
           ${tagsHtml}
         </div>
@@ -2628,7 +2652,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
     if (!container.querySelector(".tweet")) {
      container.innerHTML = `
           <div id="communitynobitches" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:60px;">
-            <div style="max-width:400px;text-align:left;">
+            <div style="max-width:400px;text-align:left;margin:0 10px;">
               <h2 style="margin:0;">No Wynts — yet</h2>
               <p style="color:grey;margin:7px 0;">Be the first one to post something in this community.</p>
             </div>

@@ -908,14 +908,14 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
   if (t.communityId && window.communityID == null) {
     const communityName = await getCommunityNameById(t.communityId);
     communityHTML = `
-    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;margin-top:10px;">
+    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;margin-top:10px;align-items:center;">
       <img loading='lazy' height="17" src="/image/community-filled.svg">
       <span style="font-size:14px;" class="communityLink" ${t.postedInPublic ? `data-tweet=${t.connectedWynt}` : ""} data-id="${t.communityId}">posted in @${escapeHTML(communityName)}</span>
     </div>`;
   } else if (t.sharedFromCommunity && window.communityID == null) {
     const communityName = await getCommunityNameById(t.sharedFromCommunity);
     communityHTML = `
-    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;margin-top:10px;">
+    <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;margin-top:10px;align-items:center;">
       <img loading='lazy' height="17" src="/image/community-filled.svg">
       <span style="font-size:14px;" class="communityLink" ${t.postedInPublic ? `data-tweet=${t.connectedWynt}` : ""} data-id="${t.sharedFromCommunity}">posted in @${escapeHTML(communityName)}</span>
     </div>`;

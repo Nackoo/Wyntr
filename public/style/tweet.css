@@ -787,6 +787,13 @@
   border-radius: 0 !important;
 }
 
+@media (max-width: 700px) {
+  #tagSubOverlay .tweet {
+    margin: 10px -20px; 
+    padding: 10px 20px !important;
+  }
+}
+
 #bookmarkTweetOverlay .tweet {
   padding: 10px 0;
 }

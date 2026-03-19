@@ -781,9 +781,9 @@ async function incrementUserVisits(uid) {
 
   const viewRef = doc(db, "users", uid, "views", auth.currentUser.uid);
   const userRef = doc(db, "users", uid);
-  const userSnap = await getDoc(userRef);
+  const viewSnap = await getDoc(viewRef);
 
-  if (!userSnap.exists()) {
+  if (!viewSnap.exists()) {
     await setDoc(viewRef, {
       viewedAt: new Date()
     });

@@ -45,33 +45,20 @@ async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, 
 
   const permission = tweetData.replyPermission || "everyone";
   const isOwner = tweetData.uid === auth.currentUser.uid;
-  const tweetOwnerId = tweetData.uid;
   
   let canComment = true;
   let isMentioned = false;
 
-  if (tweetData.mentions && Array.isArray(tweetData.mentions)) {
+  const hasValidMentions =
+    Array.isArray(tweetData.mentions) &&
+    tweetData.mentions.some(uid => uid !== tweetData.uid);
+
+  if (hasValidMentions) {
     isMentioned = tweetData.mentions.includes(auth.currentUser.uid)
+    if (permission === "mentioned") {
+      canComment = isMentioned;
+    }
   } 
-
-  if (permission === "following") {
-    const followingDoc = await getDoc(
-      doc(db, "users", tweetOwnerId, "following", auth.currentUser.uid)
-    );
-    canComment = followingDoc.exists();
-  } else if (permission === "mentioned") {
-    canComment = isMentioned;
-  } else if (permission === "follower") {
-    const followingDoc = await getDoc(
-      doc(db, "users", auth.currentUser.uid, "following", tweetOwnerId)
-    ); 
-    canComment = followingDoc.exists();
-  }
-
-  // people mentioned can always reply
-  if (isMentioned) {
-    canComment = true;
-  }
 
   if (canComment || isOwner) {
     commentInput.classList.remove("hidden");
@@ -84,15 +71,9 @@ async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, 
   if (commentStatus) {
     if (permission === "everyone") {
       commentStatus.innerHTML = "";
-    } else if (permission === "following") {
+    } else if (permission === "mentioned" && hasValidMentions) {
       commentStatus.innerHTML =
-        `<img src="/image/exclamation.svg"> the creator has chosen only people they follow can comment`;
-    } else if (permission === "mentioned") {
-      commentStatus.innerHTML =
-        `<img src="/image/exclamation.svg"> the creator has chosen only people they mention can comment`;
-    } else if (permission === "follower") {
-      commentStatus.innerHTML =
-        `<img src="/image/exclamation.svg"> the creator has chosen only people that follow them can comment`;
+        `<img src="/image/exclamation.svg"> the creator has chosen only mentioned users can reply to this post`;
     }
   }
 }

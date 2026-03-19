@@ -180,47 +180,63 @@ observerx.observe(document.body, {
 
 const loading = document.getElementById("loadingOverlay");
 
-let ffmpeg;
+let currentFFmpeg = null;
+
+async function getFFmpeg() {
+  if (!currentFFmpeg) {
+    currentFFmpeg = FFmpeg.createFFmpeg({
+      log: true
+    });
+    await currentFFmpeg.load();
+  }
+  return currentFFmpeg;
+}
 
 async function compressVideoTo480(file) {
-  currentFFmpeg = FFmpeg.createFFmpeg({
-    log: false
-  });
-  await currentFFmpeg.load();
+  const ffmpeg = await getFFmpeg();
 
   showCompressionOverlay(true);
 
-  currentFFmpeg.setProgress(({ ratio }) => {
+  ffmpeg.setProgress(({ ratio }) => {
     updateCompressionProgress(ratio);
   });
 
-  currentFFmpeg.FS("writeFile", "input.mp4", await FFmpeg.fetchFile(file));
+  try {
+    // write input
+    ffmpeg.FS("writeFile", "input.mp4", await FFmpeg.fetchFile(file));
 
-  await currentFFmpeg.run(
-    "-i", "input.mp4",
-    "-vf", "scale=-2:480",
-    "-c:v", "libx264",
-    "-preset", "fast",
-    "-crf", "28",
-    "-c:a", "aac",
-    "output.mp4"
-  );
+    // run compression
+    await ffmpeg.run(
+      "-i", "input.mp4",
+      "-vf", "scale=-2:480",
+      "-c:v", "libx264",
+      "-preset", "fast",
+      "-crf", "28",
+      "-movflags", "+faststart",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-strict", "experimental",
+      "output.mp4"
+    );
 
-  const data = currentFFmpeg.FS("readFile", "output.mp4");
+    // read output
+    const data = ffmpeg.FS("readFile", "output.mp4");
 
-  updateCompressionProgress(1);
+    updateCompressionProgress(1);
 
-  currentFFmpeg.exit();
-  currentFFmpeg = null;
+    return new Blob([data.buffer], {
+      type: "video/mp4"
+    });
 
-  showCompressionOverlay(false);
+  } finally {
+    // 🔥 CRITICAL: cleanup virtual FS to prevent memory leaks
+    try { ffmpeg.FS("unlink", "input.mp4"); } catch {}
+    try { ffmpeg.FS("unlink", "output.mp4"); } catch {}
 
-  return new Blob([data.buffer], {
-    type: "video/mp4"
-  });
+    showCompressionOverlay(false);
+  }
 }
-
-let currentFFmpeg = null;
 
 function showCompressionOverlay(show) {
   let overlay = document.getElementById("compression-overlay");
@@ -230,7 +246,7 @@ function showCompressionOverlay(show) {
     overlay.id = "compression-overlay";
     overlay.classList.add("overlay");
     overlay.style.cssText = `
-      display:none;
+      display:flex;
       position:fixed;
       top:0; left:0;
       width:100%; height:100%;
@@ -289,9 +305,8 @@ function showCompressionOverlay(show) {
         try {
           currentFFmpeg.exit();
         } catch {}
+        currentFFmpeg = null;
       }
-
-      overlay.style.display = "none";
 
       const sendBtn = document.getElementById("postBtn");
       if (sendBtn) {
@@ -310,6 +325,8 @@ function showCompressionOverlay(show) {
         send.disabled = false;
         send.classList.remove("disabled");
       }
+
+      showCompressionOverlay(false);
     };
 
     box.appendChild(title);
@@ -319,7 +336,11 @@ function showCompressionOverlay(show) {
     document.body.appendChild(overlay);
   }
 
-  overlay.style.display = show ? "flex" : "none";
+  if (show) {
+    overlay.classList.remove("hidden");
+  } else {
+    overlay.classList.add("hidden");
+  }
 
   if (show) {
     const bar = document.getElementById("compression-progress");
@@ -329,6 +350,8 @@ function showCompressionOverlay(show) {
     if (title) title.textContent = "Compressing... 0%";
   }
 }
+
+window.showCompressionOverlay = showCompressionOverlay;
 
 function updateCompressionProgress(ratio) {
   const percent = Math.round(ratio * 100);
@@ -383,6 +406,7 @@ async function uploadToSupabase(file, uid) {
 
       if (error) {
         console.error("Video upload error:", error);
+        log("red", "video upload error");
         return {
           url: "",
           path: "",
@@ -390,11 +414,10 @@ async function uploadToSupabase(file, uid) {
         };
       }
 
-      const {
-        data: publicUrlData
-      } = supabase.storage
-        .from("wints")
-        .getPublicUrl(filePath);
+      const { data: publicUrlData } = 
+        supabase.storage
+          .from("wints")
+          .getPublicUrl(filePath);
 
       return {
         url: publicUrlData.publicUrl,

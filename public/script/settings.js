@@ -308,6 +308,10 @@ document.getElementById("banner-delete").addEventListener("click", async () => {
   bannerPreview.style.backgroundColor = "unset";
 });
 
+const inviteeveryone = document.getElementById("inviteEveryone");
+const invitefollow = document.getElementById("inviteFollow");
+const inviteno = document.getElementById("inviteNo"); 
+
 document.getElementById("settingssvg").addEventListener("click", async () => { 
   const userRef = doc(db, "users", auth.currentUser.uid);
   const userSnap = await getDoc(userRef);
@@ -315,6 +319,65 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
 
   document.getElementById("my-streak").textContent = userData.streak ? formatNum(userData.streak) : 0;
   document.getElementById("my-balance").textContent = userData.balance ? formatNum(userData.balance) : 0;
+
+  if (!userData.invitePermission || userData.invitePermission === "everyone") {
+    inviteeveryone.checked = true;
+    invitefollow.checked = false;
+    inviteno.checked = false;
+  } else if (userData.invitePermission === "follow") {
+    invitefollow.checked = true;
+    inviteno.checked = false;
+    inviteeveryone.checked = false;
+  } else if (userData.invitePermission === "no") {
+    inviteno.checked = true;
+    invitefollow.checked = false;
+    inviteeveryone.checked = false;
+  }
+
+  inviteeveryone.addEventListener("change", async () => {
+    if (inviteeveryone.checked === true) {
+      invitefollow.checked = false;
+      inviteno.checked = false;
+
+      await updateDoc(userRef, {
+        invitePermission: "everyone"
+      });
+    }
+    if (inviteeveryone.checked === false) {
+      inviteeveryone.checked = true;
+      log("red", "one option is required");
+    }
+  });
+
+  invitefollow.addEventListener("change", async () => {
+    if (invitefollow.checked === true) {
+      inviteeveryone.checked = false;
+      inviteno.checked = false;
+
+      await updateDoc(userRef, {
+        invitePermission: "follow"
+      });
+    }
+    if (invitefollow.checked === false) {
+      invitefollow.checked = true;
+      log("red", "one option is required");
+    }
+  });
+
+  inviteno.addEventListener("change", async () => {
+    if (inviteno.checked === true) {
+      invitefollow.checked = false;
+      inviteeveryone.checked = false;
+
+      await updateDoc(userRef, {
+        invitePermission: "no"
+      });
+    }
+    if (inviteno.checked === false) {
+      inviteno.checked = true;
+      log("red", "one option is required");
+    }
+  });
 
   const checkbox = document.getElementById("seeFollows");
   const checkbox1 = document.getElementById("seeCom");

@@ -124,9 +124,9 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   if (c.communityId && window.communityID == null) {
     communityName = await getCommunityNameById(c.communityId);
     communityHTML = `
-      <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;">
-      <img loading='lazy' height="17" src="/image/community-filled.svg">
-      <span style="font-size:14px;" class="communityLink" data-id="${c.communityId}">posted in @${escapeHTML(communityName)}</span>
+      <div style="cursor:pointer;display:flex;gap:5px;color:grey;margin:5px 0;align-items:center;margin-top:10px;">
+        <img loading='lazy' height="17" src="/image/community-filled.svg">
+        <span style="font-size:14px;" class="communityLink" data-id="${c.communityId}">posted in @${escapeHTML(communityName)}</span>
     </div>`;
   }
 

@@ -337,7 +337,7 @@ document.body.addEventListener("click", async (e) => {
 document.body.addEventListener("click", async (e) => {
   const tagLink = e.target.closest(".tag-link");
   if (tagLink && tagLink.dataset.tag) {
-    const tag = tagLink.dataset.tag;
+    const tag = tagLink.dataset.tag.toLowerCase().slice(0, 30);
     if (tag) {
       hideCom();
       quote.classList.add("hidden");
