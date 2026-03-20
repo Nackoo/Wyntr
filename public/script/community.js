@@ -894,6 +894,9 @@ export async function openCommunity(communityId) {
   const user = auth.currentUser;
   window.communityID = communityId;
 
+  document.getElementById("communityActiveCheckbox").style.display = "none";
+  document.getElementById("communityActiveCheckbox1").style.display = "none";
+
   if (!user) {
     log("red", "You must be logged in");
     return;

@@ -196,7 +196,7 @@ export function updatePostZIndex() {
 
 export function updateCbDisplay() {
   const cb = document.getElementById("communityActiveCheckbox");
-  const cd = document.getElementById("communityActiveCheckbox1")
+  const cd = document.getElementById("communityActiveCheckbox1");
   if (!cb) return;
   if (!cd) return;
 
