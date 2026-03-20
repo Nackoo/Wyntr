@@ -1137,3 +1137,10 @@ a:visited:not(.i) {
 select:focus {
   outline: none;
 }
+
+.comment-item .avatar {
+  padding: 7px; 
+  margin: -7px;
+  background: black;         
+  border-radius: 16px;       
+} /* thicc */

@@ -477,7 +477,7 @@ function createNotificationElement(notification) {
   div.innerHTML = `
 <div style="display:flex;margin:0;">
   ${content}
-  ${["community-delete", "comment-delete", "community-reply-delete", "community-tweet-delete", "tweet"].includes(notification.type) ? "" : `
+  ${["community-delete", "comment-delete", "community-reply-delete", "community-tweet-delete", "tweet", "hide-notification"].includes(notification.type) ? "" : `
     <button class="MenuNotif" data-sender="${notification.SENDERUID}" data-id="${notification.id}" style="display:none;background:none;margin-left:auto;padding-right: 0;">
       <img src="/image/three-dots.svg">
     </button>  
@@ -866,7 +866,7 @@ export async function handleNotificationClick({
     await loadComments(tweetId, true, null, null, communityId);
     await openCommunity(communityId);
   
-  } else if (type === "communityJoinRequest") {
+  } else if (type === "communityJoinRequest" || type === "hide-notification") {
     return;
 
   } else {

@@ -177,12 +177,11 @@ function observeCommunityID() {
   if (window.communityID !== lastCommunityID) {
     lastCommunityID = window.communityID;
     updatePostZIndex();
-    updateCbDisplay();
   }
   requestAnimationFrame(observeCommunityID);
 }
 
-function updatePostZIndex() {
+export function updatePostZIndex() {
   const post = document.getElementById("post");
   if (!post) return;
 
@@ -190,10 +189,12 @@ function updatePostZIndex() {
     post.style.zIndex = "2";
   } else if (window.communityID != null && window.isJoined) {
     post.style.zIndex = "7";
+  } else {
+    post.style.zIndex = "2";
   }
 }
 
-function updateCbDisplay() {
+export function updateCbDisplay() {
   const cb = document.getElementById("communityActiveCheckbox");
   const cd = document.getElementById("communityActiveCheckbox1")
   if (!cb) return;

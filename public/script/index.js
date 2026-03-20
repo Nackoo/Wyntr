@@ -5648,7 +5648,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
     }}
   }
 
-  if (pinnedDoc) {
+  if (pinnedDoc && !hasSearch) {
     await renderCommentNode(pinnedDoc, true);
   }
   for (const docSnap of snap.docs) {

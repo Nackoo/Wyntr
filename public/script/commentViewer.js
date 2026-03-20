@@ -59,7 +59,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   }
 
     let privateHTML = "";
-    if (c.isPrivate) {
+    if (c.isPrivate || c.isPrivateParent) {
       if (auth.currentUser.uid === c.uid) {
         privateHTML = `
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">

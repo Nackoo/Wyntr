@@ -8,6 +8,7 @@ import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, i
 import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc } from "./attachments.js";
 import { openUserSubProfile } from "./user.js";
 import { renderTweetViewer } from "./tweetViewer.js";
+import { updatePostZIndex, updateCbDisplay } from "./main.js";
 
 let lastCommunityDoc          = null;
 let hasMoreCommunities        = true;
@@ -891,7 +892,6 @@ document.addEventListener("click", async (e) => {
 
 export async function openCommunity(communityId) {
   const user = auth.currentUser;
-  window.isJoined = false;
   window.communityID = communityId;
 
   if (!user) {
@@ -914,13 +914,13 @@ export async function openCommunity(communityId) {
   window.cData = cData;
 
   const isJoined = memberSnap.exists();
+  
+  window.isJoined = isJoined;
+  window.isOnPrivate = cData.private;
 
-  if (isJoined) { 
-    window.isJoined = true;
-    if (cData.private === true) {
-      window.isOnPrivate = true;
-    }
-  }
+  updatePostZIndex();
+  updateCbDisplay();
+
   const isOwner = cData.creatorId === user.uid;
   const isAdmin = (cData.admin || []).includes(user.uid);
   const canModerate = isOwner || isAdmin;
