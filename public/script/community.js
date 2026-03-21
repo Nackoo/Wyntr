@@ -1014,9 +1014,8 @@ export async function openCommunity(communityId) {
           <h2 style="margin:0" class="skibidi-link" id="com-name2">${escapeHTML(cData.name)}</h2>
           <div style="color:grey;font-size:15px;margin-top:5px;">by @${escapeHTML(cData.creatorName)}</div>
           <div style="color:grey;gap:7px;font-size:15px;display:flex;align-items:center;margin-top:10px;width:100%;">
-            <img src="/image/write-gray.svg" style="height:20px;"> ${formatNumber(cData.posts)}
+            <span style="color:var(--color);font-weight:bold;">${formatNumber(cData.posts)}</span> posts
             <img style="height:20px;" src="/image/calendar.svg"> ${escapeHTML(formatted)}
-            <img src="/image/community-gray.svg" style="height:20px;">${formatNumber(cData.membersCount) || 0}
           </div>
         </div>
       </div>
@@ -1024,7 +1023,7 @@ export async function openCommunity(communityId) {
       ${renderCommunityRequirements(cData)}
       ${tagsHtml}
       <div style="display:flex;align-items:center;gap:10px;margin-top:13px;">
-        ${!isJoined && cData.private === true ? "" : `<button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openMembers">members</button>`}
+        ${!isJoined && cData.private === true ? "" : `<button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openMembers">members (${cData.membersCount})</button>`}
         ${canModerate ? `<button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openBans">bans</button>` : ""}
         <button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;margin-left:auto;" id="openComRule">rules</button>
       </div>
