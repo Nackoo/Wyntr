@@ -332,15 +332,16 @@ onAuthStateChanged(auth, async (user) => {
         eligible = false;
       }
       const prizeBtn = document.getElementById("prize");
+      const prizeBtn1 = document.getElementById("prizebox1");
       const unclaimed = document.getElementById("unclaimed");
-      if (prizeBtn) {
+      if (prizeBtn1) {
         if (eligible) {
           if (window.innerWidth > 700) {
             document.getElementById("prizebox").style.display = "block";
-            prizeBtn.style.display = "none";
+            prizeBtn1.style.display = "none";
             unclaimed.style.opacity = "0";
           } else {
-            prizeBtn.style.display = "flex";
+            prizeBtn1.style.display = "block";
             unclaimed.style.opacity = "1";
             document.getElementById("prizebox").style.display = "none";
           }
@@ -350,13 +351,14 @@ onAuthStateChanged(auth, async (user) => {
             document.querySelector("#prizebox button").disabled = true;
             document.querySelector("#prizebox button").classList.add("disabled");
             if (!snap.exists()) return log("red", "Couldn't find your user data");
-            const freshData = snap.data();
+            const freshSnap = await getDoc(ref)
+            const freshData = freshSnap.data();
             const lastSeenServer = freshData.lastSeen ? freshData.lastSeen.toDate() : null;
             const lastSeenDay = lastSeenServer ? new Date(lastSeenServer).setHours(0, 0, 0, 0) : 0;
             const todayStart = new Date().setHours(0, 0, 0, 0);
             if (lastSeenDay === todayStart) {
               log("red", "You already claimed your daily reward today")
-              prizeBtn.style.display = "none";
+              prizeBtn1.style.display = "none";
               unclaimed.style.opacity = "0";
               document.getElementById("prizebox").style.display = "none";
               return;
@@ -368,12 +370,12 @@ onAuthStateChanged(auth, async (user) => {
               streak: newStreak,
             });
             log("green", `you claimed ${reward}!`)
-            prizeBtn.style.display = "none";
+            prizeBtn1.style.display = "none";
             unclaimed.style.opacity = "0";
             document.getElementById("prizebox").style.display = "none";
           };
         } else {
-          prizeBtn.style.display = "none";
+          prizeBtn1.style.display = "none";
           unclaimed.style.opacity = "0";
           document.getElementById("prizebox").style.display = "none";
         }
@@ -469,16 +471,19 @@ document.getElementById("postBtn").addEventListener("click", async () => {
 
   let poll = null;
   if (document.getElementById("includePoll").checked) {
-    const options = Array.from(document.querySelectorAll("#pollOptions .poll-option")).map(inp => inp.value.trim()).filter(Boolean);
+    const options = Array.from(document.querySelectorAll("#pollOptions .poll-option")).map(inp => inp.value.trim().slice(0, 50)).filter(Boolean);
+
     if (options.length >= 2) {
       const duration = document.getElementById("pollDuration")?.value || "8h";
       let expiresAt = null;
       const now = new Date();
+
       if (duration === "8h") now.setHours(now.getHours() + 8);
       if (duration === "24h") now.setDate(now.getDate() + 1);
       if (duration === "3d") now.setDate(now.getDate() + 3);
       if (duration === "1w") now.setDate(now.getDate() + 7);
       if (duration === "3w") now.setDate(now.getDate() + 21);
+
       expiresAt = now;
       poll = {
         options,
@@ -2422,29 +2427,6 @@ document.body.addEventListener("click", async (e) => {
         </div>
       ` : ""}
 
-      <div class="menu-item share-btn" data-share="${yes}" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
-
-      ${window.communityID ? "" :
-        `<div class="menu-item bookmark-btn" id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>`}
-
-        ${window.communityID ? "" :
-          `${isOwner
-          ? `<div class="menu-item pin-btn" data-id="${tweetId}">
-            ${pinnedId === tweetId
-            ? `<img loading='lazy' src="/image/pinned.svg"> Unpin from profile`
-            : `<img loading='lazy' src="/image/pin.svg"> Pin to profile`}
-          </div>`
-        : ""}`}
-
-        ${showDeleteBtn || (window.communityID && window.canModerate)
-          ? `<div class="menu-item delete-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
-            <img loading='lazy' src="/image/trash.svg"> Delete this Wynt 
-            ${(isAdmin && tweetUserRole !== "admin" && data.uid != auth.currentUser.uid) ? "as global admin" : `
-              ${window.communityID && window.canModerate && data.uid != auth.currentUser.uid ? "as community admin" : ""}  
-            `}
-          </div>`
-        : ""}
-
         ${showEditBtn && !data.postedInPublic ?
           `<div class="menu-item edit-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
             <img loading='lazy' src="/image/edit.svg"> Edit this Wynt
@@ -2457,11 +2439,11 @@ document.body.addEventListener("click", async (e) => {
           </div>`
         : ""}
 
-        ${hasMedia ? 
-          `<div class="menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}"><img loading='lazy' src="/image/download.svg"> Download attachment</div>`
-        : ""}
+        <div class="menu-item share-btn" data-share="${yes}" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
 
-        ${isOwner ? "" : `<div class="menu-item report-btn" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/report.svg"> Report this Wynt</div>` }
+        ${window.communityID ? "" :
+          `<div class="menu-item bookmark-btn" id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>`
+        }
 
         ${window.communityID ? "" : 
           `<div class="menu-item highlight-btn" id="highlightBtn-${tweetId}">
@@ -2471,19 +2453,56 @@ document.body.addEventListener("click", async (e) => {
           </div>
         `}
 
+        ${hasMedia ? 
+          `<div class="menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}"><img loading='lazy' src="/image/download.svg"> Download attachment</div>`
+        : ""}
+
+        ${window.communityID ? "" :
+          `${isOwner
+          ? `<div class="menu-item pin-btn" data-id="${tweetId}">
+            ${pinnedId === tweetId
+            ? `<img loading='lazy' src="/image/pinned.svg"> Unpin from profile`
+            : `<img loading='lazy' src="/image/pin.svg"> Pin to profile`}
+          </div>`
+        : ""}`}
+
+        ${isOwner ? `
+          <div class="menu-item settings-btn" id="tweetOptionsEdit" data-id=${tweetId}>
+            <img loading='lazy' src="/image/settings.svg">
+            Change Wynt settings
+          </div>  
+        ` : ""}
+
+        ${showDeleteBtn || (window.communityID && window.canModerate)
+          ? `<div class="menu-item delete-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
+            <img loading='lazy' src="/image/trash.svg"> Delete this Wynt 
+            ${(isAdmin && tweetUserRole !== "admin" && data.uid != auth.currentUser.uid) ? "as global admin" : `
+              ${window.communityID && window.canModerate && data.uid != auth.currentUser.uid ? "as community admin" : ""}  
+            `}
+          </div>`
+        : ""}
+
         <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
 
-        <div class="menu-item author-share" data-author="${author}">
-          <img loading='lazy' src="/image/copy.svg"> copy user ID
-        </div>
+        ${isOwner ? "" : `<div class="menu-item report-btn" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/report.svg"> Report this Wynt</div>` }
 
         <div class="menu-item text-copy">
           <img loading='lazy' src="/image/copy.svg"> copy text
+        </div>
+
+        <div class="menu-item author-share" data-author="${author}">
+          <img loading='lazy' src="/image/copy.svg"> copy user ID
         </div>
     `;
 
     overlay.classList.remove("hidden");
     loading.classList.remove("show");
+
+    document.getElementById("tweetOptionsEdit").addEventListener("click", () => {
+      document.getElementById("tweetOption").classList.remove("hidden");
+      document.getElementById("permissionOnEdit").classList.add("hidden");
+      document.getElementById("settings-save").classList.remove("hidden");
+    });
 
     box.querySelector(".text-copy").dataset.text = data.text;
   }
@@ -2839,6 +2858,95 @@ document.body.addEventListener("click", async (e) => {
       log("red", "Failed to open comment editor")
     }
   }
+  const settingsBtn1 = e.target.closest(".settings-btn1");
+  if (settingsBtn1) {
+    const tweetId = settingsBtn1.dataset.id;
+    const commentId = settingsBtn1.dataset.comment;
+
+    let ref;
+    if (window.communityID) {
+      ref = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId);
+    } else {
+      ref = doc(db, "tweets", tweetId, "comments", commentId);
+    }
+    const snap = await getDoc(ref);
+    const c = snap.data();
+
+    const mute = document.getElementById("cmute");
+    const sensitive = document.getElementById("csensitive");
+
+    mute.checked = c.muteNotif;
+    sensitive.checked = c.sensitiveMedia;
+
+    const savebtn = document.getElementById("settings-save1");
+
+    savebtn.onclick = async () => {
+      if (c.uid != auth.currentUser.uid) return log("red", "insufficient permission");
+      savebtn.disabled = true;
+      savebtn.classList.add("disabled");
+
+      await updateDoc(ref, {
+        muteNotif: mute.checked,
+        sensitiveMedia: sensitive.checked
+      });
+      document.getElementById("commentOption").classList.add("hidden");
+      document.getElementById("cMenuOverlay").classList.add("hidden");
+
+      savebtn.disabled = false;
+      savebtn.classList.remove("disabled");
+
+      mute.checked = false;
+      sensitive.checked = false;
+
+      log("green", "Reply updated");
+    };
+  }
+  const settingsBtn = e.target.closest(".settings-btn");
+  if (settingsBtn) {
+    const tweetId = settingsBtn.dataset.id;
+
+    let tweetRef;
+    if (window.communityID) {
+      tweetRef = doc(db, "communities", window.communityID, "posts", tweetId);
+    } else {
+      tweetRef = doc(db, "tweets", tweetId);
+    }
+    const tweetSnap = await getDoc(tweetRef);
+    const tweetData = tweetSnap.data();
+
+    const privateOK = document.getElementById("privateOK");
+    const mute = document.getElementById("mute");
+    const sensitive = document.getElementById("sensitive");
+
+    privateOK.checked = !tweetData.noPrivateReply;
+    mute.checked = tweetData.muteNotif;
+    sensitive.checked = tweetData.sensitiveMedia;
+
+    const savebtn = document.getElementById("settings-save");
+
+    savebtn.onclick = async () => {
+      if (tweetData.uid != auth.currentUser.uid) return log("red", "insufficient permission");
+      savebtn.disabled = true;
+      savebtn.classList.add("disabled");
+
+      await updateDoc(tweetRef, {
+        noPrivateReply: !privateOK.checked,
+        muteNotif: mute.checked,
+        sensitiveMedia: sensitive.checked
+      });
+      document.getElementById("tweetOption").classList.add("hidden");
+      document.getElementById("tweetMenuOverlay").classList.add("hidden");
+
+      savebtn.disabled = false;
+      savebtn.classList.remove("disabled");
+
+      privateOK.checked = true;
+      mute.checked = false;
+      sensitive.checked = false;
+
+      log("green", "Wynt updated");
+    };
+  }
   const editBtn = e.target.closest(".edit-btn");
   if (editBtn) {
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
@@ -2911,20 +3019,6 @@ document.body.addEventListener("click", async (e) => {
         editTitle.value = editTitle.value.slice(0, 100);
       });
 
-      const tweetOptionsEdit = document.getElementById("tweetOptionsEdit");
-      const commentOptionsEdit = document.getElementById("commentOptionsEdit");
-
-      tweetOptionsEdit.classList.remove("hidden");
-      commentOptionsEdit.classList.add("hidden");
-
-      const mute = document.getElementById("mute");
-      const sensitive = document.getElementById("sensitive");
-      const privateOK = document.getElementById("privateOK");
-
-      mute.checked = data.muteNotif;
-      sensitive.checked = data.sensitiveMedia;
-      privateOK.checked = !data.noPrivateReply;
-
       const saveBtn = document.getElementById("saveEdit");
       saveBtn.onclick = async () => {
         saveBtn.classList.add("disabled");
@@ -2977,19 +3071,12 @@ document.body.addEventListener("click", async (e) => {
             editAfterComment = true;
           }
 
-          const muteNotif = mute.checked;
-          const sensitiveMedia = sensitive.checked;
-          const noPrivateReply = !privateOK.checked;
-
           await updateDoc(tweetRef, {
             text: newText,
             title: newTitle,
             edited: new Date(),
             language: detectedLanguage,
             editAfterComment,
-            muteNotif,
-            sensitiveMedia,
-            noPrivateReply
           });
           if (data.connectedWynt && data.postedInPublic === false) {
             const connectedRef = doc(db, "tweets", data.connectedWynt);
@@ -3001,10 +3088,6 @@ document.body.addEventListener("click", async (e) => {
               editAfterComment
             });    
           }
-
-          mute.checked = false;
-          sensitive.checked = false;
-          privateOK.checked = true;
 
           log("green", "Post updated");
           overlay.classList.add("hidden");
@@ -3131,10 +3214,47 @@ document.body.addEventListener("click", async (e) => {
         </div>
       </div>
 
+      ${showEditBtn && !commentData.isHidden
+        ? `<div class="c-menu-item comment-edit-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
+            <img loading='lazy' src="/image/edit.svg"> Edit this reply
+          </div>`
+        : ""
+      }
+
       ${isPrivate != true && isPrivate != 'true' && !commentData.isHidden && !commentData.isPrivateParent ?
         `<div class="c-menu-item reply-share" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
           <img loading='lazy' src="/image/share.svg"> Share this reply
         </div>` : ""
+      }
+
+      ${hasMedia && !commentData.isHidden && isPrivate != true && isPrivate != 'true'
+        ? `<div class="c-menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}" data-comment="${commentId}">
+            <img loading='lazy' src="/image/download.svg"> Download attachment
+          </div>`
+        : ""
+      }
+
+      ${canPinReply && !commentData.isHidden && isPrivate != true && isPrivate != 'true'
+        ? `<div class="c-menu-item pin-reply-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}" data-pinned="${isPinned}">
+             <img loading='lazy' src="${isPinned ? '/image/pinned.svg' : '/image/pin.svg'}"> ${isPinned ? 'Unpin this reply' : 'pin this reply'}
+           </div>`
+        : ""
+      }
+
+      ${isOwner ? `
+        <div class="menu-item settings-btn1" id="commentOptionsEdit" data-id=${tweetId} data-comment=${commentId}>
+          <img loading='lazy' src="/image/settings.svg">
+          Change reply settings
+        </div>  
+      ` : ""
+      }
+
+      ${showHideBtn && isPrivate != true && isPrivate != 'true'
+        ? `<div class="c-menu-item comment-hide-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
+            <img src="/image/eye.svg"> ${commentData.isHidden ? `Unhide this reply` : `Hide this reply`}
+            ${window.communityID && window.canModerate ? "as community admin" : "as Wynt author"}
+          </div>`
+        : ""
       }
 
       ${showDeleteBtn || (window.communityID && window.canModerate)
@@ -3143,40 +3263,16 @@ document.body.addEventListener("click", async (e) => {
               ${window.communityID && window.canModerate ? "as community admin" : ""}
             `}
           </div>`
-        : ""}
-
-      ${showHideBtn && isPrivate != true && isPrivate != 'true'
-        ? `<div class="c-menu-item comment-hide-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img src="/image/eye.svg"> ${commentData.isHidden ? `Unhide this reply` : `Hide this reply`}
-            ${window.communityID && window.canModerate ? "as community admin" : "as Wynt author"}
-          </div>`
-        : ""}
-
-      ${showEditBtn && !commentData.isHidden
-        ? `<div class="c-menu-item comment-edit-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img loading='lazy' src="/image/edit.svg"> Edit this reply
-          </div>`
-        : ""}
-
-      ${canPinReply && !commentData.isHidden && isPrivate != true && isPrivate != 'true'
-        ? `<div class="c-menu-item pin-reply-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}" data-pinned="${isPinned}">
-             <img loading='lazy' src="${isPinned ? '/image/pinned.svg' : '/image/pin.svg'}"> ${isPinned ? 'Unpin this reply' : 'pin this reply'}
-           </div>`
-        : ""}
-
-      ${hasMedia && !commentData.isHidden && isPrivate != true && isPrivate != 'true'
-        ? `<div class="c-menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}" data-comment="${commentId}">
-            <img loading='lazy' src="/image/download.svg"> Download attachment
-          </div>`
-        : ""}
-
-      ${isOwner
-        ? ""
-        : `<div class="c-menu-item report-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}" data-comment="${commentId}">
-            <img loading='lazy' src="/image/report.svg"> Report this reply
-          </div>`}
+        : ""
+      }
 
       <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
+
+      ${isOwner ? "" : `
+        <div class="c-menu-item report-btn" data-community-id="${hascom || null}"    data-tweet="${tweetId}" data-comment="${commentId}">
+          <img loading='lazy' src="/image/report.svg"> Report this reply
+        </div>`
+      }
 
       ${commentData.text ? `
       <div class="c-menu-item text-copy">
@@ -3189,6 +3285,12 @@ document.body.addEventListener("click", async (e) => {
     `;
     overlay.classList.remove("hidden");
     loading.classList.remove("show");
+
+    document.getElementById("commentOptionsEdit").addEventListener("click", () => {
+      document.getElementById("commentOption").classList.remove("hidden");
+      document.getElementById("permissionOnEdit2").classList.add("hidden");
+      document.getElementById("settings-save1").classList.remove("hidden");
+    });
 
     if (commentData.text) box.querySelector(".text-copy").dataset.text = commentData.text;
   }
@@ -3608,6 +3710,16 @@ function setupPoll(checkboxId, containerId, addBtnId) {
   const cb = document.getElementById(checkboxId);
   const container = document.getElementById(containerId);
   const addBtn = document.getElementById(addBtnId);
+
+  // 🔥 Apply max length to existing inputs (HTML ones)
+  const applyMaxLength = () => {
+    container.querySelectorAll(".poll-option").forEach(input => {
+      input.maxLength = 50;
+    });
+  };
+
+  applyMaxLength();
+
   cb.addEventListener("change", () => {
     if (cb.checked) {
       container.classList.remove("hidden");
@@ -3617,23 +3729,34 @@ function setupPoll(checkboxId, containerId, addBtnId) {
         if (i > 1) opt.remove();
       });
       addBtn.style.display = "inline-block";
+
+      // 🔥 Re-apply after reset
+      applyMaxLength();
     }
   });
+
   addBtn.addEventListener("click", () => {
     const count = container.querySelectorAll(".poll-option-wrapper").length;
     if (count >= 4) return;
+
     const wrapper = document.createElement("div");
     wrapper.className = "poll-option-wrapper";
     wrapper.style.display = "flex";
     wrapper.style.alignItems = "center";
     wrapper.style.gap = "5px";
+
     const input = document.createElement("input");
     input.type = "text";
     input.className = "poll-option";
     input.placeholder = `Option`;
+
+    // 🔥 Apply limit to new input
+    input.maxLength = 50;
+
     const removeBtn = document.createElement("div");
     removeBtn.innerHTML = `<img loading='lazy' src="/image/x.svg">`;
     removeBtn.style.cursor = "pointer";
+
     removeBtn.addEventListener("click", () => {
       wrapper.remove();
       const optionCount = container.querySelectorAll(".poll-option-wrapper").length;
@@ -3641,9 +3764,11 @@ function setupPoll(checkboxId, containerId, addBtnId) {
         addBtn.style.display = "inline-block";
       }
     });
+
     wrapper.appendChild(input);
     wrapper.appendChild(removeBtn);
     container.insertBefore(wrapper, addBtn);
+
     const newCount = container.querySelectorAll(".poll-option-wrapper").length;
     if (newCount >= 2) {
       addBtn.style.display = "none";
@@ -4172,7 +4297,7 @@ document.body.addEventListener("click", async (e) => {
 
           let poll = null;
           if (document.getElementById("includePollComment").checked) {
-            const options = Array.from(document.querySelectorAll("#pollOptionsComment .poll-option")).map(inp => inp.value.trim()).filter(Boolean);
+            const options = Array.from(document.querySelectorAll("#pollOptionsComment .poll-option")).map(inp => inp.value.trim().slice(0, 50)).filter(Boolean);
           
             if (options.length >= 2) {
               const duration = document.getElementById("pollDurationComment")?.value || "8h";
@@ -6439,7 +6564,7 @@ sendRetweet.onclick = async () => {
 
   let poll = null;
   if (document.getElementById("includePollRetweet").checked) {
-    const options = Array.from(document.querySelectorAll("#pollOptionsRetweet .poll-option")).map(inp => inp.value.trim()).filter(Boolean);
+    const options = Array.from(document.querySelectorAll("#pollOptionsRetweet .poll-option")).map(inp => inp.value.trim().slice(0, 50)).filter(Boolean);
     if (options.length >= 2) {
       const duration = document.getElementById("pollDurationRetweet")?.value || "8h";
       let expiresAt = null;

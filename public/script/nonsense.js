@@ -180,6 +180,8 @@ function hideCom() {
   document.getElementById("memberOverlay").classList.add("hidden");
   document.getElementById("inviteOverlay").classList.add("hidden");
   document.getElementById("banOverlay").classList.add("hidden");
+  document.getElementById("communityActiveCheckbox").style.display = "none";
+  document.getElementById("communityActiveCheckbox1").style.display = "none";
 }
 
 function hidebookmark() {

@@ -894,9 +894,6 @@ export async function openCommunity(communityId) {
   const user = auth.currentUser;
   window.communityID = communityId;
 
-  document.getElementById("communityActiveCheckbox").style.display = "none";
-  document.getElementById("communityActiveCheckbox1").style.display = "none";
-
   if (!user) {
     log("red", "You must be logged in");
     return;
@@ -977,7 +974,11 @@ export async function openCommunity(communityId) {
         backdrop-filter:blur(10px);border-bottom:var(--border);
         margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
         <h2 style="display:flex;align-items:center;margin:15px 0;">
-          <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="history.pushState({}, '', '/');" class="close-btn">
+          <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="
+            history.pushState({}, '', '/');
+            document.getElementById('communityActiveCheckbox').style.display = 'none';
+            document.getElementById('communityActiveCheckbox1').style.display = 'none';
+          " class="close-btn">
             <img src="/image/leftArrow.svg">
           </button>
           Community
@@ -2219,6 +2220,8 @@ window.openComMenu = async function (communityId) {
     log("green", "Community has been disbanded");
     overlay.classList.add("hidden");
     document.querySelector(".communityo")?.remove();
+    document.getElementById("communityActiveCheckbox").style.display = "none";
+    document.getElementById("communityActiveCheckbox1").style.display = "none";
     document.querySelectorAll(`.com-item[data-id="${communityId}"]`).forEach(el => el.remove());
     document.getElementById("comRule").style.display = "none";
   };

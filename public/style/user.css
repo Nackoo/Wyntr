@@ -283,14 +283,16 @@
   background: none;
   border: 1px solid #db1d23;
   color: #db1d23;
-  padding: 17px;
+  padding: 10px;
   font-weight: 900;
+  margin: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: calc(100% - 40px);
   justify-content: center;
-  border-radius: 0;
+  border-radius: 15px;
+  box-sizing:border-box
 }
 
 #logout svg {
@@ -1811,6 +1813,7 @@ h3, .translated-text {
   padding-top: 12px;
 }
 
-button[onclick="document.getElementById('profileMenuOverlay').classList.remove('hidden')"] {
+button[onclick="document.getElementById('profileMenuOverlay').classList.remove('hidden')"],
+button[onclick="document.getElementById('userMenuOverlay').classList.remove('hidden')"] {
   z-index: 1 !important;
 }

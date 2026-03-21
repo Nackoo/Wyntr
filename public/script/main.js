@@ -739,11 +739,7 @@ setupPollToggle("includePollRetweet");
 document.getElementById("tweetOptions").addEventListener("click", () => {
   document.getElementById("tweetOption").classList.remove("hidden");
   document.getElementById("permissionOnEdit").classList.remove("hidden");
-});
-
-document.getElementById("tweetOptionsEdit").addEventListener("click", () => {
-  document.getElementById("tweetOption").classList.remove("hidden");
-  document.getElementById("permissionOnEdit").classList.add("hidden");
+  document.getElementById("settings-save").classList.add("hidden");
 });
 
 document.getElementById("retweetOptions").addEventListener("click", () => {
@@ -753,11 +749,7 @@ document.getElementById("retweetOptions").addEventListener("click", () => {
 document.getElementById("commentOptions").addEventListener("click", () => {
   document.getElementById("commentOption").classList.remove("hidden");
   document.getElementById("permissionOnEdit2").classList.remove("hidden");
-});
-
-document.getElementById("commentOptionsEdit").addEventListener("click", () => {
-  document.getElementById("commentOption").classList.remove("hidden");
-  document.getElementById("permissionOnEdit2").classList.add("hidden");
+  document.getElementById("settings-save1").classList.add("hidden");
 });
 
 document.getElementById("replyOptions").addEventListener("click", () => {

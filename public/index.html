@@ -523,7 +523,7 @@
               <span style="color:var(--color);">Shop</span>
               <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
             </button>
-            <button class="settingsbtns" id="prize"><img style="height:20px;width:20px;display:none;" src="/image/gift.svg"><span>Claim Daily Wcoins</span></button>
+            <div id="prizebox1" style="border-radius: 15px; margin: 20px;display:none;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button id="prize" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;background:white">claim</button> </div>
             <div style="border:var(--border);padding:25px 15px;padding-top:15px;background:var(--normal);margin:0;">
               <h2 style="margin-top:0;margin-bottom:10px;">Account</h2>
               <div style="display:flex;gap:5px;">
@@ -1043,9 +1043,7 @@
             <div id="appendEdit"></div>
 
             <div class="flex">
-              <img src="/image/settings.svg" style="margin-left:auto;cursor:pointer;;margin-top:10px;" id="tweetOptionsEdit" class="hidden">
-              <img src="/image/settings.svg" style="margin-left:auto;cursor:pointer;;margin-top:10px;" id="commentOptionsEdit" class="hidden">
-              <button id="saveEdit" style="border-radius:10px;padding:9px 25px;margin-top:10px;">
+              <button id="saveEdit" style="border-radius:10px;padding:9px 25px;margin-top:10px;margin-left:auto;">
                 Save
               </button>
             </div>
@@ -1397,6 +1395,10 @@
                   </div>
                 </div>
               </div>
+
+              <div style="display:flex;width:100%;">
+                <button style="margin-lefT:auto;margin-top:20px;padding:8px 20px;border-radius:12px;" id="settings-save" class="hidden">Save</button>
+              </div>
               <br><br><br><br><br><br>
             </div>
             <br><br><br>
@@ -1516,6 +1518,10 @@
                   </label>
                 </div>
               </div>
+
+              <div style="display:flex;width:100%;">
+                <button style="margin-lefT:auto;margin-top:20px;padding:8px 20px;border-radius:12px;" id="settings-save1" class="hidden">Save</button>
+              </div>
               <br><br><br><br><br><br>
             </div>
             <br><br><br>
@@ -1553,6 +1559,7 @@
                   </label>
                 </div>
               </div>
+
               <br><br><br><br><br><br>
             </div>
             <br><br><br>
