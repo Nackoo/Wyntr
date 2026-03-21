@@ -592,6 +592,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       });
     });
   
+    openCommunity(communityRef.id)
     log("green", "Community created successfully");
     loading.classList.remove("show");
     overlay.remove();

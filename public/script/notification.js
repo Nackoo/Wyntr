@@ -392,7 +392,7 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <div style="margin-top:6px;">⚠</div>
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your reply got hidden by moderators</span><br>
+    <span style="color:#db1d23;font-weight:bold;">Your reply got hidden</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -477,7 +477,7 @@ function createNotificationElement(notification) {
   div.innerHTML = `
 <div style="display:flex;margin:0;">
   ${content}
-  ${["community-delete", "comment-delete", "community-reply-delete", "community-tweet-delete", "tweet", "hide-notification"].includes(notification.type) ? "" : `
+  ${["community-delete", "comment-delete", "tweet", "hide-notification"].includes(notification.type) ? "" : `
     <button class="MenuNotif" data-sender="${notification.SENDERUID}" data-id="${notification.id}" style="display:none;background:none;margin-left:auto;padding-right: 0;">
       <img src="/image/three-dots.svg">
     </button>  
