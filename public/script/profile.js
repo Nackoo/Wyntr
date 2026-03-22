@@ -105,7 +105,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("my-comCount").textContent = userData.communitiesCount || 0;
     document.getElementById("my-following").textContent = userData.following || 0;
     document.getElementById("my-status").textContent = userData.status || "i'm cold";
-    document.getElementById("profile-visited").textContent = userData.visitedCount ? formatNumber(userData.visitedCount) : 0;
 
     const name = data.displayName || auth.currentUser.displayName;
     document.getElementById("my-name").textContent = name;

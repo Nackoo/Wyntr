@@ -965,7 +965,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
     container.innerHTML = `
       ${parent1}
       ${parentReply}
-      <div class="comment" style="border-bottom:var(--border);padding-bottom:10px;margin-bottom:10px;" id="comment-${commentId}" data-id="${commentId}" data-community-id="${comid || null}" data-tweet="${tweetId}">
+      <div class="comment shutup" style="border-bottom:var(--border);padding-bottom:10px;margin-bottom:10px;" id="comment-${commentId}" data-id="${commentId}" data-community-id="${comid || null}" data-tweet="${tweetId}">
         <div class="flex" style="gap:10px;">
           <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
           ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
@@ -1132,6 +1132,7 @@ document.body.addEventListener("click", async (e) => {
 
   if (
     e.target.closest(".attachment") || 
+    e.target.closest(".shutup") ||
     e.target.closest(".comment-like-btn") || 
     e.target.closest(".reply-btn") || 
     e.target.closest(".cmenubtn") || 
@@ -1294,6 +1295,7 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest(".reply-btn") || 
     e.target.closest(".retweet-btn") || 
     e.target.closest(".cmenubtn") || 
+    e.target.closest(".shutup") ||
     e.target.closest(".comment-btn") || 
     e.target.closest(".like-btn") || 
     e.target.closest(".viewbtn") || 

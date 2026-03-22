@@ -4985,51 +4985,35 @@ document.body.addEventListener("click", async (e) => {
           ? await getCommunityNameById(window.communityID)
           : null;
 
-        await Promise.all(
-          mentions.map(async (uid) => {
-            if (uid === commentData.uid) return;
-
-            if (window.communityID && !window.isOnPrivate) {
-              sendCommunityReplyMentionNotification(
-                tweetId,
-                commentId,
-                uid,
-                text,
-                window.communityID,
-                communityName,
-                tweetText,
-                replyId
-              );
-
-            } else if (window.isOnPrivate && window.communityID) {
-              const userDoc = await getDoc(doc(db, "users", uid));
-              const userCommunities = userDoc.data().communities || [];
-
-              if (userCommunities.includes(window.communityID)) {
-                sendCommunityReplyMentionNotification(
-                  tweetId,
-                  commentId,
-                  uid,
-                  text,
-                  window.communityID,
-                  communityName,
-                  tweetText,
-                  replyId
-                );
-              }
-
-            } else {
-              sendReplyMentionNotification(
-                tweetId,
-                commentId,
-                uid,
-                text,
-                tweetText,
-                replyId
-              );
-            }
-          })
+        const invalidMentions = mentions.filter(
+          (uid) => uid !== auth.currentUser.uid && uid !== commentData.uid
         );
+
+        if (isPrivateParent && invalidMentions.length > 0) {
+          info("x", "Error", "reply sent, but.. since the post you're replying to is a private reply, users weren't mentioned.");
+        }
+
+        if (!isPrivateParent) {
+          await Promise.all(
+            mentions.map(async (uid) => {
+              if (uid === commentData.uid) return;
+
+              if (window.communityID && !window.isOnPrivate) {
+                sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+
+              } else if (window.isOnPrivate && window.communityID) {
+                const userDoc = await getDoc(doc(db, "users", uid));
+                const userCommunities = userDoc.data().communities || [];
+
+                if (userCommunities.includes(window.communityID)) {
+                  sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                }
+              } else {
+                sendReplyMentionNotification(tweetId, commentId, uid, text, tweetText, replyId);
+              }
+            })
+          );
+        }
       }
 
       if (!document.getElementById('commentViewer').classList.contains("hidden")) {

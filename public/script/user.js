@@ -776,23 +776,6 @@ async function isBanned(uid) {
   }
 }
 
-async function incrementUserVisits(uid) {
-  if (uid === auth.currentUser.uid) return;
-
-  const viewRef = doc(db, "users", uid, "views", auth.currentUser.uid);
-  const userRef = doc(db, "users", uid);
-  const viewSnap = await getDoc(viewRef);
-
-  if (!viewSnap.exists()) {
-    await setDoc(viewRef, {
-      viewedAt: new Date()
-    });
-    updateDoc(userRef, {
-      visitedCount: increment(1)
-    });
-  }
-}
-
 export async function openUserSubProfile(uid) {
   softblank();
   window.cannotSeeFollows = false;
@@ -839,8 +822,6 @@ export async function openUserSubProfile(uid) {
 
   userOverlay.classList.add("hidden");
   userSubOverlay.classList.remove("hidden");
-
-  incrementUserVisits(uid);
 
   const d = docSnap.data();
 
