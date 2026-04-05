@@ -756,6 +756,7 @@ input[type="checkbox"] {
 
 .folder-item {
   padding: 13px 18px !important;
+  background: none;
 }
 
 .bans-row button {
