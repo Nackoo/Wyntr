@@ -28,17 +28,21 @@ openblock.addEventListener("click", function () {
 
 searchInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter") {
-    const term = searchInput.value.trim().toLowerCase();   
-    loadBlocks(term);
+    const term = searchInput.value.trim().toLowerCase();
+    resetPagination();          
+    currentTerm = term;         
+    loadBlocks(term);   
   }
 });
 
 async function loadBlocks(term = currentTerm) {
+    console.log(1);
     if (isLoading || !hasMore) return;
+    console.log(2);
 
     isLoading = true;
     list.innerHTML = `
-        <div class="skeleton-card" style="margin-left:0;margin-right:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
+        <div class="skeleton-card" style="margin-left:0;margin-right:0;margin-top:15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
         <div class="skeleton-card" style="margin-left:0;margin-right:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
         <div class="skeleton-card" style="margin-left:0;margin-right:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
     `;
@@ -73,7 +77,7 @@ async function loadBlocks(term = currentTerm) {
     lastDoc = snap.docs[snap.docs.length - 1];
 
     if (snap.empty) {
-        list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No blocked users</h2><p style="color:grey;margin:7px 0;">when a user is blocked, they won't be able to send you notifications.</p></div></div>`;
+        list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No blocked users found</h2><p style="color:grey;margin:7px 0;">when a user is blocked, they won't be able to send you notifications.</p></div></div>`;
         return;
     }
 
@@ -90,7 +94,7 @@ async function loadBlocks(term = currentTerm) {
         item.className = "user-search-item";
         item.id = `user-${docSnap.id}`;
         item.style.cssText =
-        "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
+        "display:flex;gap:10px;align-items:center";
 
         item.innerHTML = `
         <div style="display:flex; gap:12px; width:100%">
@@ -100,7 +104,7 @@ async function loadBlocks(term = currentTerm) {
                     ${escapeHTML(data.name)}
                 </strong>
                 <span style="font-size:14px; color:grey;">
-                    ${data.permanent ? "permanent" : `block until ${toDate(data.blockUntil)}`}
+                    ${data.permanent ? "permanent" : `blocked until ${toDate(data.blockUntil)}`}
                 </span>
             </div>
         </div>

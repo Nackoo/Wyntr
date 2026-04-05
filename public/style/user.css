@@ -1839,3 +1839,7 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 #communityList .com-item {
   border: none
 }
+
+#blockList .user-search-item {
+  padding: 13px 20px !important
+}
