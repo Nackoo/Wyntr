@@ -40,9 +40,7 @@
     margin-bottom: 13px;
     border: none !important;
     border-radius: 0 !important;
-    border-bottom: var(--border) !important;
-    border-top: var(--border) !important;
-    margin-top: -14px;
+    margin-top: -16px;
   }
 
 @media (min-width: 700px) {

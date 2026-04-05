@@ -1278,7 +1278,6 @@ document.getElementById("tweetviewerclose").addEventListener("click", async () =
   history.pushState({}, '', '/');
 });
 
-const MIN_LEN = 3;
 const COMMENTS_PAGE = 10;
 const commentSearchInput = document.querySelector("#commentSearch input");
 const appendCommentSearch = document.getElementById("appendCommentSearch");
@@ -1287,10 +1286,12 @@ window.previousCommentTerm = "";
 commentSearchInput.addEventListener("keydown", async (e) => {
   if (e.key !== "Enter") return;
 
+  /*
   if (!document.querySelector("#tweetViewer #appendTweet .tweet") && !document.querySelector("#commentViewer #appendComment #actuallyATweet")) {
     log("red", "please wait and try again");
     return;
   }
+  */
 
   const term = commentSearchInput.value.trim();
   if (term === window.previousCommentTerm) return;
@@ -1313,7 +1314,7 @@ commentSearchInput.addEventListener("keydown", async (e) => {
   if (!document.getElementById("tweetViewer").classList.contains("hidden")) {
     currentTweetId = document.querySelector("#tweetViewer #appendTweet .tweet").dataset.id;
   } else if (document.getElementById("tweetViewer").classList.contains("hidden") && !document.getElementById("commentViewer").classList.contains("hidden")) {
-    currentTweetId = document.querySelector("#commentViewer #appendComment #actuallyATweet").dataset.id;
+    currentTweetId = document.querySelector("#commentViewer #appendComment .comment").dataset.tweet;
   }
 
   if (!document.getElementById("commentViewer").classList.contains("hidden") && document.querySelector("#commentViewer #appendComment .comment")) {
