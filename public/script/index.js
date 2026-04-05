@@ -719,7 +719,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     const premiumExpiry = data.premium ? data.premium.toDate() : null;
     const now = new Date();
     const isPremium = premiumExpiry && premiumExpiry > now;
-    let cooldownDuration = isPremium ? 1 * 60 * 1000 : 10 * 60 * 1000;
+    let cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
     await runTransaction(db, async (tx) => {
       if ((window.communityID && shareToFollowers) || !window.communityID) {
@@ -6936,7 +6936,7 @@ sendRetweet.onclick = async () => {
       const premiumExpiry = data.premium ? data.premium.toDate() : null;
       const now = new Date();
       const isPremium = premiumExpiry && premiumExpiry > now;
-      const cooldownDuration = isPremium ? 1 * 60 * 1000 : 10 * 60 * 1000;
+      const cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
       await runTransaction(db, async (tx) => {
         if ((window.communityID && postedToMain) || !window.communityID) {

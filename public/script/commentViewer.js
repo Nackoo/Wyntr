@@ -1553,7 +1553,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               }
               <strong class="user-link" data-uid="${parent.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
               <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(parent.createdAt)} ${editHTML2}</span>
-              <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
+              <span style="cursor:pointer;margin-left:auto" data-community-id="${parent.sharedFromCommunity || parent.communityId || null}" data-id="${parentId}" data-tweet="${tweetId}" data-author="${parent.uid}" data-text="${parent.text}" class="cmenubtn">
                 <img src="/image/three-dots.svg">
               </span>
             </div>
