@@ -713,6 +713,7 @@ async function getIfUserfollows(uid) {
 }
 
 function softblank() {
+  document.getElementById("stardenburdenhardenbart").textContent = "user";
   document.getElementById("username").textContent = "username"
   document.getElementById("user-description").textContent = "loading description...";
   document.getElementById("user-name").textContent = "user";
@@ -739,6 +740,7 @@ function softblank() {
 }
 
 function blank() {
+  document.getElementById("stardenburdenhardenbart").textContent = "user";
   document.getElementById("username").style.display = "none";
   document.getElementById("user-description").textContent = "";
   document.querySelectorAll(".status")[1].style.display = "none";
@@ -1307,7 +1309,6 @@ export async function openUserSubProfile(uid) {
   document.getElementById("user-status").textContent = d.status || "i'm cold";
   document.getElementById("user-name").textContent = d.displayName || "Unnamed";
   document.getElementById("username").textContent = `@${d.username}` || "unnamed";
-  document.getElementById("user-description").innerHTML = await parseMentionsToLinks(d.description || "wsg homie?", d.descriptionMentions || []);
   document.getElementById("user-pfp").style.background = `url(${base91ToImageSrc(d.photoURL) || "/image/default-avatar.png"}) no-repeat center /cover`;
   document.getElementById("user-banner").style.background = d.banner ?
     `url(${base91ToImageSrc(d.banner)}) center/cover` :
@@ -1333,11 +1334,6 @@ export async function openUserSubProfile(uid) {
     userEffectEl.style.setProperty("--user-effect-opacity", "0.5");
   }
 
-  if (window.currentUserRole === "admin") {
-    document.getElementById("sujdiqu").style.display = "flex";
-    document.getElementById("user-balance").textContent = formatNumber(d.balance);
-  }
-
   if (d.createdAt?.toDate) {
     const date = d.createdAt.toDate();
     const formatted = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
@@ -1359,6 +1355,9 @@ export async function openUserSubProfile(uid) {
   document.getElementById("followers").textContent = d.followers || 0;
   document.getElementById("following").textContent = d.following || 0;
   document.getElementById("comCount").textContent = d.communitiesCount || 0;
+  document.getElementById("stardenburdenhardenbart").textContent = d.displayName || "user";
+  document.getElementById("user-description").innerHTML = "loading about...";
+  document.getElementById("user-description").innerHTML = await parseMentionsToLinks(d.description || "wsg homie?", d.descriptionMentions || []);
 }
 
 async function loadIfFollow(uid) {

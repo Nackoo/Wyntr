@@ -60,7 +60,7 @@ async function loadBookmarks(initial = false) {
       bookmarkList.innerHTML = "";
       bookmarkList.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
-<div style="max-width:400px;text-align:left;margin-top:20px;">
+          <div style="max-width:400px;text-align:left;margin-top:20px;">
             <h2 style="margin:0;">Save Wynts for later</h2>
             <p style="color:grey;margin:7px 0;">when you bookmark a Wynt, you'll see it here.</p>
           </div>
@@ -255,7 +255,6 @@ async function loadFolderTweets(folderId, initial = true) {
 
         await runTransaction(db, async (tx) => {
           tx.delete(ref);
-
           tx.update(folderRef, { 
             tweetsCount: increment(-1),
             lastUpdated: serverTimestamp()
@@ -437,7 +436,7 @@ async function selectFolder(folderId, tweetId, isPremium = true) {
         lastUpdated: serverTimestamp()
       })
     });
-    log("green", `Removed from ${displayName}`);
+    log("green", `Removed from "${displayName}"`);
   } else {
     await runTransaction(db, async (tx) => {
       tx.set(ref, {
@@ -448,7 +447,7 @@ async function selectFolder(folderId, tweetId, isPremium = true) {
         lastUpdated: serverTimestamp()
       });
     });
-    log("green", `Saved to ${displayName}`);
+    log("green", `Saved to "${displayName}"`);
   }
 
   loading1.classList.remove("show");

@@ -1,4 +1,4 @@
-import { auth, db, doc, getDoc, onAuthStateChanged, onSnapshot } from "./firebase.js";
+import { auth, db, doc, getDoc, onAuthStateChanged, onSnapshot, Timestamp } from "./firebase.js";
 import { loadFollowingTweets } from "./followingTweets.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
@@ -68,7 +68,7 @@ function fillCommunityHoverCard(c) {
   `;
 }
 
-function fillHoverCard(d) {
+async function fillHoverCard(d) {
   if (d.banned === true) {
     document.getElementById("hover-avatar").style.display = "inline";
     document.getElementById("hover-avatar").src = "/image/default-avatar.jpg";
@@ -86,14 +86,15 @@ function fillHoverCard(d) {
     document.getElementById("hover-title").style.display = "none";
     document.getElementById("hover-name").style.display = "block";
     document.getElementById("hover-username").textContent = "@" + d.username;
-    document.getElementById("hover-bio").textContent = d.description || "no description";
+    document.getElementById("hover-bio").textContent = "loading about...";
     document.getElementById("hover-followers").textContent = formatNumber(d.followers || 0);
     document.getElementById("hover-following").textContent = formatNumber(d.following || 0);
+    document.getElementById("hover-bio").innerHTML = d.description ? await parseMentionsToLinks(d.description, d.descriptionMentions || []) : "no description";
     if (d.createdAt?.toDate) {
       const date = d.createdAt.toDate();
       document.getElementById("hover-joined").textContent = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${String(date.getFullYear()).slice(-2)}` || "some time ago";
     }
-    if (d.suspended) {
+    if (d.suspended && d.suspendedUntil > Timestamp.now()) {
       document.getElementById("user1-suspended").classList.remove("hidden");
     } else {
       document.getElementById("user1-suspended").classList.add("hidden");

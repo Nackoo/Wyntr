@@ -230,6 +230,10 @@ function closeUser() {
   tweetviewactive();
 }
 
+function closeuser() {
+  hideprofile();
+}
+
 document.getElementById("hideProfile").addEventListener("click", () => {
   profilesub.classList.add("hidden");
   homesvg.classList.add("hidden");
@@ -244,6 +248,7 @@ window.hidebookmark = hidebookmark;
 window.hidesettings = hidesettings;
 window.hidenotif    = hidenotif;
 window.closeUser    = closeUser;
+window.closeuser    = closeuser;
 
 document.body.addEventListener("click", async (e) => {
   const userLink = e.target.closest(".user-link");

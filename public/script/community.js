@@ -488,12 +488,6 @@ async function showCreateCommunityOverlay(communityId = null) {
 
   document.getElementById("cancelCreateCommunityBtn").addEventListener("click", () => overlay.remove());
 
-  const getValidNum = (id, max = Infinity) => {
-    const val = parseFloat(document.getElementById(id).value);
-    if (isNaN(val) || val <= 0) return null;
-    return Math.min(Math.round(val), max);
-  };
-
 document.getElementById("createCommunityBtn").onclick = async () => {
   rebuildIndexes();
 
@@ -608,12 +602,6 @@ document.getElementById("createCommunityBtn").onclick = async () => {
     await loadMyCommunities();
     loadingMyCom = false;
   } else {
-    const reqs = {
-      minFollowers: getValidNum("minFollowersInput") ,
-      joinFee: getValidNum("joinFeeInput", 500) ,
-      mustFollow: document.getElementById("onlyFollowers").checked,
-    };
-
     const comRef  = doc(db, "communities", editingId);
     const comSnap = await getDoc(comRef)             ;
 
@@ -974,7 +962,7 @@ export async function openCommunity(communityId) {
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border);
         margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
-        <h2 style="display:flex;align-items:center;margin:15px 0;">
+        <div style="display:flex;align-items:center;margin:15px 0;">
           <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="
             history.pushState({}, '', '/');
             document.getElementById('communityActiveCheckbox').style.display = 'none';
@@ -982,8 +970,8 @@ export async function openCommunity(communityId) {
           " class="close-btn">
             <img src="/image/leftArrow.svg">
           </button>
-          Community
-        </h2>
+          <h2 class="user-link" style="margin:0;">${escapeHTML(cData.name)}</h2>
+        </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <button onclick="document.getElementById('communitySearch').classList.remove('hidden')" style="background:none;border:none;padding-right:0">
             <img height="20" src="/image/search.svg">
@@ -2631,8 +2619,8 @@ const communityScrollBox = document.querySelector("#communityOverlay .user-box")
 
 communityScrollBox?.addEventListener("scroll", async () => {
     const nearBottom =
-        communityScrollBox.scrollTop + communityScrollBox.clientHeight >=
-        communityScrollBox.scrollHeight - 150;
+      communityScrollBox.scrollTop + communityScrollBox.clientHeight >=
+      communityScrollBox.scrollHeight - 150;
 
     if (!nearBottom) return;
 
@@ -2641,13 +2629,6 @@ communityScrollBox?.addEventListener("scroll", async () => {
 
     if (isMy) {
         if (loadingMyCom) return;
-        const user = auth.currentUser;
-        const userRef = doc(db, "users", user.uid);
-        const snap = await getDoc(userRef);
-        const allIds = snap.data()?.communities || [];
-
-        if (myComOffset >= allIds.length) return;
-
         loadingMyCom = true;
         await loadMyCommunities();      
         loadingMyCom = false;
@@ -2769,15 +2750,7 @@ async function openCommunityOverlay(uid, reset) {
   if (reset) {
     comLastDoc = null;
     container.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
-      </div>
+<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
     `;
 
     const userRef = doc(db, "users", uid);
@@ -2904,12 +2877,7 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
     }
 
     list.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:15px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div></div>
-      </div>
+<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
     `;
 
     if (!term) {

@@ -184,9 +184,11 @@ saveButton.addEventListener("click", async () => {
     .replace(/[^a-z0-9._-]/g, "")
     .slice(0, 20);
   const newDescription = descriptionInput.value.trim();
+
   const newBanner = bannerInput.files[0]
     ? bannerInput.files[0]
     : bannerPreview.dataset.image;
+
   const newAvatar = avaInput.files[0]
     ? avaInput.files[0]
     : avaPreview.dataset.image;
@@ -275,32 +277,34 @@ saveButton.addEventListener("click", async () => {
   document.getElementById("my-status").textContent = newStatus;
 
   myName.textContent = newDisplayName;
-  if (newBanner) {
-    myBanner.style.backgroundImage = `url('${base91ToImageSrc(newBanner)}')`;
-  } else {
-    myBanner.style.background = "url('/image/default-banner.png')";
-  }
 
   const updatedSnap = await getDoc(userRef);
   const updatedData = updatedSnap.data();
 
   applyUserEffect(updatedData.effect, "#user-profile-effect");
 
-  myBanner.style.backgroundRepeat = "no-repeat";
-  myBanner.style.backgroundPosition = "center";
-  myBanner.style.backgroundSize = "cover";
-  myBanner.style.backgroundColor = "unset";
-
   myPfp.style.background = `url('${base91ToImageSrc(newAvatar) || auth.currentUser.photoURL}') no-repeat center / cover`;
 
   document.querySelector(".account-avatar").src = base91ToImageSrc(newAvatar) || auth.currentUser.photoURL;
   document.querySelector(".account-name").textContent = newDisplayName;
   myUsername.textContent = `@${newUsername}`;
+
+  if (updatedData.banner) {
+    myBanner.style.backgroundImage = `url('${base91ToImageSrc(updatedData.banner)}')`;
+  } else {
+    myBanner.style.backgroundImage = "url('/image/default-banner.png')";
+  }
+
+  myBanner.style.backgroundRepeat = 'no-repeat';
+  myBanner.style.backgroundPosition = 'center';
+  myBanner.style.backgroundSize = 'cover';
+  myBanner.style.backgroundColor = 'unset';
 });
 
 document.getElementById("banner-delete").addEventListener("click", async () => {
   bannerPreview.style.background = "url('/image/default-banner.png')";
   bannerPreview.dataset.image = "/image/default-banner.png";
+  bannerInput.value = "";
 
   bannerPreview.style.backgroundRepeat = "no-repeat";
   bannerPreview.style.backgroundPosition = "center";

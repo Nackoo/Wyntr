@@ -263,8 +263,8 @@
         </div>
 
         <button id="tweetbtn" style="background:none;color:var(--color);display:flex;align-items:center;margin-top:10px;" onclick="document.getElementById('post').click()">
-          <div class="flexx" style="padding:13px 0;font-size:16px;background:white;width:100%;color:black;display:flex;justify-content:center;margin-bottom:5px;margin-top:0;border-radius:20px;">
-            <strong>Wynt</strong>
+          <div class="flexx" style="padding:13px 0;font-size:16px;background:white;width:100%;color:black;display:flex;justify-content:center;margin-bottom:5px;margin-top:5px;border-radius:17px;">
+            Wynt
           </div>
         </button>
       </div>
@@ -301,9 +301,9 @@
         <div class="user-box">
           <header style="margin:0 -21px;padding:0 20px;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border)">
-            <button onclick="history.pushState({}, '', '/'); closeUser(); document.getElementById('notifications').classList.remove('hidden');" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
+            <button onclick="history.pushState({}, '', '/'); closeuser(); document.getElementById('notifications').classList.remove('hidden');" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0">You!</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" class="user-link" id="skuter">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
             </div>
           </header>
           <div id="user-profile-effect">
@@ -713,8 +713,7 @@
 
       <div id="userOverlay" class="useroverlay hidden">
         <div class="user-box">
-          <br>
-          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:0;margin-top:-12px;">
+          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:15px;">
             <button onclick="hideuser()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
             <input style="margin-right:20px;" type="text" placeholder="search anything">
           </header>
@@ -783,7 +782,7 @@
           <header style="margin:0 -21px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border)">
             <button onclick="history.pushState({}, '', '/'); closeUser(); document.getElementById('notifications').classList.remove('hidden');" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0">A user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" id="stardenburdenhardenbart" class="user-link">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
             </div>
           </header>
           <div id="profile-effect">
@@ -809,7 +808,6 @@
                 <span id="comCount" style="font-weight:bold;color:var(--color)">0</span> 
                 communities
               </span>
-              <div id="sujdiqu" style="display:flex;align-items:center;gap:5px;display:none;"><img src="/image/coin.svg"> <span id="user-balance">0</span></div>
             </div>
             <div style="align-items: center;display: flex; gap: 8px;">
               <span id="ers">

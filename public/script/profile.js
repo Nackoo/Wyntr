@@ -108,16 +108,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const name = data.displayName || auth.currentUser.displayName;
     document.getElementById("my-name").textContent = name;
-    document.getElementById("my-username").textContent = `@${data.username}`
-
-    document.getElementById("my-description").innerHTML =
-      await parseMentionsToLinks(data.description || "wsg homie?", data.descriptionMentions || []);
+    document.getElementById("my-username").textContent = `@${data.username}`;
+    document.getElementById("my-description").textContent = "loading about...";
+    document.getElementById("skuter").textContent = name;
 
     if (d.createdAt?.toDate) {
       const date = d.createdAt.toDate();
       const formatted = `${date.getDate()} ${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
       document.getElementById("my-creation").textContent = `${formatted}`;
     }
+
+    document.getElementById("my-description").innerHTML =
+      await parseMentionsToLinks(data.description || "wsg homie?", data.descriptionMentions || []);
 
     if (d.pinned && !pinLoaded) {
       const pinnedSnap = await getDoc(doc(db, "tweets", d.pinned));

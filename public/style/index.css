@@ -255,23 +255,15 @@ body {
     padding: 5px 0;
   }
 
-  .smallbar .flexx:not(.smallbar .active) {
-    border: 1px solid var(--dark);
-  }
-
-  .smallbar .active {
-    background: var(--normal);
-    border: var(--border);
-  }
-
   .flexx {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 13px;
     margin: 0 15px;
     border-radius: 15px;
-    padding: 10px 15px;;
+    padding: 9px 15px;;
     cursor: pointer;
+    font-size: 17px;
   }
 
   #termsbtn .flexx {
@@ -902,12 +894,10 @@ p {
   #leaderboardsvg {
     display: none;
   }
-  #bookmarksvg {
-    display: none;
-  }
-  #bookmarkBtn {
-    display: flex !important;
-  }
+}
+
+.flexx img {
+  height: 25px;
 }
 
 @media (max-width: 700px) {
@@ -1144,3 +1134,4 @@ select:focus {
   background: black;         
   border-radius: 16px;       
 } /* thicc */
+

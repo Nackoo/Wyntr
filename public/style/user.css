@@ -874,7 +874,7 @@ input[type="checkbox"] {
 
 @media (max-width:500px) {
   .user-link {
-    max-width: 120px;
+    max-width: 200px;
   }
   .tweet p.clamp-text .user-link {
     max-width: 100%;
@@ -1453,20 +1453,13 @@ textarea {
 }
 
 @media (max-width: 700px) {
-  .skibidi-link {
-    max-width: 200px;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-    overflow:hidden;
-    display: inline-block;
-  }
   #replyList .comment-item {
     margin: 0 5px !important;
   }
 }
 
 #commentSearch .comment-item {
-  margin: 0 -20px;
+  margin: 0 -17px;
 }
 
 @media (max-width: 700px) {
@@ -1816,4 +1809,29 @@ h3, .translated-text {
 button[onclick="document.getElementById('profileMenuOverlay').classList.remove('hidden')"],
 button[onclick="document.getElementById('userMenuOverlay').classList.remove('hidden')"] {
   z-index: 1 !important;
+}
+
+#userOverlay .user-search-item {
+  border: none !important;
+}
+
+.menu-box {
+  max-height: 80vh;
+  overflow: auto;
+}
+
+#profileComList .com-item,
+#followList .user-search-item {
+  border: none !important;
+  padding: 9px 20px;
+}
+
+#followList .user-search-item,
+#userOverlay .user-search-item {
+  padding: 15px 20px !important
+}
+
+#myCommunities .com-item,
+#communityList .com-item {
+  border: none
 }

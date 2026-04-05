@@ -1477,11 +1477,11 @@ export async function sendFollowNotification(targetUserId, username) {
   await setDoc(notificationRef, {
     type: "follow",
     senderName: username,
-    senderId: sender.uid,
+    senderId: auth.currentUser.uid,
     text: `${username} just followed you`,
     createdAt: serverTimestamp(),
     read: false,
-    SENDERUID: sender.uid
+    SENDERUID: auth.currentUser.uid
   }, { merge: true });
 }
 

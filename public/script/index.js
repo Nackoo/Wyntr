@@ -3,8 +3,8 @@ import { extractMentions } from './mention.js';
 import { handleTags } from './tags.js';
 import { listenForSystemNotifications, sendPinNotification, sendCommunityPinNotification, sendCommentNotification, sendCommunityCommentNotification, listenForUnreadNotifications, loadNotifications, sendMentionNotification, sendCommunityMentionNotification, sendRetweetNotification, sendCommunityRetweetNotification, sendDonationNotification, sendCommunityDonationNotification,sendReplyMentionNotification, sendCommunityReplyMentionNotification, sendReplyNotification, sendReplyRetweetNotification, sendCommentMentionNotification, sendCommunityCommentMentionNotification, sendTweetWarningNotification, sendCommunityReplyNotification, sendCommunityReplyRetweetNotification, sendCommentWarningNotification, sendCommunityPinNotification1, sendCommunityTweetDeleteNotification, sendHideNotification, sendCommunityReplyDeleteNotification } from './notification.js';
 import { supabase } from "./firebase.js";
-import { uploadToSupabase, compressImageTo480, readFileAsBase64, downloadFile, makeCollage, getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
-import { comment, tweet } from "./nonsense.js"
+import { uploadToSupabase, compressImageTo480, downloadFile, makeCollage, getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
+import { comment } from "./nonsense.js"
 import { viewTweet } from "./tweetViewer.js";
 import { tokenize, formatDate, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime, info, log, confirmDialog, getDefaultLanguage, detectLanguage, isTranslateEnabled, randomString, formatUTC8, truncateHTML } from "./texts.js";
 import { askDeleteReason, updateCommentUI } from "./moderation.js";
@@ -18,6 +18,7 @@ import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } 
 
 const loading = document.getElementById("loadingOverlay");
 const communityNameCache = new Map();
+
 export async function getCommunityNameById(communityId) {
   if (!communityId) return "unknown";
   if (communityNameCache.has(communityId)) {
@@ -47,11 +48,18 @@ export async function loadFollowing(uid) {
     document.dispatchEvent(new Event("following-cache-ready"));
     return;
   }
-  const q = query(collection(db, "users", uid, "following"), orderBy("followedAt", "desc"), limit(100));
+  
+  const q = query(
+    collection(db, "users", uid, "following"), 
+    orderBy("followedAt", "desc"), 
+    limit(100)
+  );
   const snap = await getDocs(q);
+
   const followingSet = new Set();
   const profileMap = new Map();
   const fetchPromises = snap.docs.map(async docSnap => {
+
     const followedUid = docSnap.id;
     followingSet.add(followedUid);
     const profile = await getUserData(followedUid);
@@ -60,13 +68,16 @@ export async function loadFollowing(uid) {
       ...profile
     });
   });
+
   await Promise.all(fetchPromises);
   window.currentUserFollowing = followingSet;
   window.followingUserCache = profileMap;
+
   await saveFollowingToCache(followingSet, profileMap);
   startFollowingListener(uid);
   document.dispatchEvent(new Event("following-cache-ready"));
 }
+
 async function initNotifications() {
   if (!("Notification" in window)) return;
   let permission = Notification.permission;
@@ -166,7 +177,6 @@ function shouldRunFeatures(pathname) {
   if (/^\/wynt\/[^/]+\/reply\/[^/]+$/.test(pathname)) return false;
   return true;
 }
-let screenLoaded = false;
 
 function monitorUrlChanges(user) {
   let lastPath = window.location.pathname;
@@ -395,13 +405,15 @@ window.addEventListener("appinstalled", async () => {
       const userSnap = await transaction.get(userRef);
       if (!userSnap.exists()) return;
       const data = userSnap.data();
-      if (data.hasInstalled) return;
-      transaction.update(userRef, {
-        hasInstalled: true,
-        balance: increment(100),
-      });
+
+      if (!data.hasInstalled) {
+        transaction.update(userRef, {
+          hasInstalled: true,
+          balance: increment(100),
+        });
+        info("check", "yay!", "Thanks for installing Wyntr! You've received 100 Wcoins");
+      }
     });
-    info("check", "yay!", "Thanks for installing Wyntr! You've received 100 Wcoins")
   } catch (err) {
     console.error("Failed to process install reward:", err);
     log("red", "failed to process install reward");
@@ -535,13 +547,12 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         mediaURL = upload.url;
         mediaType = "video";
         mediaPath = upload.path || "";
-      
       } else if (images.length > 0) {
         let encodedBase91;
 
         if (images.length > 1) {
-          const collageBase64 = await makeCollage(images);
-          encodedBase91 = await compressImageTo480(collageBase64);
+          const collage = await makeCollage(images);
+          encodedBase91 = await compressImageTo480(collage);
         } else {
           encodedBase91 = await compressImageTo480(images[0]);
         }
@@ -570,7 +581,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     if (document.getElementById("replyPermissionMentioned").checked === true) {
       permission = "mentioned";
     }
-    const editUntil = new Date(Date.now() + 10 * 60 * 1000);
+    const editUntil = new Date(Date.now() + 15 * 60 * 1000);
 
     let tweetRef;
 
@@ -1130,7 +1141,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
               ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
             </p>
-            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
               document.getElementById('expand-${expandquoted}').remove();
               document.getElementById('${expandquoted}').classList.remove('hidden');
               this.remove();
@@ -1216,7 +1227,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
               ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
             </p>
-            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
               document.getElementById('expand-${expandquoted}').remove();
               document.getElementById('${expandquoted}').classList.remove('hidden');
               this.remove();
@@ -1427,7 +1438,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
                 ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
               </p>
-              <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+              <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
                 document.getElementById('expand-${expandquoted}').remove();
                 document.getElementById('${expandquoted}').classList.remove('hidden');
                 this.remove();
@@ -1689,7 +1700,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
                   ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)}` : `${parsedText}`}
                 </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
                   document.getElementById('expand-${expandretweet}').remove();
                   document.getElementById('${expandretweet}').classList.remove('hidden');
                   this.remove();
@@ -1760,7 +1771,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
                   ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
                 </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
                   document.getElementById('expand-${expandretweet}').remove();
                   document.getElementById('${expandretweet}').classList.remove('hidden');
                   this.remove();
@@ -1849,7 +1860,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
                   ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
                 </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid var(--color);font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
                   document.getElementById('expand-${expandretweet}').remove();
                   document.getElementById('${expandretweet}').classList.remove('hidden');
                     this.remove();
@@ -2498,11 +2509,13 @@ document.body.addEventListener("click", async (e) => {
     overlay.classList.remove("hidden");
     loading.classList.remove("show");
 
-    document.getElementById("tweetOptionsEdit").addEventListener("click", () => {
-      document.getElementById("tweetOption").classList.remove("hidden");
-      document.getElementById("permissionOnEdit").classList.add("hidden");
-      document.getElementById("settings-save").classList.remove("hidden");
-    });
+    if (isOwner) {
+      document.getElementById("tweetOptionsEdit").addEventListener("click", () => {
+        document.getElementById("tweetOption").classList.remove("hidden");
+        document.getElementById("permissionOnEdit").classList.add("hidden");
+        document.getElementById("settings-save").classList.remove("hidden");
+      });
+    }
 
     box.querySelector(".text-copy").dataset.text = data.text;
   }
@@ -2763,18 +2776,6 @@ document.body.addEventListener("click", async (e) => {
       const appendEdit = document.getElementById("appendEdit");
       appendEdit.innerHTML = commentHTML;
       overlay.classList.remove("hidden");
-
-      const tweetOptionsEdit = document.getElementById("tweetOptionsEdit");
-      const commentOptionsEdit = document.getElementById("commentOptionsEdit");
-
-      tweetOptionsEdit.classList.add("hidden");
-      commentOptionsEdit.classList.remove("hidden");
-
-      const mute = document.getElementById("cmute");
-      const sensitive = document.getElementById("csensitive");
-
-      mute.checked = data.muteNotif;
-      sensitive.checked = data.sensitiveMedia;
 
       const saveBtn = document.getElementById("saveEdit");
       saveBtn.onclick = async () => {
@@ -3286,11 +3287,13 @@ document.body.addEventListener("click", async (e) => {
     overlay.classList.remove("hidden");
     loading.classList.remove("show");
 
-    document.getElementById("commentOptionsEdit").addEventListener("click", () => {
-      document.getElementById("commentOption").classList.remove("hidden");
-      document.getElementById("permissionOnEdit2").classList.add("hidden");
-      document.getElementById("settings-save1").classList.remove("hidden");
-    });
+    if (isOwner) {
+      document.getElementById("commentOptionsEdit").addEventListener("click", () => {
+        document.getElementById("commentOption").classList.remove("hidden");
+        document.getElementById("permissionOnEdit2").classList.add("hidden");
+        document.getElementById("settings-save1").classList.remove("hidden");
+      });
+    }
 
     if (commentData.text) box.querySelector(".text-copy").dataset.text = commentData.text;
   }
@@ -4210,7 +4213,7 @@ document.body.addEventListener("click", async (e) => {
           let donationReceived = 0;
           let sentDonationNotification = false;
 
-          const editUntil = new Date(Date.now() + 10 * 60 * 1000);
+          const editUntil = new Date(Date.now() + 15 * 60 * 1000);
 
           let commentsRef, postRef;
           if (window.communityID) {
@@ -4869,7 +4872,7 @@ document.body.addEventListener("click", async (e) => {
       }
       const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
 
-      const editUntil = new Date(Date.now() + 10 * 60 * 1000);
+      const editUntil = new Date(Date.now() + 15 * 60 * 1000);
       const detectedLanguage = await detectLanguage(processedText);
 
       const parentCommentRef = doc(db, ...basePath, commentId);
@@ -5025,7 +5028,7 @@ document.body.addEventListener("click", async (e) => {
       document.getElementById("replyOverlay").classList.add("hidden");
       document.getElementById("rmute").checked = false;
       document.getElementById("rsensitive").checked = false;
-      if (TWEETOWNERSUSPENDED === false) log("green", "reply sent");
+      if (TWEETOWNERSUSPENDED === false) log("green", "reply posted");
 
       // VIEWS INCREMENT
       if (TWEETOWNERSUSPENDED === false) {
@@ -5857,22 +5860,33 @@ document.body.addEventListener("click", async (e) => {
     try {
       icon1.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
 
-      await runTransaction(db, async (transaction) => {
-        const userSnap = await transaction.get(userRef);
-        const userData = userSnap.data();
-        if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
-          info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
-          icon1.innerHTML = `
-            <div class="likeicon" style="height:20px">
-              <img loading='lazy' height="20" src="/image/heart.svg">
-            </div>
-          `;
-          return;
-        }
+      const [ userSnap, tweetSnap, likeSnap, commentSnap, d ] = await Promise.all([
+        getDoc(userRef),
+        getDoc(tweetRef),
+        getDoc(likeDocRef),
+        getDoc(commentRef),
+        getUserData(auth.currentUser.uid)
+      ]);
 
-        const tweetSnap = await transaction.get(tweetRef);
+      if (d.privateLikes) {
+        d.photoURL = "/image/default-avatar.jpg";
+        d.username = "Anonymous";
+        d.displayName = "Anonymous";
+      }
+
+      const userData = userSnap.data();
+      if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
+        info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
+        icon1.innerHTML = `
+          <div class="likeicon" style="height:20px">
+            <img loading='lazy' height="20" src="/image/heart.svg">
+          </div>
+        `;
+        return;
+      }
+
+      await runTransaction(db, async (transaction) => {
         const tweetData = tweetSnap.data();
-        
         if (tweetData.uid != auth.currentUser.uid) {
           const commentUserRef = doc(db, "users", tweetData.uid);
           const commentUserSnap = await transaction.get(commentUserRef);
@@ -5889,9 +5903,6 @@ document.body.addEventListener("click", async (e) => {
             return;
           }
         }
-
-        const likeSnap = await transaction.get(likeDocRef);
-        const commentSnap = await transaction.get(commentRef);
 
         const isCreator = tweetData.uid === auth.currentUser.uid;
 
@@ -5914,7 +5925,10 @@ document.body.addEventListener("click", async (e) => {
           if (countSpan) countSpan.textContent = currentCount - 1 > 0 ? currentCount - 1 : "";
         } else {
           transaction.set(likeDocRef, {
-            likedAt: new Date()
+            likedAt: new Date(),
+            photoURL: d.photoURL || "/image/default-avatar.jpg",
+            displayName: d.displayName || "anonymous",
+            username: d.username || "anonymous",
           });
           transaction.update(commentRef, {
             likeCount: currentCount + 1,
@@ -5955,24 +5969,34 @@ document.body.addEventListener("click", async (e) => {
     const userRef = doc(db, "users", auth.currentUser.uid);
     btn.style.pointerEvents = "none";
 
+    const [ userSnap, postSnap, likeSnap, d ] = await Promise.all([
+      getDoc(userRef),
+      getDoc(postRef),
+      getDoc(likeRef),
+      getUserData(auth.currentUser.uid)
+    ]);
+
+    if (d.privateLikes) {
+      d.photoURL = "/image/default-avatar.jpg";
+      d.username = "Anonymous";
+      d.displayName = "Anonymous";
+    }
+
+    const userData = userSnap.data();
+    if (userData.suspended === true && userData.suspended > Timestamp.now()) {
+      info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
+      btn.innerHTML = `
+        <div class="likeicon" style="height:20px">
+          <img loading='lazy' src="/image/heart.svg">
+        </div>
+      `;
+      return;
+    }
+
     try {
       icon.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
       await runTransaction(db, async (transaction) => {
-        const userSnap = await transaction.get(userRef);
-        const userData = userSnap.data();
-        if (userData.suspended === true && userData.suspended > Timestamp.now()) {
-          info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
-          btn.innerHTML = `
-            <div class="likeicon" style="height:20px">
-              <img loading='lazy' src="/image/heart.svg">
-            </div>
-          `;
-          return;
-        }
-
-        const postSnap = await transaction.get(postRef);
         const postData = postSnap.data();
-
         if (postData.uid != auth.currentUser.uid) {
           const postUserRef = doc(db, "users", postData.uid);
           const postUserSnap = await transaction.get(postUserRef);
@@ -5990,8 +6014,6 @@ document.body.addEventListener("click", async (e) => {
           }
         }
 
-        const likeSnap = await transaction.get(likeRef);
-
         let newCount = postSnap.exists() ? (postSnap.data().likeCount || 0) : 0;
 
         if (likeSnap.exists()) {
@@ -6007,7 +6029,10 @@ document.body.addEventListener("click", async (e) => {
           `;
         } else {
           transaction.set(likeRef, {
-            likedAt: new Date()
+            likedAt: new Date(),
+            photoURL: d.photoURL || "/image/default-avatar.jpg",
+            username: d.username || "Anonymous",
+            displayName: d.displayName || "Anonymous"
           });
           transaction.update(postRef, {
             likeCount: newCount + 1
@@ -6056,8 +6081,24 @@ document.body.addEventListener("click", async (e) => {
     }
     try {
       const batch = writeBatch(db);
-      const pinnedQ = query(commentsRef, where("pinned", "==", true));
-      const pinnedSnap = await getDocs(pinnedQ);
+      const pinnedQ = query(commentsRef, 
+        where("pinned", "==", true)
+      );
+
+      let targetRef;
+      if (window.communityID) {
+        targetRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId);
+      } else {
+        targetRef = doc(db, "tweets", tweetId, "comments", commentId);
+      }
+
+      const [pinnedSnap, snap] = await Promise.all([
+        getDocs(pinnedQ),
+        getDoc(targetRef)
+      ])
+
+      const data = snap.data();
+
       pinnedSnap.docs.forEach(docSnap => {
         if (docSnap.id !== commentId) {
           batch.update(docSnap.ref, {
@@ -6065,19 +6106,13 @@ document.body.addEventListener("click", async (e) => {
           });
         }
       });
-      let targetRef;
-      if (window.communityID) {
-        targetRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", commentId);
-      } else {
-        targetRef = doc(db, "tweets", tweetId, "comments", commentId);
-      }
-      const snap = await getDoc(targetRef);
-      const data = snap.data();
+
       batch.update(targetRef, {
         pinned: !isPinned,
         hasBeenPinned: true
       });
       await batch.commit();
+
       document.getElementById("cMenuOverlay").classList.add("hidden");
       if (!isPinned && !data.hasBeenPinned) {
         const commentSnap = await getDoc(targetRef);
@@ -6675,7 +6710,7 @@ sendRetweet.onclick = async () => {
     let originalId = selectedRetweet;
     let commentId = selectedCommentRetweet;
 
-    const editUntil = new Date(Date.now() + 10 * 60 * 1000);
+    const editUntil = new Date(Date.now() + 15 * 60 * 1000);
     const detectedLanguage = await detectLanguage(processedText);
 
     const muteNotif = document.getElementById("rtmute").checked;

@@ -390,11 +390,22 @@ async function parseMentionsToLinks(text, mentions = []) {
   });
 
   if (mentions.length > 0) {
-    for (const uid of mentions) {
-      const userSnap = await getDoc(doc(db, "users", uid));
-      if (!userSnap.exists()) continue;
-      const data = userSnap.data();
-      const displayName = data.displayName || "unknown";
+    const results = await Promise.all(
+      mentions.map(async (uid) => {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (!userSnap.exists()) return null;
+
+        const data = userSnap.data();
+        const displayName = data.displayName || "unknown";
+
+        return { uid, displayName };
+      })
+    );
+
+    for (const res of results) {
+      if (!res) continue;
+
+      const { uid, displayName } = res;
 
       const id = token();
       tokens[id] = `<span class="user-link" data-uid="${uid}" style="color:#00ba7c; cursor:pointer">@${escapeHTML(displayName)}</span>`;
