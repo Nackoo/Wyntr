@@ -640,7 +640,7 @@ export async function fetchTags(term) {
           </div>
         </div>
 `;
-      item.style.cssText = "border-bottom:var(--border);cursor:pointer;";
+      item.style.cssText = "cursor:pointer;";
       item.onclick = () => openTag(tagId);
 
       if (!tagsView.querySelector(`tag-${tagId}`)) {

@@ -1974,7 +1974,7 @@ window.openComMenu = async function (communityId) {
 
       let snap;
 
-      list.innerHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+      list.innerHTML = `<div style="margin:0 -20px;margin-top:-15px !important"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
       const lowerTerm = term.toLowerCase();
 
       const usernameQuery = query(
@@ -2014,7 +2014,7 @@ window.openComMenu = async function (communityId) {
         item.className = "user-search-item";
         item.id = `user-${docSnap.id}`;
         item.style.cssText =
-          "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
+          "display:flex;gap:10px;padding:15px 0 10px 0;align-items:center";
 
         item.innerHTML = `
           <div style="display:flex; gap:12px; width:100%">

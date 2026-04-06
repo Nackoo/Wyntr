@@ -631,8 +631,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         tweetRef = communityPostRef;
 
         if (shareToFollowers) {
-          isSharedPublicly = true;
-
           const publicTweetRef = doc(collection(db, "tweets"));
           tx.set(publicTweetRef, {
             ...baseData,
@@ -2450,7 +2448,7 @@ document.body.addEventListener("click", async (e) => {
           </div>`
         : ""}
 
-        <div class="menu-item share-btn" data-share="${yes}" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
+        <div class="menu-item share-btn" data-share="${yes}" ${!data.postedInPublic ? `data-community-id="${hascom || null}"` : ""} data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
 
         ${window.communityID ? "" :
           `<div class="menu-item bookmark-btn" id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>`
