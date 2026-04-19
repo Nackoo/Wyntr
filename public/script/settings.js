@@ -136,6 +136,11 @@ statusInput.addEventListener("input", () => {
     .slice(0, 128);
 })
 
+descriptionInput.addEventListener("input", () => {
+  descriptionInput.value = descriptionInput.value
+    .slice(0, 160);
+})
+
 bannerInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -183,7 +188,7 @@ saveButton.addEventListener("click", async () => {
     .replace(/\s+/g, "")
     .replace(/[^a-z0-9._-]/g, "")
     .slice(0, 20);
-  const newDescription = descriptionInput.value.trim();
+  const newDescription = descriptionInput.value.trim().slice(0, 160);
 
   const newBanner = bannerInput.files[0]
     ? bannerInput.files[0]

@@ -363,7 +363,7 @@ function updateCompressionProgress(ratio) {
   if (title) title.textContent = `Compressing... ${percent}%`;
 }
 
-async function uploadToSupabase(file, uid) {
+async function uploadToSupabase(file, uid, isPremium) {
   if (!file) return {
     url: "",
     path: "",
@@ -392,12 +392,15 @@ async function uploadToSupabase(file, uid) {
 
   if (file.type.startsWith("video/")) {
     try {
-      const compressedFile = await compressVideoTo480(file);
+      const fileToUpload = isPremium
+        ? file
+        : await compressVideoTo480(file);
 
       const filePath = `wints/${uid}-${Date.now()}.mp4`;
+
       const { data, error } = await supabase.storage
         .from("wints")
-        .upload(filePath, compressedFile, {
+        .upload(filePath, fileToUpload, {
           upsert: true
         });
 
@@ -411,7 +414,7 @@ async function uploadToSupabase(file, uid) {
         };
       }
 
-      const { data: publicUrlData } = 
+      const { data: publicUrlData } =
         supabase.storage
           .from("wints")
           .getPublicUrl(filePath);
@@ -422,7 +425,7 @@ async function uploadToSupabase(file, uid) {
         type: "video",
       };
     } catch (err) {
-      console.error("Video compression failed:", err);
+      console.error("Video processing error:", err);
       return {
         url: "",
         path: "",

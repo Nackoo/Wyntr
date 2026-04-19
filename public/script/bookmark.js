@@ -229,14 +229,14 @@ async function loadFolderTweets(folderId, initial = true) {
 
   for (const docSnap of snap.docs) {
     const tweetId = docSnap.id;
-    const tweetRef = doc(db, 'tweets', tweetId);
+    const tweetRef = docSnap.data().communityId ? doc(db, "communities", docSnap.data().communityId, 'posts', tweetId) : doc(db, 'tweets', tweetId);
     const tweetSnap = await getDoc(tweetRef);
 
     if (tweetSnap.exists()) {
       if (!tweetList.querySelector(".tweet")) {
         tweetList.innerHTML = "";
       }
-      await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, 'append', tweetList);
+      await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, 'append', tweetList, docSnap.data().communityId, true, docSnap.data().private);
     } else {
       const box = document.createElement('div');
       box.className = 'unavailable';
@@ -297,7 +297,7 @@ let boLastDoc = null;
 let boNoMore = false;
 
 // folder list when adding/removing a tweet to a folder
-async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
+async function openBookmarkOverlay(tweetId, isPremium, initial = true, communityId) {
   const overlay = document.getElementById('bookmarkFolderOverlay');
   const folderList = document.getElementById('folderList');
   boCurrentTweetId = tweetId;
@@ -334,7 +334,7 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
         div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">${name}</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
       }
 
-      div.onclick = () => selectFolder(f.id, tweetId);
+      div.onclick = () => selectFolder(f.id, tweetId, true, communityId);
       folderList.appendChild(div);
     }
 
@@ -397,7 +397,7 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
     `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">Index</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>` 
     : 
     `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">Index</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
-    div.onclick = () => selectFolder('index', tweetId, false);
+    div.onclick = () => selectFolder('index', tweetId, false, communityId);
     folderList.appendChild(div);
 
     setBtnVisible(document.getElementById('boLoadMore'), false);
@@ -405,7 +405,8 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true) {
   overlay.classList.remove('hidden');
 }
 
-async function selectFolder(folderId, tweetId, isPremium = true) {
+async function selectFolder(folderId, tweetId, isPremium = true, communityId) {
+
   loading1.classList.add("show");
   const uid = auth.currentUser.uid;
   const targetFolder = isPremium ? folderId : "index";
@@ -439,9 +440,24 @@ async function selectFolder(folderId, tweetId, isPremium = true) {
     log("green", `Removed from "${displayName}"`);
   } else {
     await runTransaction(db, async (tx) => {
-      tx.set(ref, {
-        bookmarkedAt: new Date()
-      });
+      if (communityId) {
+        if (window.isOnPrivate) {
+          tx.set(ref, {
+            bookmarkedAt: new Date(),
+            communityId,
+            private: true
+          });
+        } else {
+          tx.set(ref, {
+            bookmarkedAt: new Date(),
+            communityId
+          });
+        }
+      } else {
+        tx.set(ref, {
+          bookmarkedAt: new Date(),
+        });  
+      }
       tx.update(folderRef, {
         tweetsCount: increment(1),
         lastUpdated: serverTimestamp()

@@ -52,13 +52,17 @@ document.getElementById("buypremium").onclick = async () => {
 
       transaction.update(userRef, {
         balance: increment(-500),
-        premium: expiryDate
+        premium: expiryDate,
+        hasSeenPremiumEnded: false,
       });
     });
 
     await preloadImage(requiredImage);
+    
     document.getElementById("premiumOverlay").classList.add("hidden");
     document.getElementById("welcomeOverlay").classList.remove("hidden");
+    document.getElementById("hh").style.display = "none";
+
     loading.classList.remove("show");
   } catch (err) {
     console.error("Error upgrading to premium:", err);

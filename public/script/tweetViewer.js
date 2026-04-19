@@ -4,7 +4,7 @@ import { formatDate, escapeHTML, applyReadMoreLogic, parseMentionsToLinks, forma
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js"; 
  
-export async function renderTweetViewer(t, tweetId, container, user, comid, isFromMain) {
+export async function renderTweetViewer(t, tweetId, container, user, comid, isFromMain, isStored) {
   document.getElementById("commentList").classList.add("hidden");
   container.innerHTML = `<div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div></div><div class="skeleton-dot"></div></div><div class="skeleton-body"><div class="skeleton-line long"></div><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div><div class="skeleton-footer"><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="invisible skeleton-pill small"></div><div class="skeleton-pill small last"></div></div></div>`;
   document.getElementById("commentList").innerHTML = "";
@@ -993,7 +993,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       }
       <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
       <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
-      <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${t.text}" data-author="${t.uid}" class="menubtn"><img src="/image/three-dots.svg"></span>
+      <span style="cursor:pointer;margin-left:auto" data-community-id="${comid || t.sharedFromCommunity || t.communityId || null}" data-id=${tweetId} data-text="${t.text}" data-author="${t.uid}" ${isStored ? `data-stored="true"` : ""} class="menubtn"><img src="/image/three-dots.svg"></span>
     </div>
     ${communityHTML}
     ${titleHTML}
@@ -1006,7 +1006,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
     ${pollHTML}
     ${t.isHidden ? "" : `
         <div class="flex">
-          <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="like-btn" id="likeBtn-${tweetId}">
+          <span style="cursor:pointer;color:#757779" data-community-id="${window.communityId || null}" class="like-btn" id="likeBtn-${tweetId}">
             <div id="${likeId}" class="likeicon" style="height:20px">
               <img loading='lazy' src="/image/heart.svg">
             </div>
@@ -1184,6 +1184,7 @@ document.body.addEventListener("click", async (e) => {
   if (!link) return;
   const tweetId = link.dataset.id;
   const rawId = link.dataset.communityId;
+  const isStored = link.dataset.stored == "true";
   const communityId = rawId && rawId !== "null" ? rawId : null;
   const tweetViewer = document.getElementById("tweetViewer");
   const box = tweetViewer.querySelector("#appendTweet");
@@ -1268,7 +1269,7 @@ document.body.addEventListener("click", async (e) => {
   }
 
   const tweetData = tweetSnap.data();
-  renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
+  renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, false, isStored);
   loadComments(tweetId, true, null, null, communityId);
 });
 

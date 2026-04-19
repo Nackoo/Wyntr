@@ -572,16 +572,20 @@ async function fetchUsers(term = "") {
       <div style="display:flex; gap:12px; width:100%">
         <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
         
-        <div style="display:flex; flex-direction:column; gap:7px">
-          <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
-            ${escapeHTML(data.displayName)}
-          </strong>
-          <span style="font-size:14px; color:grey;">
-            @${escapeHTML(data.username)}
-          </span>
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+                ${escapeHTML(data.displayName)}
+              </strong>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(data.username)}
+              </span>
+            </div>
+            <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
+          </div>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
         </div>
-        
-        <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
       </div>
     `;
 
@@ -1410,8 +1414,13 @@ async function loadIfFollow(uid) {
           loading.classList.remove("show");
           await loadIfFollow(uid);
         } else {
-          const { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL } = await getUserData(uid);
-          const { displayName, username, avatar: photoURL } = await getUserData(auth.currentUser.uid);
+          const [
+            { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
+            { displayName, username, realavatar: photoURL, realdescription: description }
+          ] = await Promise.all([
+            getUserData(uid),
+            getUserData(auth.currentUser.uid)
+          ]);
 
           await runTransaction(db, async (batch) => {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
@@ -1440,7 +1449,8 @@ async function loadIfFollow(uid) {
               displayName:displayName,
               username: username,
               name: displayName?.toLowerCase(),
-              photoURL: photoURL
+              photoURL: photoURL,
+              description: description
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
@@ -1448,7 +1458,8 @@ async function loadIfFollow(uid) {
               displayName: tDisplayName,
               username: tUsername,
               name: tDisplayName?.toLowerCase(),
-              photoURL: tPhotoURL
+              photoURL: tPhotoURL,
+              description: tDescription
             });
 
             batch.update(currentUserRef, {
@@ -1686,21 +1697,24 @@ async function openFollowOverlay(type, userId, isMe) {
         "display:flex;gap:10px;padding:15px 0;border-bottom:var(--border);align-items:center";
 
       item.innerHTML = `
-        <img src="${base91ToImageSrc(data.photoURL)}" loading="lazy"
-             onerror="this.src='/image/default-avatar.jpg'"
-             style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
-        <div style="flex:1;">
-          <strong class="user-link" data-uid="${docSnap.id}">
-            ${escapeHTML(data.displayName)}
-          </strong>
-          <div style="color:grey;font-size:14px;margin-top:4px;">
-            @${data.username}
+        <div style="display:flex; gap:12px; width:100%">
+          <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+            
+          <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+            <div style="display:flex;width:100%">
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+                  ${escapeHTML(data.displayName)}
+                </strong>
+                <span style="font-size:14px; color:grey;">
+                  @${escapeHTML(data.username)}
+                </span>
+              </div>
+              <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
+            </div>
+            <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
           </div>
         </div>
-        <button class="mini-follow-btn"
-          style="padding:0 12px;border-radius:50px;border:1px solid var(--border);height:32px;opacity:0;">
-          ...
-        </button>
       `;
 
       if (!document.getElementById(`itemm-${docSnap.id}`)) {
@@ -1713,7 +1727,11 @@ async function openFollowOverlay(type, userId, isMe) {
         }
       });
       const btn = item.querySelector(".mini-follow-btn");
-      setupMiniFollowBtn(btn, docSnap.id);
+      if (type === "following" && docSnap.id === auth.currentUser.uid) {
+        setupMiniFollowBtn(btn, docSnap.id, true);
+      } else {
+        setupMiniFollowBtn(btn, docSnap.id);
+      }
     }
   }
 }
@@ -1775,7 +1793,7 @@ async function loadFollowUsers(type, userId) {
       if (document.getElementById("my-name").dataset.uid != userId) return;
     }
 
-    const item = await renderFollowUserItem(theirId, data);
+    const item = await renderFollowUserItem(theirId, data, type);
     item.dataset.uid = theirId;
     item.id = `skibidi-${theirId}`;
 
@@ -1786,29 +1804,32 @@ async function loadFollowUsers(type, userId) {
   }
 }
 
-async function renderFollowUserItem(uid, data) {
+async function renderFollowUserItem(uid, data, type) {
   const item = document.createElement("div");
   item.className = "user-search-item";
   item.style.cssText = "display:flex;gap:10px;padding:10px 0;border-bottom:var(--border);align-items:center";
 
   item.innerHTML = `
-    <div style="display:flex;gap:12px;flex:1;">
-      <img loading='lazy' src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-          style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
-      <div style="display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;">
-          <strong class="user-link" data-uid="${uid}" style="cursor:pointer;">
-            ${escapeHTML(data.displayName) || "data unavailable"}
-          </strong>
+    <div style="display:flex; gap:12px; width:100%">
+      <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+        
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+        <div style="display:flex;width:100%">
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+              ${escapeHTML(data.displayName)}
+            </strong>
+            <span style="font-size:14px; color:grey;">
+              @${escapeHTML(data.username)}
+            </span>
+          </div>
+          <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
         </div>
-        <div style="margin-top:5px;">
-          <span style="color:grey;font-size:14px;">@${data.username || `<span class=user-link>${uid}</span>`}</span>
-        </div>
+        <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
       </div>
-      <button class="mini-follow-btn"
-          style="padding:0 10px;border-radius:50px;background:white;height:26px;cursor:pointer;border:1px solid var(--border);margin-left:auto;height:35px;opacity:0;">...</button>
     </div>
   `;
+
   item.addEventListener("click", (e) => {
     if (!e.target.classList.contains("mini-follow-btn")) {
       openUserSubProfile(uid);
@@ -1816,7 +1837,11 @@ async function renderFollowUserItem(uid, data) {
     }
   });
   const btn = item.querySelector(".mini-follow-btn");
-  setupMiniFollowBtn(btn, uid);
+  if (type === "following" && uid === auth.currentUser.uid) {
+    setupMiniFollowBtn(btn, uid, true);
+  } else {
+    setupMiniFollowBtn(btn, uid);
+  }
 
   return item;
 }
@@ -1840,7 +1865,7 @@ followListContainer.addEventListener("scroll", async () => {
   }
 });
 
-async function setupMiniFollowBtn(btn, targetId) {
+async function setupMiniFollowBtn(btn, targetId, skibidi) {
   if (auth.currentUser?.uid !== targetId) {
     const currentUid = auth.currentUser.uid;
     const myFollowingRef = doc(db, "users", currentUid, "following", targetId);
@@ -1848,7 +1873,13 @@ async function setupMiniFollowBtn(btn, targetId) {
 
     const isFollowingSnap = await getDoc(myFollowingRef);
     btn.textContent = isFollowingSnap.exists() ? "UnFoll" : "Follow";
-    btn.style.cssText = isFollowingSnap.exists() ? "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
+
+    if (skibidi === true) {
+      btn.style.cssText = isFollowingSnap.exists() ? "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
+    } else {
+      btn.style.cssText = isFollowingSnap.exists() ? "display:none" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
+    }
+
     btn.style.opacity = "1";
 
     btn.onclick = async (e) => {
@@ -1891,8 +1922,13 @@ async function setupMiniFollowBtn(btn, targetId) {
           loading.classList.remove("show");
           setupMiniFollowBtn(btn, targetId);
         } else {
-          const { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL } = await getUserData(targetId);
-          const { displayName, username, avatar: photoURL } = await getUserData(auth.currentUser.uid);
+          const [
+            { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
+            { displayName, username, realavatar: photoURL, realdescription: description }
+          ] = await Promise.all([
+            getUserData(uid),
+            getUserData(auth.currentUser.uid)
+          ])
 
           await runTransaction(db, async (batch) => {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
@@ -1921,7 +1957,8 @@ async function setupMiniFollowBtn(btn, targetId) {
               displayName: displayName,
               username: username,
               name: displayName?.toLowerCase(),
-              photoURL: photoURL
+              photoURL: photoURL,
+              description: description
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {
@@ -1929,7 +1966,8 @@ async function setupMiniFollowBtn(btn, targetId) {
               displayName: tDisplayName,
               username: tUsername,
               name: tDisplayName?.toLowerCase(),
-              photoURL: tPhotoURL
+              photoURL: tPhotoURL,
+              description: tDescription
             });
 
             batch.update(currentUserRef, {
@@ -1944,8 +1982,12 @@ async function setupMiniFollowBtn(btn, targetId) {
           });
 
           btn.textContent = "UnFoll";
-          btn.style.cssText =
-            "background:none;border:1px solid grey;color:grey;margin-left:auto;padding:9px;height:35px;";
+
+          if (skibidi === true) {
+            btn.style.cssText = "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;"
+          } else {
+            btn.style.cssText = "display:none";
+          }
         
           setupMiniFollowBtn(btn, targetId);
         }
@@ -2074,7 +2116,10 @@ async function loadHighlights(uid) {
 
   for (const highlightDoc of snap.docs) {
     const tweetId = highlightDoc.id;
-    const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
+    const communityId = highlightDoc.data().communityId;
+    const tweetDoc = communityId 
+      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId)) 
+      : await getDoc(doc(db, "tweets", tweetId));
     if (!tweetDoc.exists()) continue;
 
     const tweetData = tweetDoc.data();
@@ -2085,7 +2130,7 @@ async function loadHighlights(uid) {
     };
 
     if (uid === document.querySelector("#user-name").dataset.uid) {
-      await renderTweet(tweetData, tweetId, userData, "append", highlightedList);
+      await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
     }
   }
 

@@ -147,6 +147,7 @@ export async function getUserData(uid) {
       realusername: data.username || "",
       realavatar: data.photoURL,
       realdisplayName: data.displayName,
+      realdescription: data.description,
       IQ,
       premium: data.premium || null,
       d: data
@@ -218,28 +219,31 @@ onAuthStateChanged(auth, async (user) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     const data = snap.data();
+
     const path = window.location.pathname;
     if (shouldRunFeatures(path)) {
       initMainFeatures(user);
     }
     monitorUrlChanges(user);
+
     const avatarEl = document.querySelector(".account-avatar");
     const nameEl = document.querySelector(".account-name");
     const usernameEl = document.querySelector(".account-username");
+
     let displayName = user.displayName || "Anonymous";
     let photoURL = "/image/default-avatar.jpg";
     let username = user.username || "unknown";
+
     if (snap.exists()) {
       if (data.premium instanceof Timestamp) {
         const premiumDate = data.premium.toDate();
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const premiumMid = new Date(premiumDate);
-        premiumMid.setHours(0, 0, 0, 0);
-        if (premiumMid.getTime() === yesterday.getTime()) {
-          log("grey", "Your premium ended yesterday. But, you still smell like fancy features.")
+        
+        if (premiumDate < today && !data.hasSeenPremiumEnded) {
+          info("i", "Your premium has ended", "But, you still smell like fancy features.");
+          updateDoc(ref, {
+            hasSeenPremiumEnded: true
+          });
         }
       }
       currentUserRole = data.role || "user";
@@ -526,14 +530,11 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         return;
       }
 
-      let maxSize = 3.5 * 1024 * 1024;
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        const premiumExpiry = data.premium ? data.premium.toDate() : null;
-        const now = new Date();
-        const isPremium = premiumExpiry && premiumExpiry > now;
-        maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
-      }
+      const data = userSnap.data();
+      const premiumExpiry = data.premium ? data.premium.toDate() : null;
+      const now = new Date();
+      const isPremium = premiumExpiry && premiumExpiry > now;
+      const maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
 
       if (videos.length === 1) {
         const file = videos[0];
@@ -543,7 +544,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           return;
         }
 
-        const upload = await uploadToSupabase(file, user.uid);
+        const upload = await uploadToSupabase(file, user.uid, isPremium);
         mediaURL = upload.url;
         mediaType = "video";
         mediaPath = upload.path || "";
@@ -880,7 +881,7 @@ export async function getSnap(path, container) {
   return snap;
 }
 
-async function renderTweet(t, tweetId, user, action = "prepend", container = document.getElementById("timeline"), communityId = null) {
+async function renderTweet(t, tweetId, user, action = "prepend", container = document.getElementById("timeline"), communityId = null, isStored = false, isPrivate = false) {
   let editHTML2 = "";
 
   let tweetDocRef;
@@ -1666,6 +1667,8 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
           }
 
+          console.log(`${tweetId}, ${t.retweetOf}`);
+
           const rtsrc = base91ToImageSrc(rt.media);
           const rtcontainsSpoiler = rt.sensitiveMedia === true;
 
@@ -2016,7 +2019,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
     `;
   } else {
     tweetHTML = `
-      <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}">
+      <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${isStored ? `data-community-id="${communityId}"` : ""} ${isStored ? `data-stored="true"` : ""}>
         ${quotedHTML}
         ${retweetHTML}
         <div style="display:flex;gap:10px;">
@@ -2031,7 +2034,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               }
               <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
               <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
-              <span style="cursor:pointer;margin-left:auto" data-shared="${t.sharedFromCommunity || null}" data-community-id="${t.communityId || null}" data-author="${t.uid}" class="menubtn"><img loading='lazy' src="/image/three-dots.svg"></span>
+              <span style="cursor:pointer;margin-left:auto" data-shared="${t.sharedFromCommunity || null}" data-community-id="${communityId || t.communityId || null}" data-author="${t.uid}" data-stored=${isStored} data-id=${tweetId} class="menubtn" ${isPrivate ? "data-private=true" : ""}><img loading='lazy' src="/image/three-dots.svg"></span>
             </div>
             ${communityHTML}
             ${titleHTML}
@@ -2044,7 +2047,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             ${pollHTML}
             ${t.isHidden ? "" : `
               <div class="flex">
-                <span style="cursor:pointer;color:#757779" data-community-id="${window.communityID || null}" class="like-btn" id="likeBtn-${tweetId}">
+                <span style="cursor:pointer;color:#757779" data-community-id="${window.communityId || null}" class="like-btn" id="likeBtn-${tweetId}">
                   <div id="${likeId}" class="likeicon" style="height:20px">
                     <img loading='lazy' src="/image/heart.svg">
                   </div>
@@ -2256,6 +2259,7 @@ document.body.addEventListener("click", async (e) => {
       text: data.text || "",
       username: posterUsername,
       screenshot: screenshotBase64,
+      uid: data.uid,
     });
     loading.classList.remove("show");
   }
@@ -2321,6 +2325,7 @@ document.body.addEventListener("click", async (e) => {
       parentText: parentText || "",
       username: posterUsername,
       screenshot: screenshotBase64,
+      uid: commentData.uid
     });
     loading.classList.remove("show");
   }
@@ -2329,7 +2334,7 @@ document.body.addEventListener("click", async (e) => {
   if (btn) {
     loading.classList.add("show");
 
-    const tweetEl = btn.closest(".tweet") || btn.closest(".actuallyATweet");
+    const tweetEl = btn.closest(".actuallyATweet") || btn.closest(".tweet");
     if (!tweetEl) {
       loading.classList.remove("show");
       return;
@@ -2339,13 +2344,21 @@ document.body.addEventListener("click", async (e) => {
     const communityId = btn.dataset.communityId;
     const shared = btn.dataset.shared;
     const author = btn.dataset.author;
+    const isStored = btn.dataset.stored === "true";
+    const isPrivate = btn.dataset.private === "true";
 
     const yes = shared === "true";
     const hascom = communityId && communityId !== "null" ? communityId : null;
 
-    const tweetRef = window.communityID
-      ? doc(db, "communities", window.communityID, "posts", tweetId)
-      : doc(db, "tweets", tweetId);
+    let tweetRef;
+
+    if (window.communityID) {
+      tweetRef = doc(db, "communities", window.communityID, "posts", tweetId);
+    } else if (communityId && isStored) {
+      tweetRef = doc(db, "communities", communityId, "posts", tweetId)
+    } else {
+      tweetRef = doc(db, "tweets", tweetId);
+    }
 
     const highlightRef = doc(db, "users", auth.currentUser.uid, "highlights", tweetId);
     const userRef = doc(db, "users", auth.currentUser.uid);
@@ -2450,12 +2463,10 @@ document.body.addEventListener("click", async (e) => {
 
         <div class="menu-item share-btn" data-share="${yes}" ${!data.postedInPublic ? `data-community-id="${hascom || null}"` : ""} data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
 
-        ${window.communityID ? "" :
-          `<div class="menu-item bookmark-btn" id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>`
-        }
+        <div class="menu-item bookmark-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>
 
-        ${window.communityID ? "" : 
-          `<div class="menu-item highlight-btn" id="highlightBtn-${tweetId}">
+        ${(window.communityID && window.isOnPrivate) || isPrivate ? "" : 
+          `<div class="menu-item highlight-btn" ${window.communityID ? `data-community="${window.communityID}"` : `${isStored ? `data-community=${communityId}` : ""}`} id="highlightBtn-${tweetId}">
             ${isHighlighted
             ? `<img loading='lazy' src="/image/highlighted.svg"> Unhighlight from your profile`
             : `<img loading='lazy' src="/image/highlight.svg"> highlight to your profile`}
@@ -2463,10 +2474,10 @@ document.body.addEventListener("click", async (e) => {
         `}
 
         ${hasMedia ? 
-          `<div class="menu-item download-btn" data-community-id="${hascom || null}" data-tweet="${tweetId}"><img loading='lazy' src="/image/download.svg"> Download attachment</div>`
+          `<div class="menu-item download-btn" data-community-id="${hascom ? communityId : null}" data-tweet="${tweetId}"><img loading='lazy' src="/image/download.svg"> Download attachment</div>`
         : ""}
 
-        ${window.communityID ? "" :
+        ${window.communityID || isStored ? "" :
           `${isOwner
           ? `<div class="menu-item pin-btn" data-id="${tweetId}">
             ${pinnedId === tweetId
@@ -2476,7 +2487,7 @@ document.body.addEventListener("click", async (e) => {
         : ""}`}
 
         ${isOwner ? `
-          <div class="menu-item settings-btn" id="tweetOptionsEdit" data-id=${tweetId}>
+          <div class="menu-item settings-btn" ${isStored ? `data-community-id=${communityId}` : ""} id="tweetOptionsEdit" data-id=${tweetId}>
             <img loading='lazy' src="/image/settings.svg">
             Change Wynt settings
           </div>  
@@ -2907,6 +2918,8 @@ document.body.addEventListener("click", async (e) => {
     let tweetRef;
     if (window.communityID) {
       tweetRef = doc(db, "communities", window.communityID, "posts", tweetId);
+    } else if (settingsBtn.dataset.communityId) {
+      tweetRef = doc(db, "communities", settingsBtn.dataset.communityId, "posts", tweetId);
     } else {
       tweetRef = doc(db, "tweets", tweetId);
     }
@@ -4120,7 +4133,7 @@ document.body.addEventListener("click", async (e) => {
           return;
         }
         if (images.length > 4) {
-          log("red", "please insert images less than 5.");
+          log("red", "please insert images less than 5");
           reset();
           return;
         }
@@ -4139,7 +4152,7 @@ document.body.addEventListener("click", async (e) => {
         const premiumExpiry = userData.premium ? userData.premium.toDate() : null;
         const now = new Date();
         const isPremium = premiumExpiry && premiumExpiry > now;
-        const maxSize = isPremium ? 5.11 * 1024 * 1024 : 3.5 * 1024 * 1024;
+        const maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
 
         let media = "";
         let mediaType = "";
@@ -4157,13 +4170,13 @@ document.body.addEventListener("click", async (e) => {
 
           const file = videos[0];
           if (file.size > maxSize) {
-            log("red", `please insert only videos lower than ${isPremium ? "5.1MB" : "3.5MB"}`);
+            log("red", `please insert only videos lower than ${isPremium ? "5.5MB" : "3.5MB"}`);
             reset();
             return;
           }
 
           mediaType = "video";
-          media = await uploadToSupabase(file, "videos");
+          media = await uploadToSupabase(file, user.uid, isPremium);
           if (!media.url) {
             log("red", "Video upload failed")
             return;
@@ -4562,6 +4575,7 @@ document.body.addEventListener("click", async (e) => {
     loading.classList.add("show");
     const btn = bookmarkBtn;
     const tweetId = btn.id.replace("bookmarkBtn-", "");
+    const communityId = btn.dataset.community || null;
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
 
     const userRef = doc(db, "users", auth.currentUser.uid);
@@ -4571,16 +4585,25 @@ document.body.addEventListener("click", async (e) => {
     const premiumExpiry = data.premium ? data.premium.toDate() : null;
     const now = new Date();
     const isPremium = premiumExpiry && premiumExpiry > now;
-    await openBookmarkOverlay(tweetId, isPremium);
+    await openBookmarkOverlay(tweetId, isPremium, true, communityId);
     loading.classList.remove("show");
   }
   const highlightBtn = e.target.closest(".highlight-btn");
   if (highlightBtn) {
     loading.classList.add("show");
+
     const btn = highlightBtn;
+    const communityId = btn.dataset.community || null;
     const tweetId = btn.dataset.id || btn.id.replace("highlightBtn-", "");
+
     const userRef = doc(db, "users", auth.currentUser.uid);
-    const userSnap = await getDoc(userRef);
+    const highlightRef = doc(db, "users", auth.currentUser.uid, "highlights", tweetId);
+
+    const [userSnap, snap] = await Promise.all([
+      getDoc(userRef),
+      getDoc(highlightRef)
+    ]);
+    
     if (!userSnap.exists()) return log("red", "user isn't logged in");
     const data = userSnap.data();
     const premiumExpiry = data.premium ? data.premium.toDate() : null;
@@ -4591,20 +4614,27 @@ document.body.addEventListener("click", async (e) => {
       loading.classList.remove("show");
       return;
     }
-    const highlightRef = doc(db, "users", auth.currentUser.uid, "highlights", tweetId);
-    const snap = await getDoc(highlightRef);
+    
     if (snap.exists()) {
       await deleteDoc(highlightRef);
       btn.innerHTML = `<img loading='lazy' src="/image/highlight.svg"> Highlight to your profile`;
     } else {
-      await setDoc(highlightRef, {
-        highlightedAt: new Date()
-      });
+      if (communityId) {
+        await setDoc(highlightRef, {
+          highlightedAt: new Date(),
+          communityId
+        });
+      } else {
+        await setDoc(highlightRef, {
+          highlightedAt: new Date()
+        });
+      }
       btn.innerHTML = `<img loading='lazy' src="/image/highlighted.svg"> Unhighlight from your profile`;
     }
     loading.classList.remove("show");
   }
 });
+
 document.body.addEventListener("click", async (e) => {
   const replyBtn = e.target.closest(".reply-btn");
   if (!replyBtn) return;
@@ -4803,7 +4833,7 @@ document.body.addEventListener("click", async (e) => {
       const premiumExpiry = userData.premium ? userData.premium.toDate() : null;
       const now = new Date();
       const isPremium = premiumExpiry && premiumExpiry > now;
-      const maxSize = isPremium ? 5.1 * 1024 * 1024 : 3.5 * 1024 * 1024;
+      const maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
 
       let media = null;
       let mediaType = "";
@@ -4812,7 +4842,7 @@ document.body.addEventListener("click", async (e) => {
       if (videos.length === 1) {
         const file = videos[0];
         if (file.size > maxSize) {
-          log("red", `please insert only videos lower than ${isPremium ? "5.1MB" : "3.5MB"}`);
+          log("red", `please insert only videos lower than ${isPremium ? "5.5MB" : "3.5MB"}`);
           return;
         }
 
@@ -4824,7 +4854,7 @@ document.body.addEventListener("click", async (e) => {
           return;
         }
 
-        const upload = await uploadToSupabase(file, "videos");
+        const upload = await uploadToSupabase(file, auth.currentUser.uid, isPremium);
         media = {
           url: upload.url,
           type: "video"
@@ -5955,11 +5985,16 @@ document.body.addEventListener("click", async (e) => {
     const btn = e.target.closest(".like-btn");
     const icon = e.target.closest(".likeicon");
     const tweetId = btn.id.replace("likeBtn-", "");
+    const hascom = btn.dataset.communityId != "null";
+    const communityId = btn.dataset.communityId;
 
     let postRef, likeRef;
     if (window.communityID && window.isJoined) {
       postRef = doc(db, "communities", window.communityID, "posts", tweetId);
       likeRef = doc(db, "communities", window.communityID, "posts", tweetId, "likes", auth.currentUser.uid);
+    } else if (hascom) {
+      postRef = doc(db, "communities", communityId, "posts", tweetId);
+      likeRef = doc(db, "communities", communityId, "posts", tweetId, "likes", auth.currentUser.uid);
     } else {
       postRef = doc(db, "tweets", tweetId);
       likeRef = doc(db, "tweets", tweetId, "likes", auth.currentUser.uid);
@@ -6650,14 +6685,11 @@ sendRetweet.onclick = async () => {
         return;
       }
 
-      let maxSize = 3.5 * 1024 * 1024;
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        const premiumExpiry = data.premium ? data.premium.toDate() : null;
-        const now = new Date();
-        const isPremium = premiumExpiry && premiumExpiry > now;
-        maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
-      }
+      const data = userSnap.data();
+      const premiumExpiry = data.premium ? data.premium.toDate() : null;
+      const now = new Date();
+      const isPremium = premiumExpiry && premiumExpiry > now;
+      const maxSize = isPremium ? 5.5 * 1024 * 1024 : 3.5 * 1024 * 1024;
 
       if (videos.length === 1) {
         const file = videos[0];
@@ -6667,7 +6699,7 @@ sendRetweet.onclick = async () => {
           return;
         }
 
-        const upload = await uploadToSupabase(file, uid);
+        const upload = await uploadToSupabase(file, uid, isPremium);
         media = upload.url;
         mediaType = "video";
         mediaPath = upload.path || "";
@@ -7233,12 +7265,14 @@ document.body.addEventListener("click", async (e) => {
     } else {
       let tweetRef;
       if (window.communityID) {
+        tweetRef = doc(db, "communities", window.communityID, "posts", tweetId);
+      } else if (hascom) {
         tweetRef = doc(db, "communities", hascom, "posts", tweetId);
-        snap = await getDoc(tweetRef);
       } else {
         tweetRef = doc(db, "tweets", tweetId);
-        snap = await getDoc(tweetRef);
       }
+      
+      snap = await getDoc(tweetRef);
       if (!snap.exists()) {
         log("red", "Wynt doesn't exist");
         loading.classList.remove("show");

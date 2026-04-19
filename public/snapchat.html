@@ -1,0 +1,623 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Snap Editor</title>
+
+<style>
+body {
+  margin: 0;
+  background: #0f0f0f;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: white;
+}
+
+/* Toolbar */
+#toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: #000;
+}
+
+#toolbar button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #1f1f1f;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Canvas */
+#canvas {
+  position: relative;
+  height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+  overflow: hidden;
+}
+
+#canvas img, #canvas video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Text overlay */
+.overlay {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  cursor: move;
+}
+
+.text {
+  width: 100%;
+  text-align: center;
+  color: white;
+  font-weight: 400;
+  font-size: 28px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: rgba(0,0,0,0.6);
+  padding: 7px 16px;
+  box-sizing: border-box;
+}
+
+/* Selected */
+.overlay.selected .text {
+  outline: 2px solid rgba(255,255,255,0.6);
+}
+
+/* Mobile tweak */
+@media (max-width:600px) {
+  .text {
+    font-size: 22px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div id="toolbar">
+  <button id="uploadBtn">Upload</button>
+  <button id="addTextBtn">Text</button>
+  <button id="downloadBtn">Download</button>
+</div>
+
+<input type="file" id="fileInput" accept="image/*, video/*" hidden>
+
+<div id="canvas"></div>
+
+<!-- Overlay -->
+<div id="overlay" style="
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  pointer-events: none;
+">
+  <!-- Progress Bar -->
+  <div id="progressBar" style="width:80%;height:6px;">
+    <div id="progressFill" style="height:100%;width:0%;background:#00ff88;"></div>
+  </div>
+</div>
+
+<script src="/lib/script/ffmpeg.min.js"></script>
+
+<script type="module">
+function emojiToURL(emoji) {
+  const code = Array.from(emoji)
+    .map(c => c.codePointAt(0).toString(16))
+    .join('-');
+
+  return `https://ox7jbzyn-13kwt53x-purp2e2u.netlify.app/twemoji/svg/${code}.svg`;
+}
+
+function splitTextAndEmoji(text) {
+  const regex = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu;
+  return text.split(regex).filter(Boolean);
+}
+
+async function drawTextWithEmoji(ctx, text, x, y, fontSize, maxWidth) {
+  const parts = splitTextAndEmoji(text);
+
+  let cursorX = x - maxWidth / 2;
+
+  for (const part of parts) {
+    const isEmoji = /\p{Extended_Pictographic}/u.test(part);
+
+    if (isEmoji) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = emojiToURL(part);
+
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = () => {
+          console.error("Emoji failed:", part, img.src);
+          res(); // or rej() if you want strict
+        };
+      });
+
+      ctx.drawImage(img, cursorX, y - fontSize / 2, fontSize, fontSize);
+      cursorX += fontSize;
+
+    } else {
+      ctx.font = `${fontSize}px Helvetica`;
+      ctx.fillStyle = "#fff";
+
+      ctx.fillText(part, cursorX, y);
+
+      cursorX += ctx.measureText(part).width;
+    }
+  }
+}
+
+const canvas = document.getElementById("canvas");
+const fileInput = document.getElementById("fileInput");
+
+let img = null;
+let selected = null;
+
+/* Upload */
+document.getElementById("uploadBtn").onclick = () => fileInput.click();
+
+fileInput.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  window.uploadedFile = file;
+
+  const url = URL.createObjectURL(file);
+
+  if (img) img.remove();
+
+  // 🔥 Detect type properly
+  if (file.type.startsWith("video/")) {
+    img = document.createElement("video");
+    img.src = url;
+
+    img.autoplay = true;
+    img.muted = true; // keep audio for export
+    img.playsInline = true;
+
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "100%";
+    img.style.objectFit = "contain";
+    img.style.pointerEvents = "none";
+
+  } else {
+    img = document.createElement("img");
+    img.src = url;
+
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "100%";
+    img.style.objectFit = "contain";
+    img.style.pointerEvents = "none";
+  }
+
+  canvas.appendChild(img);
+};
+
+/* Add text */
+document.getElementById("addTextBtn").onclick = () => {
+  createText("Tap to edit");
+};
+
+function createText(textValue) {
+  const overlay = document.createElement("div");
+  overlay.className = "overlay selected";
+  overlay.style.top = "40%";
+
+  const text = document.createElement("div");
+  text.className = "text";
+  text.contentEditable = true;
+  text.innerText = textValue;
+
+  overlay.appendChild(text);
+  canvas.appendChild(overlay);
+
+  select(overlay);
+
+  text.onfocus = () => {
+    if (text.innerText === "Tap to edit") text.innerText = "";
+  };
+
+  makeDraggable(overlay);
+  enableFontResize(text);
+  enablePinchResize(text);
+}
+
+/* Select */
+function select(el) {
+  document.querySelectorAll(".overlay").forEach(o => o.classList.remove("selected"));
+  el.classList.add("selected");
+  selected = el;
+}
+
+/* Click outside */
+canvas.onclick = e => {
+  if (e.target === canvas || e.target === img) {
+    document.querySelectorAll(".overlay").forEach(o => o.classList.remove("selected"));
+    selected = null;
+  }
+};
+
+/* Drag */
+function makeDraggable(el) {
+  let startY, startTop, dragging = false;
+
+  function start(e) {
+    const touch = e.touches ? e.touches[0] : e;
+
+    startY = touch.clientY;
+    startTop = el.offsetTop;
+    dragging = true;
+  }
+
+  function move(e) {
+    if (!dragging) return;
+
+    const touch = e.touches ? e.touches[0] : e;
+
+    let y = startTop + (touch.clientY - startY);
+    y = Math.max(0, Math.min(y, canvas.offsetHeight - el.offsetHeight));
+
+    el.style.top = y + "px";
+
+    e.preventDefault();
+  }
+
+  function end() {
+    dragging = false;
+  }
+
+  // mouse
+  el.addEventListener("mousedown", start);
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", end);
+
+  // touch ✅
+  el.addEventListener("touchstart", start, { passive: false });
+  document.addEventListener("touchmove", move, { passive: false });
+  document.addEventListener("touchend", end);
+}
+
+async function exportVideoFFmpeg(video) {
+  const { createFFmpeg, fetchFile } = window.FFmpeg;
+
+  const ffmpeg = createFFmpeg({ log: true });
+  const progressFill = document.getElementById("progressFill");
+
+  if (!ffmpeg.isLoaded()) {
+    progressFill.style.width = "0%";
+    await ffmpeg.load();
+  }
+
+  // ⚠️ IMPORTANT: you must have this globally
+  // let uploadedFile = file;
+  if (!window.uploadedFile) {
+    alert("Missing uploaded file reference");
+    return;
+  }
+
+  const fps = 30;
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+
+  c.width = width;
+  c.height = height;
+
+  const duration = video.duration;
+  const totalFrames = Math.floor(duration * fps);
+
+  video.pause();
+  video.loop = false;
+
+  // 🎞 FRAME CAPTURE (CORRECT WAY)
+  for (let frame = 0; frame < totalFrames; frame++) {
+    const time = frame / fps;
+
+    video.currentTime = time;
+
+    await new Promise(res => {
+      video.onseeked = res;
+    });
+
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const scaleY = height / canvas.clientHeight;
+
+    for (const o of document.querySelectorAll(".overlay")) {
+      const t = o.querySelector(".text");
+
+      const y = o.offsetTop * scaleY;
+      const h = t.offsetHeight * scaleY;
+
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, y, width, h);
+
+      const fontSize = parseInt(window.getComputedStyle(t).fontSize) * scaleY;
+
+      ctx.fillStyle = "#fff";
+      ctx.font = `${fontSize}px Helvetica`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      await drawTextWithEmoji(
+        ctx,
+        t.innerText,
+        width / 2,
+        y + h / 2,
+        fontSize,
+        width
+      );
+    }
+
+    const blob = await new Promise(res => c.toBlob(res, "image/png"));
+    ffmpeg.FS("writeFile", `frame_${frame}.png`, await fetchFile(blob));
+
+    // 📊 progress (0–80%)
+    progressFill.style.width = `${(frame / totalFrames) * 80}%`;
+  }
+
+  // 🎧 LOAD ORIGINAL VIDEO (for audio)
+  ffmpeg.FS("writeFile", "input.mp4", await fetchFile(window.uploadedFile));
+
+  // 🎬 ENCODE VIDEO
+  await ffmpeg.run(
+    "-framerate", String(fps),
+    "-i", "frame_%d.png",
+    "-i", "input.mp4",
+    "-map", "0:v:0",
+    "-map", "1:a:0",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-shortest",
+    "output.mp4"
+  );
+
+  // 📊 finish progress
+  progressFill.style.width = "100%";
+
+  // 📥 DOWNLOAD
+  const data = ffmpeg.FS("readFile", "output.mp4");
+
+  const url = URL.createObjectURL(
+    new Blob([data.buffer], { type: "video/mp4" })
+  );
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "snap.mp4";
+  a.click();
+
+  // 🧹 cleanup (important for memory)
+  for (let i = 0; i < totalFrames; i++) {
+    try { ffmpeg.FS("unlink", `frame_${i}.png`); } catch {}
+  }
+  try { ffmpeg.FS("unlink", "input.mp4"); } catch {}
+  try { ffmpeg.FS("unlink", "output.mp4"); } catch {}
+}
+
+/* Resize font with scroll */
+function enableFontResize(textEl) {
+  textEl.onwheel = e => {
+    e.preventDefault();
+    let size = parseInt(window.getComputedStyle(textEl).fontSize);
+    size += e.deltaY < 0 ? 2 : -2;
+    size = Math.max(5, Math.min(80, size));
+    textEl.style.fontSize = size + "px";
+  };
+}
+
+document.getElementById("downloadBtn").onclick = async () => {
+  if (!img) return alert("Upload image/video first");
+
+  // IMAGE → use previous logic
+  if (img.tagName === "IMG") {
+    return exportImage();
+  } else {
+    return exportVideoFFmpeg(img);
+  }
+
+  // VIDEO EXPORT
+  const video = img;
+
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  c.width = width;
+  c.height = height;
+
+  // canvas stream (video)
+  const canvasStream = c.captureStream(30);
+
+  // audio stream from video
+  const audioStream = video.captureStream();
+
+  const combined = new MediaStream([
+    ...canvasStream.getVideoTracks(),
+    ...audioStream.getAudioTracks()
+  ]);
+
+  // try mp4, fallback webm
+  let mime = "video/mp4";
+  if (!MediaRecorder.isTypeSupported(mime)) {
+    mime = "video/webm";
+  }
+
+  const recorder = new MediaRecorder(combined, {
+    mimeType: mime
+  });
+
+  const chunks = [];
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mime });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = mime.includes("mp4") ? "snap.mp4" : "snap.webm";
+    a.click();
+  };
+
+  recorder.start();
+
+  // reset video
+  video.currentTime = 0;
+  video.play();
+
+  function draw() {
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const scaleX = width / canvas.clientWidth;
+    const scaleY = height / canvas.clientHeight;
+
+    document.querySelectorAll(".overlay").forEach(o => {
+      const t = o.querySelector(".text");
+
+      const y = o.offsetTop * scaleY;
+      const h = t.offsetHeight * scaleY;
+
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, y, width, h);
+
+      const fontSize = parseInt(window.getComputedStyle(t).fontSize) * scaleY;
+
+      ctx.fillStyle = "#fff";
+      ctx.font = `${fontSize}px Helvetica`;
+      ctx.textAlign = "center";
+
+      ctx.fillText(
+        t.innerText,
+        width / 2,
+        y + h / 2 + fontSize * 0.35
+      );
+    });
+
+    if (!video.paused && !video.ended) {
+      requestAnimationFrame(draw);
+    }
+  }
+
+  draw();
+
+  video.onended = () => {
+    recorder.stop();
+  };
+};
+
+function enablePinchResize(textEl) {
+  let startDist = 0;
+  let startSize = 0;
+
+  textEl.addEventListener("touchstart", e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+
+      startDist = getDistance(e.touches[0], e.touches[1]);
+      startSize = parseInt(window.getComputedStyle(textEl).fontSize);
+    }
+  }, { passive: false });
+
+  textEl.addEventListener("touchmove", e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+
+      const newDist = getDistance(e.touches[0], e.touches[1]);
+      let scale = newDist / startDist;
+
+      let newSize = startSize * scale;
+      newSize = Math.max(14, Math.min(100, newSize));
+
+      textEl.style.fontSize = newSize + "px";
+    }
+  }, { passive: false });
+}
+
+function getDistance(t1, t2) {
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function exportImage() {
+  if (!img) return alert("Upload image first");
+
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+
+  // original image size
+  const imgW = img.naturalWidth;
+  const imgH = img.naturalHeight;
+
+  c.width = imgW;
+  c.height = imgH;
+
+  // draw image
+  ctx.drawImage(img, 0, 0, imgW, imgH);
+
+  // scale from preview → real image
+  const scaleX = imgW / canvas.clientWidth;
+  const scaleY = imgH / canvas.clientHeight;
+
+  document.querySelectorAll(".overlay").forEach(o => {
+    const t = o.querySelector(".text");
+
+    const y = o.offsetTop * scaleY;
+    const height = t.offsetHeight * scaleY;
+
+    // background bar
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, y, imgW, height);
+
+    // text
+    const fontSize = parseInt(window.getComputedStyle(t).fontSize) * scaleY;
+
+    ctx.fillStyle = "#fff";
+    ctx.font = `${fontSize}px Helvetica`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText(
+      t.innerText,
+      imgW / 2,
+      y + height / 2
+    );
+  });
+
+  // download
+  const link = document.createElement("a");
+  link.download = "snap.png";
+  link.href = c.toDataURL("image/png");
+  link.click();
+}
+</script>
+
+</body>
+</html>

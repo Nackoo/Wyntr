@@ -36,9 +36,7 @@ searchInput.addEventListener("keydown", async (e) => {
 });
 
 async function loadBlocks(term = currentTerm) {
-    console.log(1);
     if (isLoading || !hasMore) return;
-    console.log(2);
 
     isLoading = true;
     list.innerHTML = `
@@ -132,6 +130,11 @@ async function loadBlocks(term = currentTerm) {
         });
     }
     isLoading = false;
+
+    if (isLoading == false && !list.querySelector(".user-search-item")) {
+        list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No blocked users found</h2><p style="color:grey;margin:7px 0;">when a user is blocked, they won't be able to send you notifications.</p></div></div>`;
+        return;
+    }
 }
 
 scrollBox.addEventListener("scroll", () => {

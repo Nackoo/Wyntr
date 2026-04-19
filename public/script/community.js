@@ -844,6 +844,7 @@ async function joinCommunity(communityId) {
       photoURL: userData.photoURL,
       username: userData.username,
       displayName: userData.displayName,
+      description: userData.description,
       role: 1
     });
     transaction.update(userRef1, {
@@ -1286,16 +1287,27 @@ async function loadMoreBans(limitCount) {
     row.dataset.id = uid;
 
     row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.displayName || "user")}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+          
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
+                </strong>
+                <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
+              </div>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(d.username)}
+              </span>
+            </div>
+            <button class="unban-btn">unban</button>
+          </div>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-        <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
       </div>
-      <button class="unban-btn">unban</button>
     `;
 
     row.addEventListener("click", () => {
@@ -1387,17 +1399,27 @@ document.getElementById("banSearch").addEventListener("keydown", async (e) => {
     row.dataset.id = uid;
 
     row.innerHTML = `
-        <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}"
-            onerror="this.src='/image/default-avatar.jpg'"
-            style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <strong class="user-link">${escapeHTML(d.displayName || "user")}</strong>
-            <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+          
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
+                </strong>
+                <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
+              </div>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(d.username)}
+              </span>
+            </div>
+            <button class="unban-btn">unban</button>
           </div>
-          <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-        <button class="unban-btn">unban</button>
+      </div>
     `;
 
     row.addEventListener("click", () => {
@@ -1502,18 +1524,29 @@ async function loadMoreMembers(limitCount, cData, canModerate) {
     }
 
     row.innerHTML = `
-      <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'"
-           style="width:40px;height:40px;border-radius:10px;object-fit:cover;align-self:flex-start;">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;">
-          ${roleBadge}
-          <strong style="cursor:pointer;" class="user-link">${escapeHTML(d.displayName || "user")}</strong>
-          <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+          
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex;align-items:center;gap:6px;">
+                ${roleBadge}
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
+                </strong>
+                <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
+              </div>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(d.username)}
+              </span>
+            </div>
+            ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+          </div>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-        <span style="font-size:15px;color:grey">@${escapeHTML(d.username || "username")}</span>
       </div>
-      ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
-    `;
+    `
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
@@ -1617,19 +1650,29 @@ document.getElementById("memberSearch").addEventListener("keydown", async (e) =>
     row.dataset.id = uid;
 
     row.innerHTML = `
-        <img loading='lazy' src="${base91ToImageSrc(d.photoURL)}"
-            onerror="this.src='/image/default-avatar.jpg'"
-            style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:6px;">
-            ${roleLabel}
-            <strong class="user-link">${escapeHTML(d.displayName || "user")}</strong>
-            <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+          
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex;align-items:center;gap:6px;">
+                ${roleLabel}
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
+                </strong>
+                <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
+              </div>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(d.username)}
+              </span>
+            </div>
+            ${window.canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
           </div>
-          <span style="font-size:15px;color:grey">@${escapeHTML(d.username)}</span>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-        ${window.canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
-    `;
+      </div>
+    `
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
@@ -1867,7 +1910,8 @@ async function banMember(uid) {
       bannedAt: new Date(),
       photoURL: data.photoURL,
       username: data.username,
-      displayName: data.displayName
+      displayName: data.displayName,
+      description: data.description
     });
     tx.update(userRef3, {
       communitiesCount: increment(-1)

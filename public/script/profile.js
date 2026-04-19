@@ -331,7 +331,10 @@ async function loadHighlighted(uid, initial = false) {
 
   for (const highlightedDoc of snap.docs) {
     const tweetId = highlightedDoc.id;
-    const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
+    const communityId = highlightedDoc.data().communityId;
+    const tweetDoc = communityId 
+      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId)) 
+      : await getDoc(doc(db, "tweets", tweetId));
 
     if (!tweetDoc.exists()) {
       const deletedDiv = document.createElement("div");
@@ -358,7 +361,7 @@ async function loadHighlighted(uid, initial = false) {
       uid: tweetData.uid
     };
 
-    await renderTweet(tweetData, tweetId, userData, "append", highlightedList);
+    await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
     highlightsLoadedOnce = true;
   }
 
