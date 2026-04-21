@@ -1667,8 +1667,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
           }
 
-          console.log(`${tweetId}, ${t.retweetOf}`);
-
           const rtsrc = base91ToImageSrc(rt.media);
           const rtcontainsSpoiler = rt.sensitiveMedia === true;
 
@@ -2463,7 +2461,7 @@ document.body.addEventListener("click", async (e) => {
 
         <div class="menu-item share-btn" data-share="${yes}" ${!data.postedInPublic ? `data-community-id="${hascom || null}"` : ""} data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
 
-        <div class="menu-item bookmark-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add to bookmark folder</div>
+        <div class="menu-item bookmark-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from bookmark folder</div>
 
         ${(window.communityID && window.isOnPrivate) || isPrivate ? "" : 
           `<div class="menu-item highlight-btn" ${window.communityID ? `data-community="${window.communityID}"` : `${isStored ? `data-community=${communityId}` : ""}`} id="highlightBtn-${tweetId}">
@@ -4099,7 +4097,6 @@ document.body.addEventListener("click", async (e) => {
 
     document.getElementById("sendComment").onclick = async () => {
 
-    console.log("sendComment called " + tweetId);
       const sendBtn = document.getElementById("sendComment");
       sendBtn.disabled = true;
       sendBtn.classList.add("disabled");
@@ -6807,7 +6804,6 @@ sendRetweet.onclick = async () => {
     let TWEETOWNERSUSPENDED = false;
 
     await runTransaction(db, async (tx) => {
-      console.log(postdata.uid);
       if (postdata.uid != auth.currentUser.uid) {
         const tweetUserRef = doc(db, "users", postdata.uid);
         const tweetUserSnap = await tx.get(tweetUserRef);
@@ -6816,7 +6812,6 @@ sendRetweet.onclick = async () => {
 
         if (tweetUserData.suspended === true && tweetUserData.suspendedUntil > Timestamp.now()) {
           TWEETOWNERSUSPENDED = true;
-          console.log(`${postdata.uid} is suspended`)
         }
       }
 

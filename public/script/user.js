@@ -1727,7 +1727,7 @@ async function openFollowOverlay(type, userId, isMe) {
         }
       });
       const btn = item.querySelector(".mini-follow-btn");
-      if (type === "following" && docSnap.id === auth.currentUser.uid) {
+      if (type === "following" && userId === auth.currentUser.uid) {
         setupMiniFollowBtn(btn, docSnap.id, true);
       } else {
         setupMiniFollowBtn(btn, docSnap.id);
@@ -1837,7 +1837,7 @@ async function renderFollowUserItem(uid, data, type) {
     }
   });
   const btn = item.querySelector(".mini-follow-btn");
-  if (type === "following" && uid === auth.currentUser.uid) {
+  if (type === "following" && window.userId == auth.currentUser.uid) {
     setupMiniFollowBtn(btn, uid, true);
   } else {
     setupMiniFollowBtn(btn, uid);

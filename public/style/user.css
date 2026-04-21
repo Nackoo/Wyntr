@@ -312,8 +312,7 @@
   gap: 13px;
 }
 
-.tab,
-.tab1 {
+.tab {
   position: relative;
   flex: 1;
   padding: 12px 0 15px 0;
@@ -330,12 +329,28 @@
   margin-top: -6px !important;
 }
 
+.tab1, .tab5 {
+  position: relative;
+  flex: 1;
+  padding: 20px 0 15px 0;
+  margin: 20px 0 15px 0;
+  background: none !important;
+  font-weight: bold;
+  color: grey !important;
+  cursor: pointer;
+  margin-top: -6px !important;
+}
+
+.tab1.active {
+  color: white !important;
+}
+
 .tab5 {
   margin-bottom: 0px !important;
+  margin-top: 0px !important;
 }
 
 .tab3,
-.tab5,
 .tab2 {
   position: relative;
   flex: 1;
@@ -354,7 +369,7 @@
 }
 
 .tab1 {
-  margin-top: 0;
+  margin-top: -4px !important;
 }
 
 .tab:hover,
@@ -365,8 +380,7 @@
   background: var(--normal) !important;
 }
 
-.tab.active,
-.tab1.active {
+.tab.active {
   color: white !important;
   background: var(--light) !important;
   border: var(--border)
@@ -378,11 +392,27 @@
   color: white !important;
 }
 
-.tab.active::after,
 .tab1.active::after,
-.tab2.active::after,
-.tab3.active::after,
 .tab5.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 5px;
+  background-color: #ddd;
+  border-bottom-right-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.tab5.active::after {
+  width: 130px;
+}
+
+.tab.active::after,
+.tab2.active::after,
+.tab3.active::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -395,16 +425,15 @@
   border-top-left-radius: 5px;
 }
 
-.tab5.active::after {
-  width: 104px;
-}
-
 @media (max-width: 500px) {
   .tab.active::after,
-  .tab1.active::after,
   .tab2.active::after,
   .tab3.active::after {
     width: 60px;
+  }
+
+  .tab1.active::after {
+    width: 90px;
   }
 }
 

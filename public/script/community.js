@@ -2702,6 +2702,10 @@ searchInput.addEventListener("keydown", async (e) => {
     if (term === previousTerm) return;
     previousTerm = term;
     if (term.length >= MIN_LEN) {
+      if (window.isOnPrivate && !window.isJoined) {
+        info("x", "insufficient permission", "This is a private community and you're not joined.");
+        return;
+      }
       const tweets = await searchTweets(term, true);
       tweetsView.innerHTML = "";
 

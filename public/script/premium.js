@@ -48,7 +48,7 @@ document.getElementById("buypremium").onclick = async () => {
       }
 
       const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 29);
+      expiryDate.setDate(expiryDate.getDate() + 31);
 
       transaction.update(userRef, {
         balance: increment(-500),
