@@ -63,7 +63,7 @@ followingBannerInner.onclick = async () => {
 
   newFollowingIncoming.sort((a, b) => b.data().createdAt - a.data().createdAt);
 
-  for (const docSnap of newFollowingIncoming) {
+  newFollowingIncoming.forEach(async (docSnap) => {
     const tweet = docSnap.data();
     const user = window.followingUserCache?.get(tweet.uid) ?? { uid: tweet.uid };
 
@@ -71,7 +71,7 @@ followingBannerInner.onclick = async () => {
     await renderTweet(tweet, docSnap.id, user, "append", temp);
     const firstChild = temp.firstElementChild;
     if (firstChild) followingContainer.insertBefore(firstChild, followingContainer.firstChild);
-  }
+  });
 
   firstVisibleFollowing = newFollowingIncoming[0];
   newFollowingIncoming = [];
@@ -162,7 +162,7 @@ export async function loadFollowingTweets(reset = false) {
     return { docSnap, score: scoreTweet(data, new Set(followedUserIds)) };
   }).sort((a, b) => b.score - a.score);
 
-  for (const { docSnap } of scored) {
+  scored.forEach(async ({ docSnap }) => {
     const tweet = docSnap.data();
     const user = window.followingUserCache?.get(tweet.uid) ?? { uid: tweet.uid };
     
@@ -172,7 +172,7 @@ export async function loadFollowingTweets(reset = false) {
     } catch (err) {
       console.error("[FOLLOWING] renderTweet error:", err);
     }
-  }
+  });
 
   if (!firstVisibleFollowing && allTweets.length) {
     firstVisibleFollowing = allTweets[0];

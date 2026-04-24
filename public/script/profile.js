@@ -11,16 +11,16 @@ let pinLoaded = false;
 
 let userLastVisibleDoc = null;
 let userLoadedCount = 0;
-const USER_PAGE_SIZE = 3;
+const USER_PAGE_SIZE = 5;
 
 let mentionedLastVisibleDoc = null;
 let mentionedLoadedCount = 0;
-const MENTIONED_PAGE_SIZE = 3;
+const MENTIONED_PAGE_SIZE = 5;
 
 let highlightedLastVisibleDoc = null;
 let highlightedLoadedCount = 0;
 let highlightsLoadedOnce = false;
-const HIGHLIGHTED_PAGE_SIZE = 3;
+const HIGHLIGHTED_PAGE_SIZE = 5;
 
 const list = document.getElementById("youList");
 const usermentionedList = document.getElementById("mentionedList");
@@ -182,9 +182,9 @@ async function loadTweets(uid) {
     return;
   }
 
-  for (const docSnap of snap.docs) {
+  snap.docs.forEach(async (docSnap) => {
     await renderTweet(docSnap.data(), docSnap.id, userData, "append", list);
-  }
+  });
 
   userLoadedCount += snap.docs.length;
 
@@ -290,10 +290,10 @@ async function loadUserMentionedTweets(uid) {
     mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 
-  for (const mentionDoc of snap.docs) {
+  snap.docs.forEach(async (mentionDoc) => {
     const tweetId = mentionDoc.id;
     const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
-    if (!tweetDoc.exists()) continue;
+    if (!tweetDoc.exists()) return;
 
     const tweetData = tweetDoc.data();
     const userDoc = await getDoc(doc(db, "users", uid));
@@ -303,7 +303,7 @@ async function loadUserMentionedTweets(uid) {
     };
 
     await renderTweet(tweetData, tweetId, userData, "append", usermentionedList);
-  }
+  });
 
   mentionedLoadedCount += snap.docs.length;
 
@@ -329,7 +329,7 @@ async function loadHighlighted(uid, initial = false) {
     return;
   }
 
-  for (const highlightedDoc of snap.docs) {
+  snap.docs.forEach(async (highlightedDoc) => {
     const tweetId = highlightedDoc.id;
     const communityId = highlightedDoc.data().communityId;
     const tweetDoc = communityId 
@@ -350,7 +350,7 @@ async function loadHighlighted(uid, initial = false) {
       };
 
       highlightedList.appendChild(deletedDiv);
-      continue;
+      return;
     }
 
     const tweetData = tweetDoc.data();
@@ -363,7 +363,7 @@ async function loadHighlighted(uid, initial = false) {
 
     await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
     highlightsLoadedOnce = true;
-  }
+  });
 
   highlightedLoadedCount += snap.docs.length;
 

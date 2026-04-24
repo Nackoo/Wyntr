@@ -227,46 +227,89 @@ async function loadFolderTweets(folderId, initial = true) {
     return;
   }
 
-  for (const docSnap of snap.docs) {
+  snap.docs.forEach(async (docSnap) => {
     const tweetId = docSnap.id;
-    const tweetRef = docSnap.data().communityId ? doc(db, "communities", docSnap.data().communityId, 'posts', tweetId) : doc(db, 'tweets', tweetId);
+    const data = docSnap.data();
+
+    const tweetRef = data.communityId
+      ? doc(db, "communities", data.communityId, "posts", tweetId)
+      : doc(db, "tweets", tweetId);
+
     const tweetSnap = await getDoc(tweetRef);
 
     if (tweetSnap.exists()) {
       if (!tweetList.querySelector(".tweet")) {
         tweetList.innerHTML = "";
       }
-      await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, 'append', tweetList, docSnap.data().communityId, true, docSnap.data().private);
-    } else {
-      const box = document.createElement('div');
-      box.className = 'unavailable';
-      box.style.cssText = 'margin:0 -20px;padding:0 20px;padding: 10px; border-bottom: var(--border);';
-      box.innerHTML = `
-        <div class="flex" style="margin:0"><p style="margin:0;color:grey;font-style:italic">This Wynt is unavailable</p><button style="margin-left:auto" class="close-btn delete-unavailable"><img src="/image/trash.svg"></button></div><div></div>
-      `;
 
-      const deleteBtn = box.querySelector('.delete-unavailable');
-      deleteBtn.onclick = async () => {
-        loading1.classList.add("show");
+      await renderTweet(
+        tweetSnap.data(),
+        tweetId,
+        auth.currentUser,
+        "append",
+        tweetList,
+        data.communityId,
+        true,
+        data.private
+      );
+      return;
+    }
 
+    const box = document.createElement("div");
+    box.className = "unavailable";
+    box.style.cssText =
+      "margin:0 -20px;padding:10px 20px;border-bottom:var(--border);";
+
+    box.innerHTML = `
+      <div class="flex" style="margin:0">
+        <p style="margin:0;color:grey;font-style:italic">
+          This Wynt is unavailable
+        </p>
+        <button style="margin-left:auto" class="close-btn delete-unavailable">
+          <img src="/image/trash.svg">
+        </button>
+      </div>
+    `;
+
+    box.querySelector(".delete-unavailable").onclick = async () => {
+      loading1.classList.add("show");
+
+      try {
         const uid = auth.currentUser.uid;
-        const ref = doc(db, 'users', uid, 'bookmarks', folderId, 'items', tweetId);
-        const folderRef = doc(db, 'users', uid, 'bookmarks', folderId);
+        const ref = doc(
+          db,
+          "users",
+          uid,
+          "bookmarks",
+          folderId,
+          "items",
+          tweetId
+        );
+
+        const folderRef = doc(
+          db,
+          "users",
+          uid,
+          "bookmarks",
+          folderId
+        );
 
         await runTransaction(db, async (tx) => {
           tx.delete(ref);
-          tx.update(folderRef, { 
+          tx.update(folderRef, {
             tweetsCount: increment(-1),
             lastUpdated: serverTimestamp()
           });
         });
 
         box.remove();
+      } finally {
         loading1.classList.remove("show");
-      };
-      tweetList.appendChild(box);
-    }
-  }
+      }
+    };
+
+    tweetList.appendChild(box);
+  });
 
   folderLastDoc = snap.docs[snap.docs.length - 1];
 }
@@ -314,29 +357,71 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
   if (isPremium) {
     const foldersRef = collection(db, 'users', auth.currentUser.uid, 'bookmarks');
     let q = query(foldersRef, limit(BOOKMARK_PAGE_SIZE));
-    if (boLastDoc) q = query(foldersRef, startAfter(boLastDoc), limit(BOOKMARK_PAGE_SIZE));
+    if (boLastDoc) {
+      q = query(foldersRef, startAfter(boLastDoc), limit(BOOKMARK_PAGE_SIZE));
+    }
 
     const folderSnap = await getDocs(q);
 
-    for (const f of folderSnap.docs) {
+    folderSnap.docs.forEach(async (f) => {
       const data = f.data();
       const name = data.name || f.id;
+
       const div = document.createElement('div');
       div.className = 'folder-item';
-
-      const ref = doc(db, 'users', auth.currentUser.uid, 'bookmarks', f.id, 'items', tweetId);
-      const snap = await getDoc(ref);
       div.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
 
-      if (snap.exists()) {
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">${name}</div> <span style="color:#00b377;margin-left:auto;">exists here</span></div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
-      } else {
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">${name}</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
-      }
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${data.icon === "📁" || !data.icon
+            ? `<img src="/image/folder.svg">`
+            : data.icon}
+          <div class="user-link">${name}</div>
+          <span style="color:grey;margin-left:auto;">Loading...</span>
+        </div>
+      `;
 
       div.onclick = () => selectFolder(f.id, tweetId, true, communityId);
       folderList.appendChild(div);
-    }
+
+      const ref = doc(db, 'users', auth.currentUser.uid, 'bookmarks', f.id, 'items', tweetId);
+
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${data.icon === "📁" || !data.icon
+              ? `<img src="/image/folder.svg">`
+              : data.icon}
+            <div class="user-link">${name}</div>
+            <span style="color:#00b377;margin-left:auto;">exists here</span>
+          </div>
+          <div>
+            <span style="color:grey;">
+              last updated ${formatDate(data.lastUpdated) || '[missing value]'} ago
+            </span>
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${data.icon === "📁" || !data.icon
+              ? `<img src="/image/folder.svg">`
+              : data.icon}
+            <div class="user-link">${name}</div>
+            ${data.tweetsCount > 0
+              ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>`
+              : ''}
+          </div>
+          <div>
+            <span style="color:grey;">
+              last updated ${formatDate(data.lastUpdated) || '[missing value]'} ago
+            </span>
+          </div>
+        `;
+      }
+    });
 
     if (!folderSnap.empty) {
       boLastDoc = folderSnap.docs[folderSnap.docs.length - 1];

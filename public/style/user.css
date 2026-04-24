@@ -407,7 +407,7 @@
 }
 
 .tab5.active::after {
-  width: 130px;
+  width: 120px;
 }
 
 .tab.active::after,
@@ -1230,12 +1230,28 @@ input[type="checkbox"] {
 }
 
 .rule-item {
-  background: var(--normal);
-  padding: 10px;
-  border-radius: 15px;
-  border: var(--border);
+  padding: 0px 16px;
+  margin: 0 -20px;
+  padding-bottom: 10px;
   display: flex;
   flex-direction:column
+}
+
+@media (max-width:700px) {
+  .rule-item {
+    border-radius: 0 !important;
+    border: none !important;
+    border-bottom: var(--border) !important;
+    margin: 0 -15px;
+  }
+}
+
+.rule-item:not(.rule-item:last-child) {
+  border-bottom: var(--border);
+}
+
+.rule-item:first-child {
+
 }
 
 .rule-title {
@@ -1265,7 +1281,7 @@ input[type="checkbox"] {
   color: var(--color);
   padding: 12px;
   border-radius: 15px;
-  border: var(--border);
+  border: var(--border) !important;
   transition: border 0.2s ease
 }
 
@@ -1869,4 +1885,30 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 
 #blockList .user-search-item {
   padding: 13px 20px !important
+}
+
+#pollOptions,
+#pollOptionsRetweet,
+#pollOptionsComment {
+  margin: 0 -15px;
+  margin-bottom:20px;
+}
+
+#pollDuration, 
+#pollDurationRetweet,
+#pollDurationComment{
+  margin:0;
+  margin-left: 15px;
+  background:var(--light);
+  padding:10px;
+  color:var(--color);
+  border: var(--border);
+  border-radius: 10px;
+  height:45px;
+  font-size:15px;
+  color:grey;
+}
+
+.poll-option {
+  border: var(--border);
 }

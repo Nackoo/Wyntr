@@ -159,7 +159,7 @@ document.querySelectorAll(".tab1").forEach(tab1 => {
   });
 });
 
-const MIN_LEN = 3;
+const MIN_LEN = 5;
 
 searchInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter") {
@@ -452,7 +452,7 @@ const list = document.getElementById("userList");
 
 let userLastVisibleDoc = null;
 let userLoadedCount = 0;
-const USER_PAGE_SIZE = 3;
+const USER_PAGE_SIZE = 5;
 
 async function loadTweets(uid) {
   const userDoc = await getDoc(doc(db, "users", uid));
@@ -493,11 +493,11 @@ async function loadTweets(uid) {
     if (startEl) startEl.style.display = "none";
   }
 
-  for (const docSnap of snap.docs) {
+  snap.docs.forEach(async (docSnap) => {
     if (uid === document.querySelector("#user-name").dataset.uid) {
       renderTweet(docSnap.data(), docSnap.id, userData, "append", list);
     }
-  }
+  });
 
   userLoadedCount += snap.docs.length;
 
@@ -570,7 +570,7 @@ async function fetchUsers(term = "") {
 
     item.innerHTML = `
       <div style="display:flex; gap:12px; width:100%">
-        <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+        <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
         
         <div style="display:flex;flex-direction:column;gap:6px;width:100%">
           <div style="display:flex;width:100%">
@@ -1564,7 +1564,7 @@ window.openTag = async function (tagId) {
 
     lastDoc = snap.docs[snap.docs.length - 1];
 
-    for (const docSnap of snap.docs) {
+    snap.docs.forEach(async (docSnap) => {
       const tweetId = docSnap.id;
 
       const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
@@ -1572,7 +1572,7 @@ window.openTag = async function (tagId) {
         if (!tweetList.querySelector(".tweet")) tweetList.innerHTML = "";
         renderTweet(tweetDoc.data(), tweetId, auth.currentUser, "append", tweetList);
       }
-    }
+    });
 
     isLoading = false;
   }
@@ -1698,7 +1698,7 @@ async function openFollowOverlay(type, userId, isMe) {
 
       item.innerHTML = `
         <div style="display:flex; gap:12px; width:100%">
-          <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+          <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
             
           <div style="display:flex;flex-direction:column;gap:6px;width:100%">
             <div style="display:flex;width:100%">
@@ -1811,7 +1811,7 @@ async function renderFollowUserItem(uid, data, type) {
 
   item.innerHTML = `
     <div style="display:flex; gap:12px; width:100%">
-      <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+      <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
         
       <div style="display:flex;flex-direction:column;gap:6px;width:100%">
         <div style="display:flex;width:100%">
@@ -2041,7 +2041,7 @@ document.querySelectorAll(".tab3").forEach(tab => {
 let mentionedLastVisibleDoc = null;
 let mentionedLoadedCount = 0;
 const usermentionedList = document.getElementById("usermentionedList");
-const MENTIONED_PAGE_SIZE = 3;
+const MENTIONED_PAGE_SIZE = 5;
 
 async function loadUserMentionedTweets(uid) {
   const mentionedRef = collection(db, "users", uid, "mentioned");
@@ -2064,10 +2064,10 @@ async function loadUserMentionedTweets(uid) {
     mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 
-  for (const mentionDoc of snap.docs) {
+  snap.docs.forEach(async (mentionDoc) => {
     const tweetId = mentionDoc.id;
     const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
-    if (!tweetDoc.exists()) continue;
+    if (!tweetDoc.exists()) return;
 
     const tweetData = tweetDoc.data();
     const userDoc = await getDoc(doc(db, "users", uid));
@@ -2079,7 +2079,7 @@ async function loadUserMentionedTweets(uid) {
     if (uid === document.querySelector("#user-name").dataset.uid) {
       await renderTweet(tweetData, tweetId, userData, "append", usermentionedList);
     }
-  }
+  });
 
   mentionedLoadedCount += snap.docs.length;
 
@@ -2091,7 +2091,7 @@ async function loadUserMentionedTweets(uid) {
 let highlightedLastVisibleDoc = null;
 let highlightedLoadedCount = 0;
 const highlightedList = document.getElementById("userHighlights");
-const HIGHLIGHTED_PAGE_SIZE = 3;
+const HIGHLIGHTED_PAGE_SIZE = 5;
 
 async function loadHighlights(uid) {
   const highlightedRef = collection(db, "users", uid, "highlights");
@@ -2114,15 +2114,18 @@ async function loadHighlights(uid) {
     highlightedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 
-  for (const highlightDoc of snap.docs) {
+  snap.docs.forEach(async (highlightDoc) => {
     const tweetId = highlightDoc.id;
     const communityId = highlightDoc.data().communityId;
-    const tweetDoc = communityId 
-      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId)) 
+
+    const tweetDoc = communityId
+      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId))
       : await getDoc(doc(db, "tweets", tweetId));
-    if (!tweetDoc.exists()) continue;
+
+    if (!tweetDoc.exists()) return;
 
     const tweetData = tweetDoc.data();
+
     const userDoc = await getDoc(doc(db, "users", uid));
     const userData = {
       ...userDoc.data(),
@@ -2132,7 +2135,7 @@ async function loadHighlights(uid) {
     if (uid === document.querySelector("#user-name").dataset.uid) {
       await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
     }
-  }
+  });
 
   highlightedLoadedCount += snap.docs.length;
 

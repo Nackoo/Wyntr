@@ -309,34 +309,34 @@ async function showCreateCommunityOverlay(communityId = null) {
           <img src="/image/x.svg" alt="Close">
         </button>
       </header>
+
       <div class="banner-preview1" style="z-index:1;">
         <div id="com-banner-preview"></div>
         <div class="group">
           <label class="button" id="com-banner-label" for="com-banner-input"><img src="/image/upload.svg"></label>
         </div>
       </div>
+
       <div class="ava-preview1">
         <div id="com-ava-preview"></div>
         <label class="button" id="com-ava-label" for="com-ava-input"><img src="/image/upload.svg"></label>
       </div>
       <br>
+
       <h2 id="createCom">Create a Community</h2>
 
-      <div class="container1">
-        <span>Name</span>
-        <input id="communityNameInput" type="text" placeholder="i just lost my dawg" style="border:none;padding:0;">
-      </div>
+      <p style="margin-bottom:10px">Name</p>
+      <input id="communityNameInput" type="text" placeholder="i just lost my dawg" style="border:none;padding:0;color:grey">
 
-      <div class="container1">
-        <span>Description</span>
-        <input id="communityDescInput" type="text" placeholder="a community on wyntr" style="border:none;padding:0;">
-      </div>
+      <p style="margin-bottom:10px">Description</p>
+      <input id="communityDescInput" type="text" placeholder="a community on wyntr" style="border:none;padding:0;color:grey">
 
+
+      <hr style="margin:0 -20px;margin-top:15px;">
       <div id="comTags">
         <p>Select up to 3 tags</p>
-        <p style="color:grey;font-size:15px;">Choose topics your community is made for</a></p>
+        <p style="color:grey;font-size:15px;">Choose topics your community is made for</p>
 
-        <div class="container1" style="margin-top:10px;">
           <div id="communityTagOptions">
             ${["tech","gaming","entertainment","lifestyle","art","science","social","finance","hobbies"]
               .map(t => `
@@ -347,58 +347,56 @@ async function showCreateCommunityOverlay(communityId = null) {
               </div>
             `).join("")}
           </div>
-        </div>
       </div>
 
+      <hr style="margin:0 -20px;margin-top:15px;">
       <p>Community mode</p>
-      <p style="color:grey;font-size:15px;">Choose whether your community is not discoverable or requires approval to join</a></p>
+      <p style="color:grey;font-size:15px;">Choose whether your community is not discoverable or requires approval to join</p>
 
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:5px;margin:5px 0;">
-          <span>Accepting applications</span>
-          <div class="switch-row" style="margin-left:auto">
-            <input id="acceptApplicationCheck" type="checkbox">
-            <label for="acceptApplicationCheck" class="switch-label" aria-hidden="true">
-              <span class="switch-track">
-                <span class="switch-knob" aria-hidden="true"></span>
-              </span>
-            </label>
-          </div>
+      
+      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
+        <span>Accepting applications</span>
+        <div class="switch-row" style="margin-left:auto">
+          <input id="acceptApplicationCheck" type="checkbox">
+          <label for="acceptApplicationCheck" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
         </div>
       </div>
 
-      <div class="container1">
-        <div style="display:flex;align-items:center;gap:5px;margin:5px 0;">
-          <span>Private community</span>
-          <div class="switch-row" style="margin-left:auto">
-            <input id="privateCheck" type="checkbox">
-            <label for="privateCheck" class="switch-label" aria-hidden="true">
-              <span class="switch-track">
-                <span class="switch-knob" aria-hidden="true"></span>
-              </span>
-            </label>
-          </div>
+      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;color:grey">
+        <span>Private community</span>
+        <div class="switch-row" style="margin-left:auto">
+          <input id="privateCheck" type="checkbox">
+          <label for="privateCheck" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
         </div>
       </div>
+
+      <hr style="margin:0 -20px;margin-top:15px;">
 
       <div id="rulesSection">
         <p style="margin-top:15px;">community Rules</p>
         <p style="color:grey;font-size:15px;">These rules must comply with the <a href="/user/tos" target="_blank">Wyntr terms of service</a></p>
 
-        <div id="rulesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
-        </div>
+        <div id="rulesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
 
-        <button id="addRuleBtn" class="link" style="margin-top:10px;">+ Add Rule</button>
+        <button id="addRuleBtn" class="link" style="margin-top:15px;">+ Add Rule</button>
       </div>
           
-      <div style="display:flex;gap:5px;align-items:Center">
-          <button id="createCommunityBtn" style="padding:10px 25px;border-radius:10px;margin-top:5px;">Create for 300 Wcoins</button>
-          <button id="cancelCreateCommunityBtn" style="background:none;color:var(--color);border:none;">Cancel</button>
+      <div style="display:flex;gap:5px;align-items:Center;margin-top:10px;">
+          <button id="createCommunityBtn" style="padding:10px 25px;border-radius:10px;margin-top:5px;" class="">Create for 300 Wcoins</button>
+          <button id="cancelCreateCommunityBtn" style="background:none;color:var(--color);border:none;margin-left:auto;text-decoration:underline">Cancel</button>
       </div>
 
       <input type="file" id="com-banner-input" class="hidden-input" accept="image/*">
       <input type="file" id="com-ava-input" class="hidden-input" accept="image/*">
-    <br><br><br><br><br><br>
+      <br><br><br><br><br><br>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -2426,7 +2424,7 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
     for (const docSnap of snap.docs) {
       const c = docSnap.data();
 
-      if (c.private === true) continue;
+      if (c.private === true) continue;``
 
       const wrapper = document.createElement("div");
       wrapper.className = "com-item";

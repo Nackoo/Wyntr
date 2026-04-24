@@ -3602,7 +3602,8 @@ banner.onclick = async () => {
   banner.classList.add("disabled");
   banner.disabled = true;
   newIncomingMain.sort((a, b) => b.data().createdAt - a.data().createdAt);
-  for (const docSnap of newIncomingMain) {
+
+  newIncomingMain.forEach(async (docSnap) => {
     const tweet = docSnap.data();
     const userDoc = await getDoc(doc(db, "users", tweet.uid));
     const user = userDoc.exists() ? {
@@ -3615,7 +3616,8 @@ banner.onclick = async () => {
     await renderTweet(tweet, docSnap.id, user, "append", temp);
     const firstChild = temp.firstElementChild;
     if (firstChild) mainContainer.insertBefore(firstChild, mainContainer.firstChild);
-  }
+  });
+  
   firstVisibleMain = newIncomingMain[0] || firstVisibleMain;
   newIncomingMain = [];
   newBanner.style.display = "none";
@@ -3631,73 +3633,73 @@ banner.onclick = async () => {
 
 async function loadTweets(initial = false, direction = "down", count = 10) {
   const tweetsRef = collection(db, "tweets");
-  let baseQuery;
-  if (direction === "down") {
-    baseQuery = newestSnapshotNewest ? 
-      query(tweetsRef, 
-        orderBy("createdAt", "desc"), 
-        startAfter(newestSnapshotNewest), 
-        limit(count)
-      ) 
-    : 
-      query(tweetsRef, 
-        orderBy("createdAt", "desc"),
-        limit(count)
-      );
-  } else {
-    baseQuery = oldestSnapshotNewest ? 
-      query(tweetsRef, 
-        orderBy("createdAt", "asc"), 
-        startAfter(oldestSnapshotNewest), 
-        limit(count)
-      ) 
-    : 
-      query(tweetsRef, 
-        orderBy("createdAt", "asc"), 
-        limit(count)
-      );
-  }
+
+  const baseQuery =
+    direction === "down"
+      ? query(
+          tweetsRef,
+          orderBy("createdAt", "desc"),
+          ...(newestSnapshotNewest
+            ? [startAfter(newestSnapshotNewest)]
+            : []),
+          limit(count)
+        )
+      : query(
+          tweetsRef,
+          orderBy("createdAt", "asc"),
+          ...(oldestSnapshotNewest
+            ? [startAfter(oldestSnapshotNewest)]
+            : []),
+          limit(count)
+        );
+
   const snap = await getDocs(baseQuery);
-  const tweetObjs = snap.docs.map((docSnap) => {
+
+  let tweetObjs = snap.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
       ...data,
-      _score: scoreTweet(data, currentUserFollowing),
+      _score: scoreTweet(data, currentUserFollowing)
     };
   });
 
   tweetObjs.sort((a, b) => b._score - a._score);
-  if (direction === "down") {
-    let firstTweetRendered = false;
 
-    for (const t of tweetObjs) {
-      await renderTweet(t, t.id, auth.currentUser, "append");
-      if (!firstTweetRendered) {
-        const loadingEl = document.getElementById("loading");
-        if (loadingEl) loadingEl.remove();
-        firstTweetRendered = true;
-      }
-    }
-    newestSnapshotNewest = snap.docs[snap.docs.length - 1] || newestSnapshotNewest;
-  } else {
-    let firstTweetRendered = false;
-    for (const t of tweetObjs.reverse()) {
-      await renderTweet(t, t.id, auth.currentUser, "prepend");
-
-      if (!firstTweetRendered) {
-        const loadingEl = document.getElementById("loading");
-        if (loadingEl) loadingEl.remove();
-        firstTweetRendered = true;
-      }
-    }
-    oldestSnapshotNewest = snap.docs[snap.docs.length - 1] || oldestSnapshotNewest;
+  if (direction === "up") {
+    tweetObjs.reverse();
   }
+
+  let firstTweetRendered = false;
+
+  tweetObjs.forEach(async (tweet) => {
+    await renderTweet(
+      tweet,
+      tweet.id,
+      auth.currentUser,
+      direction === "down" ? "append" : "prepend"
+    );
+
+    if (!firstTweetRendered) {
+      firstTweetRendered = true;
+      document.getElementById("loading")?.remove();
+    }
+  });
+
+  if (direction === "down") {
+    newestSnapshotNewest =
+      snap.docs.at(-1) || newestSnapshotNewest;
+  } else {
+    oldestSnapshotNewest =
+      snap.docs.at(-1) || oldestSnapshotNewest;
+  }
+
   loadingMore = false;
 
-  if (!firstVisibleMain && snap.docs && snap.docs.length) {
+  if (!firstVisibleMain && snap.docs.length) {
     firstVisibleMain = snap.docs[0];
   }
+
   if (!unsubscribeMain && firstVisibleMain) {
     await resetMainListener();
   }
@@ -3718,10 +3720,11 @@ window.addEventListener("scroll", async () => {
   }
 });
 
-function setupPoll(checkboxId, containerId, addBtnId) {
+function setupPoll(checkboxId, containerId, addBtnId, pollDuration) {
   const cb = document.getElementById(checkboxId);
   const container = document.getElementById(containerId);
   const addBtn = document.getElementById(addBtnId);
+  const polldur = document.getElementById(pollDuration);
 
   // 🔥 Apply max length to existing inputs (HTML ones)
   const applyMaxLength = () => {
@@ -3779,7 +3782,7 @@ function setupPoll(checkboxId, containerId, addBtnId) {
 
     wrapper.appendChild(input);
     wrapper.appendChild(removeBtn);
-    container.insertBefore(wrapper, addBtn);
+    container.insertBefore(wrapper, polldur);
 
     const newCount = container.querySelectorAll(".poll-option-wrapper").length;
     if (newCount >= 2) {
@@ -3787,9 +3790,9 @@ function setupPoll(checkboxId, containerId, addBtnId) {
     }
   });
 }
-setupPoll("includePoll", "pollOptions", "addPollOption");
-setupPoll("includePollRetweet", "pollOptionsRetweet", "addPollOptionRetweet");
-setupPoll("includePollComment", "pollOptionsComment", "addPollOptionComment");
+setupPoll("includePoll", "pollOptions", "addPollOption", "pollDuration");
+setupPoll("includePollRetweet", "pollOptionsRetweet", "addPollOptionRetweet", "pollDurationRetweet");
+setupPoll("includePollComment", "pollOptionsComment", "addPollOptionComment", "pollDurationComment");
 
 const giftBtn = document.getElementById("giftBtn");
 const giftOverlay = document.getElementById("giftOverlay");
@@ -5788,18 +5791,18 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
   if (pinnedDoc && !hasSearch) {
     await renderCommentNode(pinnedDoc, true);
   }
-  for (const docSnap of snap.docs) {
-    if (pinnedDoc && docSnap.id === pinnedDoc.id) continue;
+
+  snap.docs.forEach(async (docSnap) => {
+    if (pinnedDoc && docSnap.id === pinnedDoc.id) return;
     if (hasSearch) {
       const data = docSnap.data();
       const tokens = data.searchTokens || [];
       const mustHaveAll = true;
-      if (mustHaveAll && !words.every(w => tokens.includes(w))) {
-        continue;
-      }
+      if (mustHaveAll && !words.every(w => tokens.includes(w))) return;
     }
     await renderCommentNode(docSnap, false);
-  }
+  });
+
   commentLoading = false;
 }
 
@@ -7514,7 +7517,7 @@ async function loadMoreQuotes() {
 
   const user = auth.currentUser;
 
-  for (const docSnap of snap.docs) {
+  snap.docs.forEach(async (docSnap) => {
     await renderTweet(
       docSnap.data(),
       docSnap.id,
@@ -7523,7 +7526,7 @@ async function loadMoreQuotes() {
       list,
       communityId || null
     );
-  }
+  });
 
   quoteState.loading = false;
 }

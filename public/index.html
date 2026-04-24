@@ -1071,18 +1071,21 @@
                 </div>
               </div>
               <div class="attachment" id="retweetPreview-TWEETID"></div>
-              <div id="pollOptionsRetweet" style="border-radius:15px;border:var(--border);margin-bottom:20px;" class="hidden">
-                <p style="font-size:17px;margin:15px;">Add Choices</p>
-                <input type="text" class="poll-option" placeholder="Option 1">
-                <input type="text" class="poll-option" placeholder="Option 2">
-                <button type="button" style="font-size: 15px; color: var(--color); text-decoration: underline; margin: 0px 15px 10px; display: inline-block;color:grey;" class="link" id="addPollOptionRetweet">Add more</button>
-                <select id="pollDurationRetweet" style="margin:10px 0 0 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border:var(--border);border-bottom-right-radius:15px;border-bottom-left-radius:15px;height:45px;font-size:15px;color:grey;">
+
+              <div id="pollOptionsRetweet" class="hidden">
+                <p style="font-size:17px;margin:15px;color:grey;margin-top:0;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1" maxlength="50">
+                <input type="text" class="poll-option" placeholder="Option 2" maxlength="50">
+                              
+                <select id="pollDurationRetweet">
                   <option value="8h">Duration: 8 Hours</option>
                   <option value="24h">Duration: 24 Hours</option>
                   <option value="3d">Duration: 3 Days</option>
                   <option value="1w">Duration: 1 Week</option>
                   <option value="3w">Duration: 3 Weeks</option>
                 </select>
+                
+                <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOptionRetweet">Add more</button>
               </div>
               <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox1">
                 <input type="checkbox" style="width:15px;" id="shareToFollowers1">
@@ -1191,18 +1194,20 @@
                 <textarea id="commentInput" style="font-size:16px;" placeholder="hmm...?"></textarea>
               </div>
               <div class="attachment" id="commentPreview"></div>
-              <div id="pollOptionsComment" style="border-radius:15px;border:var(--border);" class="hidden">
-                <p style="font-size:17px;margin:15px;">Add choices</p>
-                <input type="text" class="poll-option" placeholder="Option 1">
-                <input type="text" class="poll-option" placeholder="Option 2">
-                <button type="button" style="font-size: 15px; color: var(--color); text-decoration: underline; margin: 0px 15px 10px; display: inline-block;color:grey;" class="link" id="addPollOptionComment">Add more</button>
-                <select id="pollDurationComment" style="margin:10px 0 0 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border:var(--border);border-bottom-right-radius:15px;border-bottom-left-radius:15px;height:45px;font-size:15px;color:grey;">
+              <div id="pollOptionsComment" class="hidden">
+                <p style="font-size:17px;margin:15px;color:grey;margin-top:0;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1" maxlength="50">
+                <input type="text" class="poll-option" placeholder="Option 2" maxlength="50">
+                              
+                <select id="pollDurationComment">
                   <option value="8h">Duration: 8 Hours</option>
                   <option value="24h">Duration: 24 Hours</option>
                   <option value="3d">Duration: 3 Days</option>
                   <option value="1w">Duration: 1 Week</option>
                   <option value="3w">Duration: 3 Weeks</option>
                 </select>
+                
+                <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOptionComment">Add more</button>
               </div>
               <div class="flex" id="comment-status"></div>
               <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
@@ -1293,18 +1298,20 @@
                 <textarea id="tweetInput" style="height:150px;" placeholder="What's cookin'?"></textarea>
               </div>
               <div class="attachment" id="tweetPreview"></div>
-              <div id="pollOptions" style="border-radius:15px;border:var(--border);margin-bottom:20px;" class="hidden">
-                <p style="font-size:17px;margin:15px;">Add choices</p>
-                <input type="text" class="poll-option" placeholder="Option 1">
-                <input type="text" class="poll-option" placeholder="Option 2">
-                <button type="button" style="font-size: 15px; color: var(--color); text-decoration: underline; margin: 0px 15px 10px; display: inline-block;color:grey;" class="link" id="addPollOption">Add more</button>
-                <select id="pollDuration" style="margin:10px 0 0 0;width:100%;background:var(--normal);padding:10px;color:var(--color);border:var(--border);border-bottom-right-radius:15px;border-bottom-left-radius:15px;height:45px;font-size:15px;color:grey;">
+              <div id="pollOptions" class="hidden">
+                <p style="font-size:17px;margin:15px;color:grey;margin-top:0;">Add choices</p>
+                <input type="text" class="poll-option" placeholder="Option 1" maxlength="50">
+                <input type="text" class="poll-option" placeholder="Option 2" maxlength="50">
+                              
+                <select id="pollDuration">
                   <option value="8h">Duration: 8 Hours</option>
                   <option value="24h">Duration: 24 Hours</option>
                   <option value="3d">Duration: 3 Days</option>
                   <option value="1w">Duration: 1 Week</option>
                   <option value="3w">Duration: 3 Weeks</option>
                 </select>
+                
+                <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOption">Add more</button>
               </div>
               <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox">
                 <input type="checkbox" style="width:15px;" id="shareToFollowers">

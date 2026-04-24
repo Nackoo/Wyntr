@@ -821,7 +821,7 @@ p.clamp-text {
   content: "";
   position: absolute;
   inset: 0; 
-  background: inherit; /
+  background: inherit; 
   filter: brightness(0.3);
   z-index: -1; 
 }
@@ -834,7 +834,9 @@ p.clamp-text {
     box-sizing: border-box
   }
   #tweetOverlay .comment-box,
-  #retweetOverlay .comment-box {
+  #retweetOverlay .comment-box,
+  #commentOverlay .comment-box,
+  #replyOverlay .comment-box {
     min-height: 100vh;
     padding-top: 70px !important;
   }
