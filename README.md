@@ -85,6 +85,7 @@ service cloud.firestore {
         request.writeFields.hasOnly(["viewsCount"]) ||
         request.writeFields.hasOnly(["commentCount", "donations"]) ||
         request.writeFields.hasOnly(["text", "title", "edited", "language", "editAfterComment"]) ||
+        request.writeFields.hasOnly(["muteNotif", "noPrivateReply", "sensitiveMedia"]) ||
         request.writeFields.hasOnly(["connectedWynt", "postedInPublic"]) ||
         request.writeFields.hasOnly(["WS"]) 
       );
@@ -122,7 +123,8 @@ service cloud.firestore {
 
       allow update: if request.auth != null && (
         (resource.data.uid == request.auth.uid &&
-        request.writeFields.hasOnly(['text', 'edited', "language", "editAfterComment"])) ||
+        request.writeFields.hasOnly(["text", "edited", "language", "editAfterComment"])) ||
+        request.writeFields.hasOnly(["muteNotif", "sensitiveMedia"]) ||
         request.writeFields.hasOnly(['replyCount', 'ownerReplied']) ||
         request.writeFields.hasOnly(['likeCount']) ||
         request.writeFields.hasOnly(['replyCount']) ||
@@ -233,14 +235,12 @@ service cloud.firestore {
             resource.data.type in [
               "community-delete",
               "comment-delete",
-              "community-reply-delete",
-              "community-tweet-delete",
               "tweet"
             ]
           );
 
         allow update: if request.auth != null
-  				&& request.resource.data.type == resource.data.type;
+        	&& request.resource.data.type == resource.data.type;
       }
 
       match /bookmarks/{folderId} {
@@ -266,6 +266,12 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write: if request.auth != null && request.auth.uid == followerId;
       }
+      
+      match /views/{userId} {
+        allow read: if request.auth != null;
+        allow delete: if false;
+        allow create: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     match /tweets/{tweetId} {
@@ -284,6 +290,7 @@ service cloud.firestore {
           request.writeFields.hasOnly(['viewsCount']) &&
           request.resource.data.viewsCount == resource.data.viewsCount + 1) ||
         request.writeFields.hasOnly(["text", "title", "edited", "language", "editAfterComment"]) ||
+        request.writeFields.hasOnly(["muteNotif", "noPrivateReply", "sensitiveMedia"]) ||
         request.writeFields.hasOnly(["connectedWynt", "postedInPublic"]) ||
         request.writeFields.hasOnly(["WS"])
       );
@@ -335,6 +342,7 @@ service cloud.firestore {
            request.writeFields.hasOnly(['ownerReplied']) ||
            request.writeFields.hasOnly(['ownerReplying']) ||
            request.writeFields.hasOnly(["text", "edited", "language", "editAfterComment"]) ||
+           request.writeFields.hasOnly(["muteNotif", "sensitiveMedia"]) ||
            request.writeFields.hasOnly(["pinned", "hasBeenPinned"]) ||
            request.writeFields.hasOnly(["ownerReplied", "replyCount"]) ||
           ((request.auth.uid == resource.data.uid) &&
