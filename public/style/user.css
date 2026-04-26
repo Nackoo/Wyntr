@@ -1912,3 +1912,13 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 .poll-option {
   border: var(--border);
 }
+
+#profileComList .com-item {
+  margin-bottom: 15px !important;
+}
+
+@media (max-width: 700px) {
+  #tagstweet .skeleton-card {
+    margin: 25px 0;
+  }
+}

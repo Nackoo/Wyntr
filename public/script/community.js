@@ -824,7 +824,9 @@ async function joinCommunity(communityId) {
     const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply?`);
     if (!confirmApply) return;
 
-    await sendCommunityJoinRequest(comData.creatorId, communityId, comData.name);
+    await sendCommunityJoinRequest(comData.creatorId, communityId, comData.name,
+      comData.avatar
+    );
     return log("green", "Join request sent");
   }
 
@@ -1769,7 +1771,7 @@ async function openMemberMenu({communityId, targetUid, cData}) {
         const { username: name } = await getUserData(targetUid);
         const communityName = await getCommunityNameById(window.communityID);
 
-        sendadminDismissedNotification(cData.creatorId, window.communityID, communityName, name);
+        sendadminDismissedNotification(cData.creatorId, window.communityID, communityName, name, cData.avatar);
         document.querySelector(`#memberList .member-row[data-id="${targetUid}"] .comRole`).remove();
       } finally {
         loading.classList.remove("show");
@@ -1849,7 +1851,7 @@ async function toggleAdmin(uid, isAdmin) {
     window.cData.admin = window.cData.admin.filter(id => id !== uid);
   } else {
     window.cData.admin.push(uid);
-    await sendAdminNotification(uid, window.communityID, comData.name, comData.creatorName, comData.creatorId);
+    await sendAdminNotification(uid, window.communityID, comData.name, comData.creatorName, comData.creatorId, comData.avatar);
     log("green", "successfully made this user admin");
   }
 }
@@ -2100,14 +2102,15 @@ window.openComMenu = async function (communityId) {
           const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
           const userRef = doc(db, "users", docSnap.id)
           const blockRef = doc(db, "users", docSnap.id, "blocks", auth.currentUser.uid);
+          const comRef = doc(db, "communities", window.communityID);
 
-          const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, communityName] = await Promise.all([
+          const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, comSnap] = await Promise.all([
             getDoc(memberRef),
             getDoc(banRef),
             getDoc(followingRef),
             getDoc(userRef),
             getDoc(blockRef),
-            getCommunityNameById(window.communityID)
+            getDoc(comRef)
           ]);
 
           let blockData;
@@ -2116,6 +2119,7 @@ window.openComMenu = async function (communityId) {
           }
 
           const userData = userSnap.data();
+          const comData = comSnap.data();
 
           if (memberSnap.exists()) {
             log("red", "this user is already joined");
@@ -2125,13 +2129,13 @@ window.openComMenu = async function (communityId) {
             log("red", "this user is banned from the community")
           } else {
             if (!userData.invitePermission || userData.invitePermission === "everyone") {
-              await sendInviteNotification(docSnap.id, window.communityID, communityName);
+              await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
               log("green", "user invited");
             } else if (userData.invitePermission === "follow") {
               if (!followingSnap.exists()) {
                 log("red", "user grants no permission");
               } else {
-                await sendInviteNotification(docSnap.id, window.communityID, communityName);
+                await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
                 log("green", "user invited");
               }
             } else if (userData.invitePermission === "no") {
@@ -2244,7 +2248,7 @@ window.openComMenu = async function (communityId) {
     await deleteDoc(comRef);
 
     await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
-    await sendCommunityWarningNotification(cData.creatorId, cData.name, reason);
+    await sendCommunityWarningNotification(cData.creatorId, cData.name, reason, cData.avatar);
 
     loading.classList.remove("show");
     log("green", "Community has been disbanded");
@@ -2608,15 +2612,15 @@ async function loadCommunityTweets(communityId, loadMore = false) {
 
   lastVisibleCommunityTweet = snap.docs[snap.docs.length - 1];
 
-  for (const docSnap of snap.docs) {
+  snap.docs.forEach(async (docSnap) => {
     const id = docSnap.id;
 
-    if (window.cData?.pinned && window.cData.pinned === id) continue;
+    if (window.cData?.pinned && window.cData.pinned === id) return;
     if (!container.querySelector(".tweet") && !container.querySelector(".pinned-label") && container.querySelector("#communityloadingbitches")) container.querySelector("#communityloadingbitches").remove();
     if (container.querySelector("#communitynobitches")) container.querySelector("#communitynobitches").remove();
 
     await renderTweet(docSnap.data(), id, user, "append", container, communityId);
-  }
+  });
 }
 
 document.body.addEventListener("click", async (e) => { 
@@ -2865,6 +2869,10 @@ async function openCommunityOverlay(uid, reset) {
     <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
     `;
 
+    const tagsHtml = (cData.tags || [])
+      .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
+      .join("");
+
     div.innerHTML = `
       <div>
         <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
@@ -2880,6 +2888,15 @@ async function openCommunityOverlay(uid, reset) {
           </div>
           ${joinedStatus}
         </div>
+
+        <span style="color:grey;font-size:14px;display:flex;gap:5px;">
+          ${formatNumber(cData.posts)} posts •
+          by @${escapeHTML(cData.creatorName)} •
+          ${formatNumber(cData.membersCount)} members
+          ${cData.private ? `• private` : ""}
+        </span>
+
+        ${tagsHtml}
       </div>
     `;
 
@@ -2978,6 +2995,10 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
       <img style="margin-left:auto" src="/image/loader.svg" height="20" class="hidden">
       `;
 
+      const tagsHtml = (cData.tags || [])
+        .map(t => `<span class="tag-badge">${escapeHTML(t)}</span>`)
+        .join("");
+
       wrapper.innerHTML = `
         <div>
           <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;">
@@ -2993,6 +3014,15 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
             </div>
             ${joinedStatus}
           </div>
+
+          <span style="color:grey;font-size:14px;display:flex;gap:5px;">
+            ${formatNumber(cData.posts)} posts •
+            by @${escapeHTML(cData.creatorName)} •
+            ${formatNumber(cData.membersCount)} members
+            ${cData.private ? `• private` : ""}
+          </span>
+
+          ${tagsHtml}
         </div>
       `;
 

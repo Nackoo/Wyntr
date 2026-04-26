@@ -1469,7 +1469,7 @@ async function loadIfFollow(uid) {
               followers: increment(1)
             });      
 
-            sendFollowNotification(uid, username);
+            sendFollowNotification(uid, username, photoURL);
             log("green", `followed ${tDisplayName || "them"}`);
           });
 
@@ -1978,7 +1978,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
             }); 
 
             log("green", `followed ${tDisplayName || "them"}`);
-            sendFollowNotification(targetId, username);
+            sendFollowNotification(targetId, username, photoURL);
           });
 
           btn.textContent = "UnFoll";

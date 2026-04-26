@@ -669,17 +669,20 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), {
             mentionedAt: new Date()
           });
-          return;
+
+          if (mediaType === "image") {
+            sendMentionNotification(tweetRef.id, uid, text, mediaURL);
+          } else {
+            sendMentionNotification(tweetRef.id, uid, text);
+          }
         }
 
         if (window.communityID && window.isOnPrivate === false) {
-          sendCommunityMentionNotification(
-            tweetRef.id,
-            uid,
-            window.communityID,
-            communityName,
-            text
-          );
+          if (mediaType === "image") {
+            sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
+          } else {
+            sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
+          }
           return;
         }
 
@@ -690,13 +693,11 @@ document.getElementById("postBtn").addEventListener("click", async () => {
             const userCommunities = userDoc.data().communities || [];
 
             if (userCommunities.includes(window.communityID)) {
-              sendCommunityMentionNotification(
-                tweetRef.id,
-                uid,
-                window.communityID,
-                communityName,
-                text
-              );
+              if (mediaType === "image") {
+                sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
+              } else {
+                sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
+              }
             } else {
               info(
                 "x",
@@ -707,8 +708,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           }
           return;
         }
-
-        sendMentionNotification(tweetRef.id, uid, text);
       })
     );
 
@@ -2662,7 +2661,12 @@ document.body.addEventListener("click", async (e) => {
             loading.classList.add("show");
             return;
           }
-          sendHideNotification(data.text, data.uid, reason);
+
+          if (data.mediaType === "image") {
+            sendHideNotification(data.text, data.uid, reason, data.media);
+          } else {
+            sendHideNotification(data.text, data.uid, reason);
+          }
         } else if (isAdmin) {
           await updateDoc(commentRef, {
             isHidden: true,
@@ -3457,7 +3461,11 @@ document.body.addEventListener("click", async (e) => {
 
     if (!isOwner && isCommunityMod && !isAdmin) {
       const communityName = await getCommunityNameById(window.communityID)
-      await sendCommunityTweetDeleteNotification(data.uid, data.originalText || data.text, reason, communityName, window.communityID);
+      if (data.mediaType === "image") {
+        await sendCommunityTweetDeleteNotification(data.uid, data.originalText || data.text, reason, communityName, window.communityID, media);
+      } else {
+        await sendCommunityTweetDeleteNotification(data.uid, data.originalText || data.text, reason, communityName, window.communityID);
+      }
     }
 
     if (!isOwner && isAdmin) {
@@ -3484,7 +3492,11 @@ document.body.addEventListener("click", async (e) => {
         { merge: true }
       );
 
-      await sendTweetWarningNotification(data.uid, data.originalText || data.text, reason);
+      if (data.mediaType === "image") {
+        await sendTweetWarningNotification(data.uid, data.originalText || data.text, reason, media);
+      } else {
+        await sendTweetWarningNotification(data.uid, data.originalText || data.text, reason);
+      }
     }
 
     document.querySelectorAll(`#tweet-${tweetId}`).forEach(el => el.remove()); 
@@ -4449,30 +4461,21 @@ document.body.addEventListener("click", async (e) => {
                   if (uid === tweetData.uid) return;
 
                   if (window.communityID && !window.isOnPrivate) {
-                    sendCommunityCommentMentionNotification(
-                      tweetId,
-                      uid,
-                      processedText,
-                      window.communityID,
-                      commentId,
-                      communityName,
-                      tweetText
-                    );
-
+                    if (mediaType === "image") {
+                      sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media);
+                    } else {
+                      sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                    }
                   } else if (window.isOnPrivate && window.communityID) {
                     const userDoc = await getDoc(doc(db, "users", uid));
                     const userCommunities = userDoc.data().communities || [];
 
                     if (userCommunities.includes(window.communityID)) {
-                      sendCommunityCommentMentionNotification(
-                        tweetId,
-                        uid,
-                        processedText,
-                        window.communityID,
-                        commentId,
-                        communityName,
-                        tweetText
-                      );
+                      if (mediaType === "image") {
+                        sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media);
+                      } else {
+                        sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                      }
                     } else {
                       info(
                         "x",
@@ -4482,13 +4485,11 @@ document.body.addEventListener("click", async (e) => {
                     }
 
                   } else {
-                    sendCommentMentionNotification(
-                      tweetId,
-                      uid,
-                      processedText,
-                      commentId,
-                      tweetText
-                    );
+                    if (mediaType === "image") {
+                      sendCommentMentionNotification(tweetId, uid, processedText, commentId, tweetText, media);
+                    } else {
+                      sendCommentMentionNotification(tweetId, uid, processedText, commentId, tweetText);
+                    }
                   }
                 })
               );
@@ -4497,15 +4498,31 @@ document.body.addEventListener("click", async (e) => {
             if (tweetData.muteNotif != true && !isBlocked) {
               if (!sentDonationNotification) {
                 if (window.communityID) {
-                  sendCommunityCommentNotification(tweetId, commentText, window.communityID, commentId, communityName, tweetText, tweetData.uid);
+                  if (tweetData.mediaType === "image") {
+                    sendCommunityCommentNotification(tweetId, commentText, window.communityID, commentId, communityName, tweetText, tweetData.uid, tweetData.media);
+                  } else {
+                    sendCommunityCommentNotification(tweetId, commentText, window.communityID, commentId, communityName, tweetText, tweetData.uid);
+                  }
                 } else {
-                  sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid);
+                  if (tweetData.mediaType === "image") {
+                    sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid, tweetData.media);
+                  } else {
+                    sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid);
+                  }
                 }
               } else if (sentDonationNotification) {
                 if (window.communityID) {
-                  sendCommunityDonationNotification(tweetId, donation, donationReceived, commentText, window.communityID, commentId, communityName, tweetText);
+                  if (tweetData.mediaType === "image") {
+                    sendCommunityDonationNotification(tweetId, donation, donationReceived, commentText, window.communityID, commentId, communityName, tweetText, tweetData.media);
+                  } else {
+                    sendCommunityDonationNotification(tweetId, donation, donationReceived, commentText, window.communityID, commentId, communityName, tweetText);
+                  }
                 } else {
-                  sendDonationNotification(tweetId, donation, donationReceived, commentText, commentId, tweetText);
+                  if (tweetData.mediaType === "image") {
+                    sendDonationNotification(tweetId, donation, donationReceived, commentText, commentId, tweetText, tweetData.media);
+                  } else {
+                    sendDonationNotification(tweetId, donation, donationReceived, commentText, commentId, tweetText);
+                  }
                 }
               }
             }
@@ -4966,9 +4983,17 @@ document.body.addEventListener("click", async (e) => {
       if (commentData.muteNotif != true && TWEETOWNERSUSPENDED === false) {
         if (window.communityID) {
           const communityName = await getCommunityNameById(window.communityID);
-          sendCommunityReplyNotification(tweetId, commentId, text, window.communityID, communityName, tweetText, replyId);
+          if (commentData.mediaType === "image") {
+            sendCommunityReplyNotification(tweetId, commentId, text, window.communityID, communityName, tweetText, replyId, commentData.media);
+          } else {
+            sendCommunityReplyNotification(tweetId, commentId, text, window.communityID, communityName, tweetText, replyId);
+          }
         } else {
-          sendReplyNotification(tweetId, commentId, text, tweetText, replyId);
+          if (commentData.mediaType === "image") {
+            sendReplyNotification(tweetId, commentId, text, tweetText, replyId, commentData.media);
+          } else {
+            sendReplyNotification(tweetId, commentId, text, tweetText, replyId);
+          }
         }
       }
   
@@ -5030,17 +5055,28 @@ document.body.addEventListener("click", async (e) => {
               if (uid === commentData.uid) return;
 
               if (window.communityID && !window.isOnPrivate) {
-                sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
-
+                if (mediaType === "image") {
+                  sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId, media);
+                } else {
+                  sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                }
               } else if (window.isOnPrivate && window.communityID) {
                 const userDoc = await getDoc(doc(db, "users", uid));
                 const userCommunities = userDoc.data().communities || [];
 
                 if (userCommunities.includes(window.communityID)) {
-                  sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                  if (mediaType === "image") {
+                    sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId, media);
+                  } else {
+                    sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                  }
                 }
               } else {
-                sendReplyMentionNotification(tweetId, commentId, uid, text, tweetText, replyId);
+                if (mediaType === "image") {
+                  sendReplyMentionNotification(tweetId, commentId, uid, text, tweetText, replyId, media);
+                } else {
+                  sendReplyMentionNotification(tweetId, commentId, uid, text, tweetText, replyId);
+                }
               }
             })
           );
@@ -6148,14 +6184,18 @@ document.body.addEventListener("click", async (e) => {
 
       document.getElementById("cMenuOverlay").classList.add("hidden");
       if (!isPinned && !data.hasBeenPinned) {
-        const commentSnap = await getDoc(targetRef);
-        if (commentSnap.exists()) {
-          const commentData = commentSnap.data();
-          if (window.communityID) {
-            const communityName = await getCommunityNameById(window.communityID);
-            sendCommunityPinNotification(commentData.uid, commentData.originalText || commentData.text || "...", tweetId, commentId, window.communityID, communityName);
+        if (window.communityID) {
+          const communityName = await getCommunityNameById(window.communityID);
+          if (data.mediaType === "image") {
+            sendCommunityPinNotification(data.uid, data.originalText || data.text || "...", tweetId, commentId, window.communityID, communityName, data.media);
           } else {
-            sendPinNotification(commentData.uid, commentData.originalText || commentData.text || "...", tweetId, commentId);
+            sendCommunityPinNotification(data.uid, data.originalText || data.text || "...", tweetId, commentId, window.communityID, communityName);
+          }
+        } else {
+          if (data.mediaType === "image") {
+            sendPinNotification(data.uid, data.originalText || data.text || "...", tweetId, commentId, data.media);
+          } else {
+            sendPinNotification(data.uid, data.originalText || data.text || "...", tweetId, commentId);
           }
         }
       }
@@ -6216,8 +6256,13 @@ document.body.addEventListener("click", async (e) => {
     if (!isOwner) reason = await askDeleteReason();
     if (!isOwner && (window.communityID && window.canModerate) && currentUserRole != "admin") {
       const communityName = await getCommunityNameById(window.communityID);
-      sendCommunityReplyDeleteNotification(data.uid, data.originalText || data.text || "...", reason, communityName, window.communityID)
+      if (data.mediaType === "image") {
+        sendCommunityReplyDeleteNotification(data.uid, data.originalText || data.text || "...", reason, communityName, window.communityID, data.media)
+      } else {
+        sendCommunityReplyDeleteNotification(data.uid, data.originalText || data.text || "...", reason, communityName, window.communityID)
+      }
     }
+
     if (!isOwner && currentUserRole === "admin" && !(window.communityID && window.canModerate)) {
       loading.classList.remove("show");
       try {
@@ -6248,7 +6293,13 @@ document.body.addEventListener("click", async (e) => {
         await sendToDiscord(null, {
           embeds: [embed]
         }, screenshotBase64);
-        sendCommentWarningNotification(data.uid, data.originalText || data.text || "...", reason);
+        
+        if (data.mediaType === "image") {
+          sendCommentWarningNotification(data.uid, data.originalText || data.text || "...", reason, media);
+        } else {
+          sendCommentWarningNotification(data.uid, data.originalText || data.text || "...", reason);
+        }
+
         await setDoc(doc(db, "susList", data.uid), {
           warnings: increment(1)
         }, {
@@ -6888,16 +6939,32 @@ sendRetweet.onclick = async () => {
         if (isCommentRetweet) {
           if (window.communityID) {
             const communityName = await getCommunityNameById(window.communityID);
-            sendCommunityReplyRetweetNotification(originalId, commentId, text, notifyId, window.communityID, communityName, tweetText, data1.uid);
+            if (data1.mediaType === "image") {
+              sendCommunityReplyRetweetNotification(originalId, commentId, text, notifyId, window.communityID, communityName, tweetText, data1.uid, data1.media);
+            } else {
+              sendCommunityReplyRetweetNotification(originalId, commentId, text, notifyId, window.communityID, communityName, tweetText, data1.uid);
+            }
           } else {
-            sendReplyRetweetNotification(originalId, commentId, text, notifyId, tweetText, data1.uid);
+            if (data1.mediaType === "image") {
+              sendReplyRetweetNotification(originalId, commentId, text, notifyId, tweetText, data1.uid, data1.media);
+            } else {
+              sendReplyRetweetNotification(originalId, commentId, text, notifyId, tweetText, data1.uid);
+            }
           }
         } else {
           if (window.communityID) {
             const communityName = await getCommunityNameById(window.communityID);
-            sendCommunityRetweetNotification(originalId, text, notifyId, window.communityID, communityName, tweetText, data1.uid);
+            if (data1.mediaType === "image") {
+              sendCommunityRetweetNotification(originalId, text, notifyId, window.communityID, communityName, tweetText, data1.uid, data1.media);
+            } else {
+              sendCommunityRetweetNotification(originalId, text, notifyId, window.communityID, communityName, tweetText, data1.uid);
+            }
           } else {
-            sendRetweetNotification(originalId, text, notifyId, tweetText, data1.uid);
+            if (data1.mediaType === "image") {
+              sendRetweetNotification(originalId, text, notifyId, tweetText, data1.uid, data1.media);
+            } else {
+              sendRetweetNotification(originalId, text, notifyId, tweetText, data1.uid);
+            }
           }
         }
       }
@@ -6909,19 +6976,23 @@ sendRetweet.onclick = async () => {
       await Promise.all(
         mentions.map(async (uid) => {
           if (!window.communityID) {
-            return setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), { 
+            await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), { 
               mentionedAt: new Date() 
             });
+
+            if (data1.mediaType === "image") {
+              return sendMentionNotification(tweetRef.id, uid, tweetText, tweetText, data1.media);
+            } else {
+              return sendMentionNotification(tweetRef.id, uid, tweetText, tweetText);
+            }
           }
 
           if (window.communityID && window.isOnPrivate === false) {
-            return sendCommunityMentionNotification(
-              tweetRef.id,
-              uid,
-              window.communityID,
-              communityName,
-              tweetText
-            );
+            if (data1.mediaType === "image") {
+              return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText, data1.media);
+            } else {
+              return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText);
+            }
           }
 
           if (window.communityID && window.isOnPrivate) {
@@ -6932,13 +7003,11 @@ sendRetweet.onclick = async () => {
             const userCommunities = userDoc.data().communities || [];
 
             if (userCommunities.includes(window.communityID)) {
-              return sendCommunityMentionNotification(
-                tweetRef.id,
-                uid,
-                window.communityID,
-                communityName,
-                tweetText
-              );
+              if (data1.mediaType === "image") {
+                return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText, data1.media);
+              } else {
+                return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText);
+              }
             } else {
               info(
                 "x",
@@ -6948,13 +7017,6 @@ sendRetweet.onclick = async () => {
               return;
             }
           }
-
-          return sendMentionNotification(
-            tweetRef.id,
-            uid,
-            tweetText,
-            tweetText
-          );
         })
       );
 
@@ -7182,7 +7244,11 @@ document.body.addEventListener("click", async (e) => {
         log("green", "successfully unpinned Wynt from community");
       } else {
         if (tweetData.uid !== user.uid) {
-          sendCommunityPinNotification1(window.communityID, cData.name, tweetData.uid, tweetData.text);
+          if (tweetData.mediaType === "image") {
+            sendCommunityPinNotification1(window.communityID, cData.name, tweetData.uid, tweetData.text, tweetData.media);
+          } else {
+            sendCommunityPinNotification1(window.communityID, cData.name, tweetData.uid, tweetData.text);
+          }
         }
         log("green", "successfully pinned Wynt to community");
       }

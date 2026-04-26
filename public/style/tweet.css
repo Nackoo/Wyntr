@@ -289,32 +289,6 @@
   background: none;
 }
 
-@media (min-width:700px) {
-
-  #profileOverlay .tweet,
-  #userSubOverlay .tweet {
-    padding: 10px 0;
-  }
-
-  #profileOverlay #likedList .tweet:nth-child(2) {
-    margin-top: 10px;
-  }
-
-  #tagstweet {
-    margin: -20px;
-  }
-}
-
-@media (max-width: 700px) {
-  #profileOverlay .tweet:nth-child(1),
-  #userSubOverlay .tweet:nth-child(1) {
-    margin-top: 35px;
-  }
-    #tagstweet {
-    margin: -5px;
-  }
-}
-
 #userOverlay .tweet {
   border: none !important;
   border-bottom: var(--border) !important;
@@ -763,8 +737,8 @@
   #userSubOverlay .tweet:nth-child(1) {
     margin-top: 35px;
   }
-    #tagstweet {
-    margin: -5px;
+  #tagstweet {
+    margin: 0;
   }
 }
 
