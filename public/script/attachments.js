@@ -202,10 +202,8 @@ async function compressVideoTo480(file) {
   });
 
   try {
-    // write input
     ffmpeg.FS("writeFile", "input.mp4", await FFmpeg.fetchFile(file));
 
-    // run compression
     await ffmpeg.run(
       "-i", "input.mp4",
       "-vf", "scale=-2:480",
@@ -219,18 +217,13 @@ async function compressVideoTo480(file) {
       "-strict", "experimental",
       "output.mp4"
     );
-
-    // read output
     const data = ffmpeg.FS("readFile", "output.mp4");
-
     updateCompressionProgress(1);
 
     return new Blob([data.buffer], {
       type: "video/mp4"
     });
-
   } finally {
-    // 🔥 CRITICAL: cleanup virtual FS to prevent memory leaks
     try { ffmpeg.FS("unlink", "input.mp4"); } catch {}
     try { ffmpeg.FS("unlink", "output.mp4"); } catch {}
 
