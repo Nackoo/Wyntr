@@ -114,9 +114,6 @@
 .comment-box .attachment::-webkit-scrollbar-thumb {
   width: 8px !important; 
   height: 8px !important;
-}
-
-.comment-box .attachment::-webkit-scrollbar-thumb {
   background-color: #2b2f32 !important;
   border-radius: 10px !important;
 }
@@ -756,7 +753,8 @@
   }
 }
 
-#bookmarkTweetOverlay .tweet {
+#bookmarkTweetOverlay .tweet,
+#highlightTweetOverlay .tweet {
   padding: 10px 0;
 }
 
@@ -793,14 +791,14 @@
 #editTextArea {
   border: var(--border) !important;
   padding: 13px !important;
-  border-radius: 15px !important;
+  border-radius: 10px !important;
   margin: 15px 0 !important;
 }
 
 #editTitle {
   border: var(--border) !important;
   padding: 13px !important;
-  border-radius: 15px !important;
+  border-radius: 10px !important;
   margin-bottom: -1px !important;
   margin-top: 10px !important;
   font-size: 16px !important;
@@ -827,7 +825,7 @@
   margin: 17px 0 !important;
 }
 
-.useroverlay:not(#bookmarkTweetOverlay):not(.communityo) .user-box .bread {
+.useroverlay:not(#highlightTweetOverlay):not(#bookmarkTweetOverlay):not(.communityo) .user-box .bread {
   margin-bottom: 0 !important;
 }
 
@@ -1013,14 +1011,14 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 } 
 
 @media (min-width:700px) {
-  .useroverlay:not(#quoteViewer):not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
+  .useroverlay:not(#highlightTweetOverlay):not(#quoteViewer):not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
     border-radius: 15px !important;
     margin: 15px -10px;
     padding: 10px 10px !important;
     margin-bottom: 0;
   }
   
-  .useroverlay:not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
+  .useroverlay:not(.communityo):not(#highlightTweetOverlay):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
     margin-top:0 !important
   }
 }
@@ -1030,7 +1028,9 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 #userSubOverlay .tweet, 
 #userSubOverlay .tweet:hover,
 #bookmarkTweetOverlay .tweet,
-#bookmarkTweetOverlay .tweet:hover {
+#bookmarkTweetOverlay .tweet:hover,
+#highlightTweetOverlay .tweet,
+#highlightTweetOverlay .tweet:hover {
   margin-left: -20px !important;
   margin-right: -20px !important;
   padding-right: 20px !important;

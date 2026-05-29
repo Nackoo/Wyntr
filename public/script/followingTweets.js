@@ -17,7 +17,7 @@ const followingBanner = document.createElement("div");
 followingBanner.style.cssText = `display:none;margin-top:20px;background:none;pointer-events:none;z-index:3;`;
 followingBanner.className = "overlay1";
 const followingBannerInner = document.createElement("div");
-followingBannerInner.style.cssText = `position:absolute;top:0;right:auto;left:auto;width: fit-content; background:#00ba7c;color:white; padding: 8px 15px; border-radius: 50px;pointer-events:auto;cursor:pointer`;
+followingBannerInner.style.cssText = `position:absolute;top:0;right:auto;left:auto;width: fit-content; background:#04aa6d;color:white; padding: 8px 15px; border-radius: 50px;pointer-events:auto;cursor:pointer;`;
 followingBannerInner.textContent = `0 new Wynt posted`;
 followingBanner.appendChild(followingBannerInner);
 

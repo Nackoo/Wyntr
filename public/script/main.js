@@ -719,7 +719,7 @@ function setupPollToggle(inputId) {
 
   const renderIcon = () => {
     label.innerHTML = `
-      <svg fill="${poll.checked ? '#00ba7c' : 'var(--color)'}"
+      <svg fill="${poll.checked ? '#04aa63' : 'var(--color)'}"
            width="24px"
            height="24px"
            viewBox="0 0 24 24"
@@ -759,6 +759,11 @@ document.getElementById("replyOptions").addEventListener("click", () => {
 
 const everyone = document.getElementById("replyPermissionEveryone");
 const mentioned = document.getElementById("replyPermissionMentioned");
+const discon = document.getElementById("discon");
+
+discon.addEventListener("change", () => {
+  localStorage.setItem("disableConfirmation", discon.checked ? "true" : "false");
+});
 
 everyone.addEventListener("change", () => {
   if (everyone.checked === true) {
@@ -808,6 +813,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("rtprivateOK").checked = true;
   document.getElementById("replyPermissionEveryone").checked = true;
   document.getElementById("replyPermission1Everyone").checked = true;
+  if (localStorage.getItem("disableConfirmation") === "true") {
+    discon.checked = true;
+  }
 });
 
 export async function showOriginal(text, mentions, title) {
@@ -816,4 +824,3 @@ export async function showOriginal(text, mentions, title) {
   document.getElementById("originalText").innerHTML = parsedText;
   if (title && title != "") document.getElementById("originalTitle").textContent = title;
 }
-

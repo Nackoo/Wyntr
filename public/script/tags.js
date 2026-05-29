@@ -1,53 +1,45 @@
-import { db, doc, collection, auth, runTransaction, increment } from "./firebase.js";
+import { db, doc, collection, auth, runTransaction, increment, getDoc, updateDoc, setDoc } from "./firebase.js";
 import { log } from "./texts.js";
 
-export async function handleTags(text, tweetId) {
-  const tagMatches = text.match(/#([a-zA-Z0-9_]+)/g);
-  if (!tagMatches) return;
+export async function handleTags(text) {
+  if (typeof text !== "string") {
+    throw new Error("Text must be a string");
+  }
 
-  const uniqueTags = [
-    ...new Set(
-      tagMatches.map(t => t.slice(1).toLowerCase().trim())
-    )
-  ];
+  const matches = text.match(/#([a-zA-Z0-9_]+)/g) || [];
+  const uniqueMap = new Map();
 
-  const limitedTags = uniqueTags.slice(0, 5);
+  for (const raw of matches) {
+    const original = raw.slice(1);
+    const normalized = original.toLowerCase();
 
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
-
-  for (const tag of limitedTags) {
-    if (!tag) continue;
-
-    try {
-      await runTransaction(db, async (tx) => {
-        const tagDoc = doc(db, "tags", tag);
-        const tagSnap = await tx.get(tagDoc);
-
-        if (!tagSnap.exists()) {
-          tx.set(tagDoc, {
-            name: tag.slice(0, 30),
-            createdAt: new Date(),
-            tweetCount: 1
-          });
-        } else {
-          tx.update(tagDoc, {
-            createdAt: new Date(),
-            tweetCount: increment(1)
-          });
-        }
-        const tagRef = doc(collection(db, "tags", tag, "tweets"), tweetId);
-
-        tx.set(tagRef, {
-          taggedAt: new Date()
-        });
-      });
-    } catch (e) {
-      console.error(`Tag save failed for #${tag}:`, e);
+    if (!uniqueMap.has(normalized)) {
+      uniqueMap.set(normalized, original);
     }
   }
 
-  if (uniqueTags.length > 5) {
-    log("red", "tags above the first 5 are invalid");
+  const tags = [...uniqueMap.keys()];
+
+  if (tags.length > 10) {
+    throw new Error("Maximum 10 unique tags allowed");
   }
+
+  await Promise.all(
+    tags.map(async (tagName) => {
+      const ref = doc(db, "tags", tagName);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        await updateDoc(ref, {
+          postCount: increment(1),
+        });
+      } else {
+        await setDoc(ref, {
+          postCount: 1,
+        });
+      }
+    })
+  );
+
+  return tags;
 }

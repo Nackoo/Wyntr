@@ -1,8 +1,9 @@
-import { db, auth, doc, getDoc, collection, query, where, getDocs, orderBy, limit, startAfter, deleteDoc, Timestamp } from "./firebase.js";
+import { db, auth, doc, getDoc, collection, query, where, getDocs, orderBy, limit, startAfter, deleteDoc, Timestamp, onSnapshot } from "./firebase.js";
 import { renderTweet } from './index.js';
 import { youListActive } from "./nonsense.js"
 import { parseMentionsToLinks, formatNumber } from "./texts.js"
 import { base91ToImageSrc } from "./attachments.js";
+import { loadFolderTweets } from "./highlight.js";
 
 const myBanner = document.getElementById("my-banner");
 const loading = document.getElementById("loadingOverlay");
@@ -17,14 +18,8 @@ let mentionedLastVisibleDoc = null;
 let mentionedLoadedCount = 0;
 const MENTIONED_PAGE_SIZE = 5;
 
-let highlightedLastVisibleDoc = null;
-let highlightedLoadedCount = 0;
-let highlightsLoadedOnce = false;
-const HIGHLIGHTED_PAGE_SIZE = 5;
-
 const list = document.getElementById("youList");
 const usermentionedList = document.getElementById("mentionedList");
-const highlightedList = document.getElementById("highlightedList");
 
 export function applyUserEffect(effectValue, targetId = "#user-profile-effect") {
   const el = document.querySelector(targetId);
@@ -46,6 +41,162 @@ export function applyUserEffect(effectValue, targetId = "#user-profile-effect") 
     el.style.setProperty("--user-effect-bg", `url('${background}')`);
     el.style.setProperty("--user-effect-opacity", "0.5");
   }
+}
+
+let userHighlightLastDoc = null;
+let userHighlightLoading = false;
+let userHighlightNoMore = false;
+let userHighlightLoaded = false;
+let userHighlightNewestDoc = null;
+const userHighlightRenderedIds = new Set();
+
+function createHighlightItem(docSnap) {
+  const data = docSnap.data();
+
+  const item = document.createElement("div");
+  item.className = "highlight-item";
+  item.id = `highlight-item-${docSnap.id}`;
+
+  item.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;align-items:center;">
+      <div>
+      ${
+        data.icon
+          ? `<img class="highlight-icon" src="${base91ToImageSrc(data.icon)}" onerror="this.onerror=null;this.src='/image/folder.svg';">`
+          : `<img src="/image/folder.svg">`
+      }
+      </div>
+      <div style="align-self:flex-start;">
+        <div class="user-link">${data.name || "Untitled"}</div>
+        <div style="color:grey;margin-top:5px;font-size:14pxtext-overflow:ellipsis;white-space:nowrap;overflow: hidden;"><b>${formatNumber(data.tweetsCount)}</b> Wynts</div>
+      </div>
+    </div>
+  `;
+
+  item.addEventListener('click', async () => {
+    loadFolderTweets(docSnap.id, true, auth.currentUser.uid);
+  });
+
+  return item;
+}
+
+function setupHighlightInfiniteScroll(uid) {
+  const container = document.getElementById("profile-highlights-container");
+
+  container.addEventListener("scroll", async () => {
+    const reachedEnd =
+      container.scrollLeft + container.clientWidth >= container.scrollWidth - 20;
+
+    if (reachedEnd) {
+      await loadUserHighlights(uid);
+    }
+  });
+}
+
+function setupHighlightSnapshot(uid) {
+  const container = document.getElementById("profile-highlights-container");
+  const highlightRef = collection(db, "users", uid, "highlights");
+  const q = query(highlightRef, orderBy("createdAt", "desc"), limit(10));
+
+  let isFirst = true;
+  onSnapshot(q, (snap) => {
+    // Skip first emission — Firestore fires immediately and would duplicate the initial load
+    if (isFirst) {
+      isFirst = false;
+      return;
+    }
+
+    snap.docChanges().forEach((change) => {
+      if (change.type === "removed") {
+        // Remove from DOM and tracking set
+        userHighlightRenderedIds.delete(change.doc.id);
+        document.getElementById(`highlight-item-${change.doc.id}`)?.remove();
+        if (container.querySelectorAll(".highlight-item").length === 0) {
+          container.classList.remove("active");
+        }
+        return;
+      }
+
+      if (change.type === "added") {
+        // Skip if already rendered (backfill from deletion window or initial load)
+        if (userHighlightRenderedIds.has(change.doc.id)) return;
+
+        userHighlightRenderedIds.add(change.doc.id);
+        userHighlightNewestDoc = change.doc;
+
+        const el = createHighlightItem(change.doc);
+        container.classList.add("active");
+        container.prepend(el);
+      }
+    });
+  });
+}
+
+async function loadUserHighlights(uid, initial = false) {
+  const container = document.getElementById("profile-highlights-container");
+
+  if (uid != auth.currentUser.uid) {
+    document.getElementById("hchangeFolderName").style.display = "none";
+  }
+  document.getElementById("hchangeFolderName").style.display = "inline";
+
+  if (initial) {
+    container.innerHTML = "";
+    userHighlightLastDoc = null;
+    userHighlightNoMore = false;
+    userHighlightLoading = false;
+  }
+
+  if (userHighlightLoading || userHighlightNoMore) return;
+  userHighlightLoading = true;
+
+  const highlightRef = collection(db, "users", uid, "highlights");
+  let q = query(
+    highlightRef,
+    orderBy("createdAt", "desc"),
+    limit(5)
+  );
+
+  if (userHighlightLastDoc) {
+    q = query(
+      highlightRef,
+      orderBy("createdAt", "desc"),
+      startAfter(userHighlightLastDoc),
+      limit(5)
+    );
+  }
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    if (!userHighlightLastDoc) {
+      container.innerHTML = "";
+      container.classList.remove("active");
+    }
+
+    userHighlightNoMore = true;
+    userHighlightLoading = false;
+    return;
+  }
+  container.classList.add("active");
+
+  snap.forEach((docSnap) => {
+    userHighlightRenderedIds.add(docSnap.id);
+    container.appendChild(createHighlightItem(docSnap));
+  });
+
+  // Track the newest doc so onSnapshot can detect truly new ones
+  if (initial && snap.docs.length > 0) {
+    userHighlightNewestDoc = snap.docs[0];
+  }
+
+  userHighlightLastDoc = snap.docs[snap.docs.length - 1];
+
+  if (snap.docs.length < 5) {
+    userHighlightNoMore = true;
+  }
+
+  userHighlightLoading = false;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -99,6 +250,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const userSnap = await getDoc(doc(db, "users", uid));
     const userData = userSnap.data();
+
+    if (!userHighlightLoaded) {
+      userHighlightLoaded = true;
+      loadUserHighlights(uid, true);
+      setupHighlightInfiniteScroll(uid);
+      setupHighlightSnapshot(uid);
+    }
 
     document.getElementById("my-posts").textContent = userData.posts || 0;
     document.getElementById("my-followers").textContent = userData.followers || 0;
@@ -198,7 +356,6 @@ const profileScrollBox = document.querySelector("#profileOverlay .user-box");
 
 let tweetLoading = false;
 let mentionLoading = false;
-let highlightLoading = false;
 
 profileScrollBox.addEventListener("scroll", async () => {
   const nearBottom =
@@ -211,7 +368,6 @@ profileScrollBox.addEventListener("scroll", async () => {
   const uid = document.getElementById("my-name").dataset.uid;
   const mention = document.getElementById("mentionedList");
   const you = document.getElementById("youList");
-  const highlighted = document.getElementById("highlightedList");
 
   // TWEETS TAB
   if (activeTab === "youList" && you.querySelectorAll(".tweet").length >= USER_PAGE_SIZE) {
@@ -228,14 +384,6 @@ profileScrollBox.addEventListener("scroll", async () => {
     await loadUserMentionedTweets(uid);
     mentionLoading = false;
   }
-
-  // HIGHLIGHTS TAB
-  if (activeTab === "highlightedList" && highlighted.querySelectorAll(".tweet").length >= HIGHLIGHTED_PAGE_SIZE) {
-    if (highlightLoading) return;
-    highlightLoading = true;
-    await loadHighlighted(uid);
-    highlightLoading = false;
-  }
 });
 
 document.querySelectorAll(".tab2").forEach(tab => {
@@ -245,11 +393,9 @@ document.querySelectorAll(".tab2").forEach(tab => {
 
     document.getElementById("youList").style.display = "none";
     document.getElementById("mentionedList").style.display = "none";
-    document.getElementById("highlightedList").style.display = "none";
 
     document.getElementById("youList").classList.add("hidden");
     document.getElementById("mentionedList").classList.add("hidden");
-    document.getElementById("highlightedList").classList.add("hidden");
 
     const targetId = tab.dataset.target;
     document.getElementById(targetId).style.display = "block";
@@ -261,10 +407,6 @@ document.querySelectorAll(".tab2").forEach(tab => {
       loadTweets(uid);
     } else if (targetId === "mentionedList") {
       loadUserMentionedTweets(uid);
-    } else if (targetId === "highlightedList") {
-      if (!highlightsLoadedOnce) {
-        loadHighlighted(uid, true);
-      }
     }
   });
 });
@@ -309,66 +451,5 @@ async function loadUserMentionedTweets(uid) {
 
   if (snap.docs.length >= MENTIONED_PAGE_SIZE) {
     mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
-}
-
-async function loadHighlighted(uid, initial = false) {
-  const highlightedRef = collection(db, "users", uid, "highlights");
-  let q;
-
-  if (!highlightedLastVisibleDoc) {
-    q = query(highlightedRef, orderBy("highlightedAt", "desc"), limit(HIGHLIGHTED_PAGE_SIZE));
-  } else {
-    q = query(highlightedRef, orderBy("highlightedAt", "desc"), startAfter(highlightedLastVisibleDoc), limit(HIGHLIGHTED_PAGE_SIZE));
-  }
-
-  const snap = await getDocs(q);
-
-  if (snap.empty && highlightedLoadedCount === 0) {
-    highlightedList.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No highlights — yet</h2><p style="color:grey;margin:7px 0;">when you've bought premium, you'll see it here.</p></div></div>`;
-    return;
-  }
-
-  snap.docs.forEach(async (highlightedDoc) => {
-    const tweetId = highlightedDoc.id;
-    const communityId = highlightedDoc.data().communityId;
-    const tweetDoc = communityId 
-      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId)) 
-      : await getDoc(doc(db, "tweets", tweetId));
-
-    if (!tweetDoc.exists()) {
-      const deletedDiv = document.createElement("div");
-      deletedDiv.innerHTML = `<div style="margin:0 -20px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;padding:15px;border-bottom:var(--border);color:grey;"><i>This Wynt is unavailable</i> <div class='delBtn' style="cursor:pointer"><img src="/image/trash.svg"></div></div>`;
-
-      const delBtn = deletedDiv.querySelector(".delBtn");
-
-      delBtn.onclick = async () => {
-        loading.classList.add("show");
-        await deleteDoc(doc(db, "users", uid, "highlights", tweetId));
-        deletedDiv.remove();
-        loading.classList.remove("show");
-      };
-
-      highlightedList.appendChild(deletedDiv);
-      return;
-    }
-
-    const tweetData = tweetDoc.data();
-
-    const userDoc = await getDoc(doc(db, "users", tweetData.uid));
-    const userData = {
-      ...userDoc.data(),
-      uid: tweetData.uid
-    };
-
-    await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
-    highlightsLoadedOnce = true;
-  });
-
-  highlightedLoadedCount += snap.docs.length;
-
-  if (snap.docs.length < HIGHLIGHTED_PAGE_SIZE) {
-  } else {
-    highlightedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 }

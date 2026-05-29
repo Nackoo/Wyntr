@@ -6,6 +6,12 @@
   --color: #c0c2c3; 
 }
 
+/*
+main: #373781 background
+secondary: #4e4eb5 color
+light: #7474fc text
+*/
+
 @media (min-width:700px) {
   #premiumbox {
     min-width: 700px !important;
@@ -27,7 +33,7 @@
   overflow-y: auto;
   padding:20px;
   padding-bottom:30px;
-  background:linear-gradient(to bottom, #004e34, black, black)
+  background:linear-gradient(to bottom, #373781, black, black)
 }
 
 .suspended-body {
@@ -876,7 +882,8 @@ p.clamp-text {
   #tweetOverlay .comment-box,
   #retweetOverlay .comment-box,
   #commentOverlay .comment-box,
-  #replyOverlay .comment-box {
+  #replyOverlay .comment-box,
+  #editOverlay .comment-box{
     min-height: 100vh;
     padding-top: 70px !important;
   }

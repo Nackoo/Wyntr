@@ -112,8 +112,10 @@ async function loadBlocks(term = currentTerm) {
 
         const unblockBtn = item.querySelector("button");
         unblockBtn.addEventListener("click", async () => {
-            if (!(await confirmDialog("Unblock user?", "if this user is a spammer, they can potentially flood your entire notification."))) return;
-
+            if (localStorage.getItem("disableConfirmation") != "true") {
+                if (!(await confirmDialog("Unblock user?", "if this user is a spammer, they can potentially flood your entire notification."))) return;
+            }
+            
             try {
                 await deleteDoc(
                     doc(db, "users", auth.currentUser.uid, "blocks", docSnap.id)

@@ -50,7 +50,7 @@ function createEmojiOverlay(button) {
 
   const overlay = document.createElement("div");
   overlay.classList.add("overlay");
-  overlay.style.zIndex = "100";
+  overlay.style.zIndex = "1001";
 
   const picker = document.createElement("div");
   picker.id = "emojipicker";
@@ -93,6 +93,7 @@ function inputDialog(title, desc, extraElement, inputValue) {
     const modal = document.getElementById("inputDialog");
     const input = document.getElementById("inputDialogValue");
 
+    document.getElementById("extra").innerHTML = "";
     if (extraElement) {
       document.getElementById("extra").innerHTML = extraElement;
 
@@ -381,7 +382,7 @@ async function parseMentionsToLinks(text, mentions = []) {
       match.startsWith("https://wyntr.netlify.app/user");
 
     if (isInternal) {
-      tokens[id] = `<a href="${match}" class="internal-link" data-url="${match}" style="color:#00ba7c; cursor:pointer;">${match}</a>`;
+      tokens[id] = `<a href="${match}" class="internal-link" data-url="${match}" style="color:#04aa63; cursor:pointer;">${match}</a>`;
     } else {
       tokens[id] = `<a href="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
     }
@@ -408,7 +409,7 @@ async function parseMentionsToLinks(text, mentions = []) {
       const { uid, displayName } = res;
 
       const id = token();
-      tokens[id] = `<span class="user-link" data-uid="${uid}" style="color:#00ba7c; cursor:pointer">@${escapeHTML(displayName)}</span>`;
+      tokens[id] = `<span class="user-link" data-uid="${uid}" style="color:#04aa63; cursor:pointer">@${escapeHTML(displayName)}</span>`;
 
       const regex = new RegExp(`@${uid}\\b`, "g");
       text = text.replace(regex, id);
@@ -417,7 +418,7 @@ async function parseMentionsToLinks(text, mentions = []) {
 
   text = text.replace(/#(\w+)/g, (match, tag) => {
     const id = token();
-    tokens[id] = `<span class="tag-link" data-tag="${tag}" style="color:#00ba7c; cursor:pointer">${match}</span>`;
+    tokens[id] = `<span class="tag-link" data-tag="${tag}" style="color:#04aa63; cursor:pointer">${match}</span>`;
     return id;
   });
 

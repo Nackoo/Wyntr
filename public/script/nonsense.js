@@ -1,4 +1,5 @@
 export const bookmark          = document.getElementById('bookmarkOverlay');
+export const highlightTweet    = document.getElementById("highlightTweetOverlay");
 export const profile           = document.getElementById('profileOverlay');
 export const profilesub        = document.getElementById('profileSubOverlay');
 export const user              = document.getElementById('userOverlay');
@@ -11,6 +12,7 @@ export const notification      = document.getElementById('notificationOverlay');
 export const comment           = document.getElementById('commentOverlay');
 export const me                = document.getElementById("meOverlay");
 export const bookmarkoverlay   = document.getElementById("bookmarkFolderOverlay");
+export const highlightoverlay  = document.getElementById("highlightFolderOverlay");
 export const bookmarktweet     = document.getElementById("bookmarkTweetOverlay");
 export const commentViewer     = document.getElementById("commentViewer");
 export const premiumsvg        = document.getElementById("premiumOverlay1");
@@ -90,12 +92,14 @@ const panelsToHide = () => [
   me, 
   commentViewer, 
   bookmarkoverlay, 
+  highlightoverlay,
   bookmarktweet, 
   premiumsvg, 
   community,
   block,
   profilecom,
-  quote
+  quote,
+  highlightTweet
 ];
 
 const filledIcons = [
@@ -153,6 +157,8 @@ const clickHandler = (clickedIcon) => {
     document.getElementById("cMenuOverlay").classList.add("hidden");
     tweetviewactive();
     hideCom();
+    window.CURRENT_HIGHLIGHT_ID = null;
+    window.CURRENT_BOOKMARK_ID = null;
   };
 };
 
@@ -164,8 +170,11 @@ Object.keys(outlineIcons).forEach(iconName => {
     community.classList.add("hidden");
     commentViewer.classList.add("hidden");
     bookmarkoverlay.classList.add("hidden");
+    highlightoverlay.classList.add("hidden");
     bookmarktweet.classList.add("hidden");
     hideCom();
+    window.CURRENT_HIGHLIGHT_ID = null;
+    window.CURRENT_BOOKMARK_ID = null;
   }
 });
 
@@ -256,6 +265,9 @@ document.body.addEventListener("click", async (e) => {
     const uid = userLink.dataset.uid;
     if (uid) {
       hideCom();
+      window.CURRENT_HIGHLIGHT_ID = null;
+      window.CURRENT_BOOKMARK_ID = null;
+      highlightTweet.classList.add("hidden");
       quote.classList.add("hidden");
       usersub.classList.remove("hidden");
       community.classList.add("hidden");
@@ -264,6 +276,7 @@ document.body.addEventListener("click", async (e) => {
       premiumsvg.classList.add("hidden");
       document.getElementById("followOverlay")?.classList.add('hidden');
       bookmarkoverlay.classList.add("hidden");
+      highlightoverlay.classList.add("hidden");
       bookmarktweet.classList.add("hidden");
       commentViewer.classList.add("hidden");
       bookmark.classList.add("hidden");
@@ -296,6 +309,7 @@ document.body.addEventListener("click", async (e) => {
   if (communityLink && communityLink.dataset.id) {
       community.classList.remove("hidden");
       quote.classList.add("hidden");
+      highlightTweet.classList.add("hidden");
       document.getElementById("myCommunities").classList.add("hidden");
       document.getElementById("communityList").classList.remove("hidden");
       document.querySelector(".tab5[data-target='myCommunities']").classList.remove("active");
@@ -314,7 +328,7 @@ document.body.addEventListener("click", async (e) => {
       premium.classList.remove("hidden");
       bookmarkoverlay.classList.add("hidden");
       premiumsvg.classList.add("hidden");
-      bookmarkoverlay.classList.add("hidden");
+      highlightoverlay.classList.add("hidden");
       bookmarktweet.classList.add("hidden");
       viewer.classList.add('hidden');
       profile.classList.add('hidden');
@@ -347,11 +361,15 @@ document.body.addEventListener("click", async (e) => {
     const tag = tagLink.dataset.tag.toLowerCase().slice(0, 30);
     if (tag) {
       hideCom();
+      window.CURRENT_HIGHLIGHT_ID = null;
+      window.CURRENT_BOOKMARK_ID = null;
+      highlightTweet.classList.add("hidden");
       quote.classList.add("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
       premium.classList.remove("hidden");
       bookmarkoverlay.classList.add("hidden");
+      highlightoverlay.classList.add("hidden");
       premiumsvg.classList.add("hidden");
       bookmarktweet.classList.add("hidden");
       viewer.classList.add('hidden');

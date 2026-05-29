@@ -21,6 +21,8 @@ const coinsvg = `
 
 let notificationLastDoc = null;
 let notificationLoading = false;
+let notificationsLoaded = false;
+let notificationsNewestDoc = null;
 const NOTIFICATION_PAGE_SIZE = 30;
 const loading = document.getElementById("loadingOverlay");
 const notificationsContainer = document.getElementById("notifications");
@@ -66,12 +68,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> replied to your Wynt <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> replied to your Wynt <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -80,12 +82,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> replied to your Wynt in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> replied to your Wynt in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -94,12 +96,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> replied to your reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> replied to your reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "community-reply") {
@@ -107,12 +109,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> replied to your reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> replied to your reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
 }else if (notification.type === "community-pin-notification") {
@@ -120,12 +122,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/pinned.svg">`}
   <div>
-    your Wynt was pinned in community <b style="color:#00ba7c">${notification.communityName}</b><br>
+    your Wynt was pinned in community <b style="color:#04aa63">${notification.communityName}</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
 `;
@@ -134,12 +136,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you on a reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
 `;
@@ -148,12 +150,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you on a reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
 `;
@@ -162,12 +164,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you on a reply in <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply in <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
     <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
     <span style="color:grey;font-size:12px;">
       ${formatTime(notification.createdAt.toDate())}
     </span>
-    <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+    <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "community-reply-mention") {
@@ -175,12 +177,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you on a reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
     <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
     <span style="color:grey;font-size:12px;">
       ${formatTime(notification.createdAt.toDate())}
     </span>
-    <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+    <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "mention") {
@@ -189,12 +191,12 @@ function createNotificationElement(notification) {
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
 
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you on their Wynt: <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on their Wynt: <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">${escapeHTML(tweetPreview)}</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -203,12 +205,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> mentioned you in a community: <b>${notification.communityName}</b> on post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you in a community: <b>${notification.communityName}</b> on post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">${escapeHTML(tweetPreview)}</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -218,12 +220,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : retweetsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> rewynted your post: <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> rewynted your post: <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(replyPart)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "community-retweet") {
@@ -232,12 +234,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : retweetsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> rewynted your post in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> rewynted your post in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(replyPart)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "reply-retweet") {
@@ -246,12 +248,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : retweetsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> rewynted your reply on post <b>"${escapeHTML(textClamp(notification.commentTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> rewynted your reply on post <b>"${escapeHTML(textClamp(notification.commentTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(replyPart)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "community-reply-retweet") {
@@ -260,12 +262,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : retweetsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> rewynted your reply in <b>${notification.communityName}</b>, post: <b>"${escapeHTML(textClamp(notification.commentTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> rewynted your reply in <b>${notification.communityName}</b>, post: <b>"${escapeHTML(textClamp(notification.commentTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(replyPart)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`;
   } else if (notification.type === "follow") {
@@ -273,11 +275,11 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   <img loading="lazy" src="${notification.avatar ? base91ToImageSrc(notification.avatar) : "/image/default-avatar.jpg"}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> is now following you<br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> is now following you<br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
 `;
@@ -287,11 +289,11 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
   <div>
-    You were invited to join <span style="color:#00ba7c;font-weight:bold;">${notification.communityName}</span> Community. Click to view.<br>
+    You were invited to join <span style="color:#04aa63;">${notification.communityName}</span> Community. Click to view.<br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
 `;
@@ -300,12 +302,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/pinned.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> highlighted your reply<br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> highlighted your reply<br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? "" : "display:none;"}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? "" : "display:none;"}">(unread)</span>
   </div>
 </div>`;
 } else if (notification.type === "community-pin") {
@@ -313,12 +315,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/pinned.svg">`}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> highlighted your reply in a community post: <b>${notification.communityName}</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> highlighted your reply in a community post: <b>${notification.communityName}</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? "" : "display:none;"}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? "" : "display:none;"}">(unread)</span>
   </div>
 </div>`;
 } else if (notification.type === "donation") {
@@ -326,12 +328,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : coinsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> donated <b>${notification.donationReceived}</b> Wcoins, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> donated <b>${notification.donationReceived}</b> Wcoins, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.commentText))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -340,12 +342,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : coinsvg}
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> donated ${notification.donationReceived} Wcoins through your Wynt in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> donated ${notification.donationReceived} Wcoins through your Wynt in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b>.<br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.commentText))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
   `;
@@ -354,12 +356,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<div style="margin-top:6px;">⚠</div>`}
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Wynt got deleted for violating Wyntr ToS</span><br>
+    <span style="color:#db1d23;">Your Wynt got deleted for violating Wyntr ToS</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -368,12 +370,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<div style="margin-top:6px;">⚠</div>`}
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Wynt got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
+    <span style="color:#db1d23;">Your Wynt got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -382,12 +384,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<div style="margin-top:6px;">⚠</div>`}
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your reply got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
+    <span style="color:#db1d23;">Your reply got deleted by community admins in "${escapeHTML(notification.name)}"</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -396,12 +398,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<div style="margin-top:6px;">⚠</div>`}
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your reply got hidden</span><br>
+    <span style="color:#db1d23;">Your reply got hidden</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -410,11 +412,11 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
   <div>
-    <span style="color:#00ba7c;font-weight:bold;">@${notification.name}</span> resigned as admin in community <b>"${notification.communityName}"</b><br>
+    <span style="color:#04aa63;">@${notification.name}</span> resigned as admin in community <b>"${notification.communityName}"</b><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>`
  } else if (notification.type === "comment-delete") {
@@ -422,12 +424,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<div style="margin-top:6px;">⚠</div>`}
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Reply got deleted</span><br>
+    <span style="color:#db1d23;">Your Reply got deleted</span><br>
       <span>text:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br><span>reason:</span> <span style="color:grey;">"${escapeHTML(textClamp(notification.reason))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -436,12 +438,12 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
     <div>
-    <span style="color:#db1d23;font-weight:bold;">Your Community <span style="color:var(--color)">${escapeHTML(notification.name)}</span> got disbanded</span><br>
+    <span style="color:#db1d23;">Your Community <span style="color:var(--color)">${escapeHTML(notification.name)}</span> got disbanded</span><br>
       <span>reason:</span> <span style="color:grey;">"${escapeHTML(notification.reason)}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
       </span>
-      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#00ba7c;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
+      <span class="notif-unread" style="margin-left:5px;font-size:12px;color:#04aa63;${notification.read === false ? '' : 'display:none;'}">(unread)</span>
   </div>
 </div>
    `
@@ -450,7 +452,7 @@ function createNotificationElement(notification) {
   <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
     <div>
-      <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> requested to join your community <b>${notification.communityName}</b><br>
+      <span style="color:#04aa63;">@${notification.senderName}</span> requested to join your community <b>${notification.communityName}</b><br>
       <button class="acceptJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:6px;margin-right:2px;">Accept</button>
       <button class="rejectJoinBtn" style="margin:5px 0;padding:9px 20px;border-radius:6px;background:crimson;color:white;">Reject</button><br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
@@ -461,7 +463,7 @@ function createNotificationElement(notification) {
   <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
     <div>
-      Your request to join <b style="color:#00ba7c;">${notification.communityName}</b> was accepted<br>
+      Your request to join <b style="color:#04aa63;">${notification.communityName}</b> was accepted<br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}
     </div>
   </div>`;
@@ -470,7 +472,7 @@ function createNotificationElement(notification) {
   <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
     <img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">
     <div>
-      <span style="color:#00ba7c;font-weight:bold;">@${notification.senderName}</span> made you as an admin in <b>${notification.communityName}</b><br>
+      <span style="color:#04aa63;">@${notification.senderName}</span> made you as an admin in <b>${notification.communityName}</b><br>
       <span style="color:grey;font-size:12px;">${formatTime(notification.createdAt.toDate())}</span>
     </div>
   </div>`;
@@ -606,7 +608,9 @@ if (notification.type === "communityJoinRequest") {
   acceptBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
 
-    if (!(await confirmDialog("accept user?", `are you sure you want to accept this user to join "${notification.communityName}"?`))) return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (!(await confirmDialog("accept user?", `are you sure you want to accept this user to join "${notification.communityName}"?`))) return;
+    }
 
     const user = auth.currentUser;
     const ownerId = user.uid;
@@ -662,7 +666,9 @@ if (notification.type === "communityJoinRequest") {
   });
 
   rejectBtn.addEventListener("click", async (e) => {
-    if (!(await confirmDialog("Reject user?", `are you sure you want to reject this user from joining ${notification.communityName}?`, "red"))) return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (!(await confirmDialog("Reject user?", `are you sure you want to reject this user from joining ${notification.communityName}?`, "red"))) return;
+    }
     e.stopPropagation();
     const user = auth.currentUser;
     if (!user) return;
@@ -1102,12 +1108,9 @@ const notifications = document.getElementById("notifications");
 
 document.getElementById('notifsvg1').addEventListener("click", async () => {
   document.getElementById("notificationOverlay").classList.remove("hidden");
-  notificationsContainer.innerHTML = "";
-  notificationLastDoc = null;
-  await loadNotifications(true);
-
   notifications.classList.remove("hidden");
 
+  // Mark unread as read every time the panel is opened
   const user = auth.currentUser;
   if (user) {
     const notificationsRef = collection(db, "users", user.uid, "notifications");
@@ -1115,12 +1118,64 @@ document.getElementById('notifsvg1').addEventListener("click", async () => {
     const snap = await getDocs(unreadQuery);
 
     const batch = writeBatch(db);
-    snap.docs.forEach(docSnap => batch.update(docSnap.ref, {
-      read: true
-    }));
+    snap.docs.forEach(docSnap => batch.update(docSnap.ref, { read: true }));
     await batch.commit();
   }
   document.title = "Wyntr";
+
+  // Only load and set up the real-time listener once
+  if (notificationsLoaded) return;
+  notificationsLoaded = true;
+
+  await loadNotifications(true);
+
+  // After initial load, listen for brand-new notifications and prepend them
+  if (user) {
+    const notificationsRef = collection(db, "users", user.uid, "notifications");
+    const newNotifQuery = query(notificationsRef, orderBy("createdAt", "desc"), limit(1));
+
+    let isFirst = true;
+    onSnapshot(newNotifQuery, (snap) => {
+      // Skip the first emission — it fires immediately and duplicates the initial load
+      if (isFirst) {
+        isFirst = false;
+        // Capture the newest doc so we can detect truly new ones later
+        if (!snap.empty) notificationsNewestDoc = snap.docs[0];
+        return;
+      }
+
+snap.docChanges().forEach((change) => {
+  if (change.type !== "added") return;
+
+  const data = { id: change.doc.id, ...change.doc.data() };
+  if (!data.createdAt) return;
+
+  if (
+    notificationsNewestDoc &&
+    change.doc.id === notificationsNewestDoc.id
+  ) return;
+
+  notificationsNewestDoc = change.doc;
+
+  const date = data.createdAt.toDate();
+  const formattedDate = formatDateHeader(date);
+
+  const el = createNotificationElement(data);
+
+  // Use the first divider only if it already matches — otherwise prepend a new one
+  const firstDivider = notificationsContainer.querySelector(".date-divider");
+  if (firstDivider && firstDivider.textContent === formattedDate) {
+    // Insert right after the existing matching divider at the top
+    firstDivider.insertAdjacentElement("afterend", el);
+  } else {
+    // Prepend a new divider, then insert the notification right after it
+    const newDivider = createDateDivider(formattedDate);
+    notificationsContainer.prepend(el);        // el first, so divider ends up above it
+    notificationsContainer.prepend(newDivider);
+  }
+});
+    });
+  }
 });
 
 function textClamp(text, maxLength = 30) {

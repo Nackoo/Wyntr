@@ -248,7 +248,7 @@
         <div id="settingssvg" class="flexx">
           <div class="svg">
             <img src="/image/settings.svg">
-            <div id="unclaimed" style="background:#00ba7c"></div>
+            <div id="unclaimed" style="background:#04aa6d"></div>
           </div>
           <div class="display">
             More
@@ -288,7 +288,7 @@
           <img class="account-avatar" src="/image/default-avatar.jpg" style="border-radius: 10px; min-height: 40px; min-width: 40px; max-height: 40px; max-width: 40px;display: inline;object-fit: cover;">
           <div style="font-size:16px;margin:0;width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
             <div class="account-name" style="font-size:16px;margin:0;text-overflow:ellipsis;white-space:nowrap;overflow: hidden;font-weight:bold;">
-              <div class="skeleton-card" style="margin:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div></div></div></div>
+              <div class="skeleton-card" style="margin:0;"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line long"></div></div></div></div>
             </div>
             <div class="account-username" style="font-size:15px;color:grey;margin:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">        
             </div>
@@ -347,15 +347,14 @@
                 <span style="color:grey">Wynts</span>
               </p>
             </div>
+            <div id="profile-highlights-container"></div>
             <div class="tab-container" style="border-bottom: var(--border);padding:0 20px;margin:0 -20px;">
               <button class="tab2 active" data-target="youList" style="margin:0">Wynts</button>
               <button class="tab2" data-target="mentionedList" style="margin:0">Tagged</button>
-              <button class="tab2" data-target="highlightedList" style="margin:0;">Spotlight</button>
             </div>
           </div>
           <div id="youList" class="tab-content"></div>
           <div id="mentionedList" class="tab-content"></div>
-          <div id="highlightedList" class="tab-content"></div>
           <br><br><br>
         </div>
       </div>
@@ -465,15 +464,15 @@
 
           <div class="ava-preview">
             <div id="ava-preview"></div>
-            <label class="button" id="ava-label" for="ava-input"><img src="/image/upload.svg"></label>
+            <label class="button" id="ava-label" for="ava-input"></label>
           </div>
 
-          <input type="file" id="ava-input" class="hidden-input" accept="image/*" />
+          <button id="ava-input" class="hidden-input"></button>
           <input type="file" id="banner-input" class="hidden-input" accept="image/*" />
 
           <br><br><br><br><br><br><br><br><br><br><br>
 
-          <div class="container1">
+          <div class="container1" style="margin-top:15px;">
             <span>Status</span>
             <input style="border:none;padding:0;" type="text" id="status-edit">
           </div>
@@ -499,7 +498,7 @@
       </div>
 
       <div id="profileSubOverlay" class="useroverlay hidden">
-        <div class="user-box">
+      <div class="user-box">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;margin-bottom:14px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="hideProfile">
@@ -509,24 +508,8 @@
             </div>
           </header>
           <div id="sek">
-            <button class="settingsbtns" id="bookmarkBtn" onclick="document.getElementById('bookmarkOverlay').classList.remove('hidden')">
-              <img style="height:25px;" src="/image/bookmark.svg">
-              <span style="color:var(--color)">Bookmarks</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>
-            <button class="settingsbtns" id="openBlocks">
-              <img style="height:25px;" src="/image/ban.svg">
-              <span style="color:var(--color)">People you muted</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>
-            <button class="settingsbtns" id="shopBtn" onclick="document.getElementById('premiumOverlay1').classList.remove('hidden')" id="getpremium">
-              <img style="height:25px;" src="/image/shop.svg">
-              <span style="color:var(--color);">Shop</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>
-            <div id="prizebox1" style="border-radius: 15px; margin: 20px;display:none;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button id="prize" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;background:white">claim</button> </div>
-            <div style="border:var(--border);padding:25px 15px;padding-top:15px;background:var(--normal);margin:0;">
-              <h2 style="margin-top:0;margin-bottom:10px;">Account</h2>
+            <div id="prizebox1" style="margin: 0px 0px 25px; display: none; border-top: var(--border); padding-right: 20px; padding-left: 20px;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button id="prize" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;background:white">claim</button> </div><div style="border:var(--border);padding:25px 15px;padding-top:15px;background:var(--normal);margin:0;">
+              <h2 style="margin-top:0;margin-bottom:15px;">Account</h2>
               <div style="display:flex;gap:5px;">
                 <div style="display:flex;align-items:center;gap:5px;">
                   <img src="/image/coin.svg"> <span id="my-balance">0</span>
@@ -535,22 +518,35 @@
                   <img src="/image/fire.svg"> <span id="my-streak">0</span>
                 </div>
               </div>
+              <button id="logout"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2"></path></svg><span>logout</span></button>
             </div>
-            <button id="logout"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2" />
-            </svg> <span>logout</span>
+            <button class="settingsbtns" id="bookmarkBtn" onclick="document.getElementById('bookmarkOverlay').classList.remove('hidden')">
+              <img style="height:25px;" src="/image/bookmark.svg">
+              <span style="color:var(--color)">Bookmarks</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
             </button>
+            <button class="settingsbtns" id="shopBtn" onclick="document.getElementById('premiumOverlay1').classList.remove('hidden')">
+              <img style="height:25px;" src="/image/shop.svg">
+              <span style="color:var(--color);">Shop</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+            </button>      
+            <button class="settingsbtns" id="openBlocks">
+              <img style="height:25px;" src="/image/ban.svg">
+              <span style="color:var(--color)">People you muted</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+            </button>  
           </div>
 
           <div style="border:var(--border);padding:20px 15px;background:var(--normal);margin:0 -20px" id="settingsbox">
             <div style="display:flex;align-items:center;">
               <h2 style="margin-top:0;margin-bottom:15px;">Settings</h2>
-              <button class="close-btn" id="setD" style="margin-left:auto;margin-bottom:15px;transform:rotate(180deg);padding:0;"><img src="/image/leftArrow.svg" height="25"></button>
+              <button class="close-btn" id="setD" style="margin-left: auto; margin-bottom: 15px; transform: rotate(-90deg); padding: 0px;"><img src="/image/leftArrow.svg" height="25"></button>
             </div>
 
-            <span id="C" style="color:grey;font-size:16px;margin-top:-10px">Expand settings to see more</span>
+            <span id="C" style="color: grey; font-size: 16px; margin-top: -10px; display: none;">Expand settings to see more</span>
 
-            <div id="B" style="display:none">
+            <div id="B" style="display: block;">
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
                 <span style="color:grey">show translations for posts outside your language</span>
                 <div class="switch-row" style="margin-left:auto">
@@ -563,7 +559,7 @@
                 </div>
               </div>
 
-              <div id="lp" style="display: block;">
+              <div id="lp" style="display: none;">
                 
                 <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
                   <option value="en">English</option>
@@ -641,6 +637,20 @@
                 </div>
               </div>
 
+              <h3 style="margin:0;margin-top:10px">Accessibility</h3>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span style="color:grey">Disable confirmation popup</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="discon" type="checkbox">
+                  <label for="discon" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <!--hr style="margin:0 -13px;margin-top:17px;margin-bottom:10px;"-->
             </div>
           </div>
@@ -663,6 +673,10 @@
             </button>
           </div>
 
+          <div style="width:100%;display:flex;flex-direction:column;align-items: center;margin-top:20px;">
+            <p style="margin-bottom:0px;margin-top:50px;color:grey">A project developed by</p>
+            <img src="/image/WyntX.png" style="width:100%;max-width:300px;mix-blend-mode: screen">
+          </div>
           <br><br><br><br><br><br>
         </div>
       </div>
@@ -802,7 +816,7 @@
             <div class="flex lembergember" style="margin-top:20px;gap:7px;">
               <h2 id="user-name" style="margin:0"></h2>
             </div>
-            <span style="color:grey" id="username"></span> <span id="followsBadge" style="font-size:16px;color:#00ba7c;">Follows you</span>
+            <span style="color:grey" id="username"></span> <span id="followsBadge" style="font-size:16px;color:#04aa63;">Follows you</span>
             <p id="user-description"></p>
             <p id="user-suspended" class="hidden" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;color:grey"><svg style="min-width:20px;min-height:20px;" class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 11h2v5m-2 0h4m-2.592-8.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg><span>user is temporarily suspended <span id="suspended-for1"></span></span></p>
             <div style="border-bottom:var(--border);padding:0 20px;padding-bottom:15px;margin:0 -20px;margin-top:15px;display:flex;align-items:center;margin-bottom:0;gap:7px;"><img src="/image/calendar.svg" style="height:20px;"><span id="user-creation"></span>
@@ -824,15 +838,14 @@
                 <span id="posts" style="font-weight:bold;">0</span> 
                 <span style="color:grey">Wynts</span></p>
             </div>
+            <div id="highlights-container"></div>
             <div class="tab-container" style="border-bottom: var(--border);padding:0 20px;margin:0 -20px;">
               <button class="tab3 active" data-target="userList" style="margin:0;">Wynts</button>
               <button class="tab3" data-target="usermentionedList" style="margin:0;">Tagged</button>
-              <button class="tab3" data-target="userHighlights" style="margin:0;">Spotlight</button>
             </div>
           </div>
           <div id="userList"></div>
           <div id="usermentionedList"></div>
-          <div id="userHighlights"></div>
           <br><br><br>
         </div>
       </div>
@@ -928,9 +941,6 @@
               <img src="/image/x.svg">
             </div>
           </div>
-          <div class="menu-item" id="reportUser">
-            <img src="/image/report.svg"> Report this user
-          </div>
 
           <div class="menu-item copy-link-btn" id="copyUserLinkBtn" data-uid="">
             <img src="/image/copy.svg"> Copy user link
@@ -938,6 +948,12 @@
 
           <div class="menu-item copy-uid-btn" id="copyUserIdBtn" data-uid="">
             <img src="/image/link.svg"> Copy user ID
+          </div>
+          
+          <h4 style="margin:0;margin-left:5px;">Others</h4>
+
+          <div class="menu-item" id="reportUser">
+            <img src="/image/report.svg"> Report this user
           </div>
 
           <div class="menu-item" id="suspendBtn">
@@ -1113,7 +1129,7 @@
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('quoteViewer').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
-                  <h2 style="margin:0;margin-left:auto;">post's quotes</h2>
+                  <h2 style="margin:0;margin-left:auto;">quotes</h2>
                 </div>
               </header>
               <div id="quoteList"></div>
@@ -1614,7 +1630,7 @@
         </div>
       </div>
 
-      <div id="premiumOverlay" class="overlay">
+      <div id="premiumOverlay" class="overlay hidden">
         <div id="premiumbox" style="" class="">
           <div style="display:flex;align-items:center;">
             <h2 style="color:white">Upgrade to premium.</h2>
@@ -1626,7 +1642,9 @@
               <div class="checkp"><img src="/image/check1.svg">5 minute Wynt cooldown</div>
               <div class="checkp"><img src="/image/check1.svg">2 hours reply with video cooldown</div>
               <div class="checkp"><img src="/image/check1.svg">3.5MB file limit</div>
-              <div class="checkp"><img src="/image/check1.svg">1000 characters text limit</div><div class="checkp"><img src="/image/check1.svg">bookmarks</div> 
+              <div class="checkp"><img src="/image/check1.svg">1000 characters text limit</div>
+              <div class="checkp"><img src="/image/check1.svg">highlights</div>
+              <div class="checkp"><img src="/image/check1.svg">bookmarks</div> 
             </div>
             <div style="" class="offer">
               <h2 style="margin-top:10px;">500 Wcoins/31 days</h2>
@@ -1634,10 +1652,10 @@
               <div class="checkp"><img src="/image/check1.svg">50 minutes reply with video cooldown</div>
               <div class="checkp"><img src="/image/check1.svg">5.10MB file limit</div>
               <div class="checkp"><img src="/image/check1.svg">2000 characters text limit</div>
-              <div class="checkp"><img src="/image/check1.svg">highlights</div>
+              <div class="checkp"><img src="/image/check1.svg">categorized highlights</div>
               <div class="checkp"><img src="/image/check1.svg">categorized bookmarks</div>
               <div class="checkp"><img src="/image/check1.svg">no video compression</div>
-              <button id="buypremium" style="background: grey; color: white; padding: 12px 20px; margin-top: 15px; width: 100%;" disabled="">Expires in 22 days.</button>
+              <button id="buypremium" style="background:rgba(0,179,119, 0.7);color:white;padding:12px 20px;margin-top:15px;width:100%;">Get for 500 Wcoins</button>
             </div>
             <br>
           </div>
@@ -1668,6 +1686,24 @@
           <button style="margin-top:10px;font-size:16px;color:var(--color);text-decoration:underline;" class="link" id="boLoadMore">Load more...</button>
           <div style="display:flex;justify-content:center;"><button id="addFolder" style="display:flex;align-items:center;gap:10px;margin-top:20px;border-radius:12px"><img src="/image/plus.svg"> Add New Folder</button></div>
           <span style="font-size:15px;color:grey;display:none;margin-top:15px;" id="hh">Upgrade to premium to create multiple bookmark folders.</span>
+          <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="highlightFolderOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('highlightFolderOverlay').classList.add('hidden')">
+                <img src="/image/leftArrow.svg">
+              </button>
+              <h2 style="margin:0;margin-left:Auto">Save to folder</h2><img src="/image/bookmark-filled.svg" height="25">
+            </div>
+          </header>
+          <div id="hfolderList"></div>
+          <button style="margin-top:10px;font-size:16px;color:var(--color);text-decoration:underline;" class="link" id="hboLoadMore">Load more...</button>
+          <div style="display:flex;justify-content:center;"><button id="haddFolder" style="display:flex;align-items:center;gap:10px;margin-top:20px;border-radius:12px"><img src="/image/plus.svg"> Add New Folder</button></div>
+          <span style="font-size:15px;color:grey;display:none;margin-top:15px;" id="hhh">Upgrade to premium to create multiple highlight folders.</span>
           <br><br><br><br><br><br>
         </div>
       </div>
@@ -1716,19 +1752,49 @@
 
       <div id="bookmarkTweetOverlay" class="useroverlay hidden">
         <div class="user-box">
-        <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
-        <h2 style="display:flex;align-items:center;margin:12px 0;">
-          <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('bookmarkTweetOverlay').classList.add('hidden')" class="close-btn">
-            <img src="/image/leftArrow.svg">
-          </button>
-          <div style="margin:0;display:flex;align-items:center;gap:10px;" id="folderName"></div>
-        </h2>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button style="margin-left:auto;" id="changeFolderName" class="link"><img src="/image/edit1.svg"></button>
+          <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
+          <h2 style="display:flex;align-items:center;margin:12px 0;">
+            <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('bookmarkTweetOverlay').classList.add('hidden');window.CURRENT_BOOKMARK_ID = null;" class="close-btn">
+              <img src="/image/leftArrow.svg">
+            </button>
+            <div style="margin:0;display:flex;align-items:center;gap:10px;" id="folderName"></div>
+          </h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button style="margin-left:auto;" id="changeFolderName" class="link"><img src="/image/edit1.svg"></button>
+          </div>
+        </header>
+        <div id="TweetList"></div>
+        <br><br><br><br><br><br>
         </div>
-      </header>
-          <div id="TweetList"></div>
-          <br><br><br><br><br><br>
+      </div>
+
+      <div id="highlightTweetOverlay" class="useroverlay hidden">
+        <div class="user-box">
+          <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
+          <h2 style="display:flex;align-items:center;margin:12px 0;">
+            <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('highlightTweetOverlay').classList.add('hidden');window.CURRENT_HIGHLIGHT_ID = null" class="close-btn">
+              <img src="/image/leftArrow.svg">
+            </button>
+            <div style="margin:0;display:flex;align-items:center;gap:10px;" id="hfolderName"></div>
+          </h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button style="margin-left:auto;" id="hchangeFolderName" class="link"><img src="/image/edit1.svg"></button>
+          </div>
+        </header>
+        <div id="hTweetList"></div>
+        <br><br><br><br><br><br>
+        </div>
+      </div>
+
+      <div id="hfolderActionOverlay" class="overlay hidden">
+        <div class="menu-box">
+          <div class="flex" style="margin-bottom:5px;">
+            <h3 style="margin:0;margin-left:5px;">Actions</h3>
+            <div class="menu-item" id="hcloseFolderAction" style="margin-left:auto;"><img src="/image/x.svg"></div>
+          </div>
+          <div class="menu-item" id="hdeleteFolder"><img src="/image/trash.svg"> Delete this folder</div>
+          <div class="menu-item" id="heditFolder"><img src="/image/edit1.svg"> Edit this folder name</div>
+          <div class="menu-item" id="changefoldericon"><img src="/image/edit1.svg"> Change folder icon</div>
         </div>
       </div>
 
@@ -1794,6 +1860,27 @@
     <div class="popup-box" style="margin:0">
       <p style="margin: 0px;"></p>
     </div>
+    </div>
+  </div>
+
+  <div id="mediaUpload" class="overlay hidden">
+    <div class="popup-box media-box">
+      <div style="display:flex;align-items:center;">
+        <h2>Upload Media</h2>
+        <button onclick="document.getElementById('mediaUpload').classList.add('hidden')" style="background:none;margin-left:auto;padding:0;">
+          <img src="/image/x.svg">
+        </button>
+      </div>
+      <div id="mediaContainer">
+        <img id="mediaPreview" src="/image/placeholder.png" alt="upload" draggable="false">
+        <div id="cropBox" class="hidden">
+          <img id="cropInner">
+          <div id="cropHandle"></div>
+        </div>
+      </div>
+
+      <input id="mediaInputx" type="file" hidden="">
+      <button id="mediaInsert">Upload</button>
     </div>
   </div>
 

@@ -8,6 +8,7 @@ import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js"; 
 import { base91ToImageSrc } from "./attachments.js";
+import { loadFolderTweets } from "./highlight.js";
 
 const loading            = document.getElementById("loadingOverlay");
 const searchBtn          = document.querySelector('.smallbar img[src="/image/search.svg"]');
@@ -159,7 +160,7 @@ document.querySelectorAll(".tab1").forEach(tab1 => {
   });
 });
 
-const MIN_LEN = 5;
+const MIN_LEN = 3;
 
 searchInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter") {
@@ -731,6 +732,7 @@ function softblank() {
   document.getElementById("user-pfp").style.background = "#16181c";
   document.getElementById("user-banner").style.background = "#16181c";
   document.getElementById("user-creation").textContent = "loading date";
+  document.getElementById("highlights-container").innerHTML = "";
 
   const userEffectEl = document.querySelector("#profile-effect");
   if (userEffectEl) {
@@ -740,7 +742,6 @@ function softblank() {
 
   list.innerHTML = "";
   usermentionedList.innerHTML = "";
-  highlightedList.innerHTML = "";
 }
 
 function blank() {
@@ -769,7 +770,6 @@ function blank() {
 
   list.classList.add("hidden");
   usermentionedList.classList.add("hidden");
-  highlightedList.classList.add("hidden");
 }
 
 async function isBanned(uid) {
@@ -780,6 +780,111 @@ async function isBanned(uid) {
     blank();
     return;
   }
+}
+
+function setupHighlightInfiniteScroll(uid) {
+  const container = document.getElementById("highlights-container");
+
+  container.addEventListener("scroll", async () => {
+    const reachedEnd =
+      container.scrollLeft + container.clientWidth >= container.scrollWidth - 20;
+
+    if (reachedEnd) {
+      await loadUserHighlights(uid);
+    }
+  });
+}
+
+let userHighlightLastDoc = null;
+let userHighlightLoading = false;
+let userHighlightNoMore = false;
+
+async function loadUserHighlights(uid, initial = false) {
+  const container = document.getElementById("highlights-container");
+
+  if (uid != auth.currentUser.uid) {
+    document.getElementById("hchangeFolderName").style.display = "none";
+  }
+  document.getElementById("hchangeFolderName").style.display = "inline";
+
+  if (initial) {
+    userHighlightLastDoc = null;
+    userHighlightNoMore = false;
+    userHighlightLoading = false;
+  }
+
+  if (userHighlightLoading || userHighlightNoMore) return;
+  userHighlightLoading = true;
+
+  const highlightRef = collection(db, "users", uid, "highlights");
+  let q = query(
+    highlightRef,
+    orderBy("createdAt", "desc"),
+    limit(5)
+  );
+
+  if (userHighlightLastDoc) {
+    q = query(
+      highlightRef,
+      orderBy("createdAt", "desc"),
+      startAfter(userHighlightLastDoc),
+      limit(5)
+    );
+  }
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    if (!userHighlightLastDoc) {
+      container.innerHTML = "";
+      container.classList.remove("active");
+    }
+
+    userHighlightNoMore = true;
+    userHighlightLoading = false;
+    return;
+  }
+  container.classList.add("active");
+
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+
+    const item = document.createElement("div");
+    item.className = "highlight-item";
+    item.id = `highlight-item-${docSnap.id}-1`;
+
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;align-items:center;">
+        <div>
+        ${
+          data.icon
+            ? `<img class="highlight-icon" src="${base91ToImageSrc(data.icon)}" onerror="this.onerror=null;this.src='/image/folder.svg';">`
+            : `<img src="/image/folder.svg">`
+        }
+        </div>
+        <div style="align-self:flex-start;">
+          <div class="user-link">${data.name || "Untitled"}</div>
+          <div style="color:grey;margin-top:5px;font-size:14pxtext-overflow:ellipsis;white-space:nowrap;overflow: hidden;"><b>${formatNumber(data.tweetsCount)}</b> Wynts</div>
+        </div>
+      </div>
+    `;
+
+    if (!document.getElementById(`highlight-item-${docSnap.id}-1`)) {
+      container.appendChild(item);
+    }
+
+    item.addEventListener('click', async () => {
+      loadFolderTweets(docSnap.id, true, uid);
+    });
+  });
+
+  userHighlightLastDoc = snap.docs[snap.docs.length - 1];
+
+  if (snap.docs.length < 5) {
+    userHighlightNoMore = true;
+  }
+
+  userHighlightLoading = false;
 }
 
 export async function openUserSubProfile(uid) {
@@ -800,9 +905,6 @@ export async function openUserSubProfile(uid) {
   mentionedLoadedCount = 0;
   mentionedLastVisibleDoc = null;
 
-  highlightedLoadedCount = 0;
-  highlightedLastVisibleDoc = null;
-
   const docSnap = await getDoc(doc(db, "users", uid));
   if (!docSnap.exists()) {
     document.getElementById("user-name").textContent = "user not found";
@@ -812,7 +914,6 @@ export async function openUserSubProfile(uid) {
 
   list.classList.remove("hidden");
   usermentionedList.classList.remove("hidden");
-  highlightedList.classList.remove("hidden");
 
   document.getElementById("banBtn").classList.add("hidden");
 
@@ -850,6 +951,9 @@ export async function openUserSubProfile(uid) {
   if (uid !== currentUserId) {
     getIfUserfollows(uid);
   }
+
+  loadUserHighlights(uid, true);
+  setupHighlightInfiniteScroll(uid);
 
   if (uid === currentUserId) {
     followBtn.classList.add("hidden");
@@ -1384,11 +1488,13 @@ async function loadIfFollow(uid) {
         const currentlyFollowing = snap.exists();
 
         if (currentlyFollowing) {
-          const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
+          if (localStorage.getItem("disableConfirmation") != "true") {
+            const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
 
-          if (!ok) {
-            reset();
-            return;
+            if (!ok) {
+              reset();
+              return;
+            }
           }
 
           const batch = writeBatch(db);
@@ -1898,8 +2004,10 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
         const isNowFollowing = isFollowingSnap.exists();
 
         if (isNowFollowing) {
-          const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
-          if (!ok) return;
+          if (localStorage.getItem("disableConfirmation") != "true") {
+            const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
+            if (!ok) return;
+          }
 
           const batch = writeBatch(db);
 
@@ -2021,7 +2129,6 @@ document.querySelectorAll(".tab3").forEach(tab => {
 
     document.getElementById("userList").style.display = "none";
     document.getElementById("usermentionedList").style.display = "none";
-    document.getElementById("userHighlights").style.display = "none";
 
     const targetId = tab.dataset.target;
     document.getElementById(targetId).style.display = "block";
@@ -2032,8 +2139,6 @@ document.querySelectorAll(".tab3").forEach(tab => {
       loadTweets(uid);
     } else if (targetId === "usermentionedList") {
       loadUserMentionedTweets(uid);
-    } else if (targetId === "userHighlights") {
-      loadHighlights(uid);
     }
   });
 });
@@ -2085,62 +2190,6 @@ async function loadUserMentionedTweets(uid) {
 
   if (snap.docs.length >= MENTIONED_PAGE_SIZE) {
     mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
-}
-
-let highlightedLastVisibleDoc = null;
-let highlightedLoadedCount = 0;
-const highlightedList = document.getElementById("userHighlights");
-const HIGHLIGHTED_PAGE_SIZE = 5;
-
-async function loadHighlights(uid) {
-  const highlightedRef = collection(db, "users", uid, "highlights");
-  let q;
-
-  if (!highlightedLastVisibleDoc) {
-    q = query(highlightedRef, orderBy("highlightedAt", "desc"), limit(HIGHLIGHTED_PAGE_SIZE));
-  } else {
-    q = query(highlightedRef, orderBy("highlightedAt", "desc"), startAfter(highlightedLastVisibleDoc), limit(HIGHLIGHTED_PAGE_SIZE));
-  }
-
-  const snap = await getDocs(q);
-
-  if (snap.empty && highlightedLoadedCount === 0) {
-    highlightedList.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No highlights — yet</h2><p style="color:grey;margin:7px 0;">seems like this user hasn't bought premium yet. Donate wcoins to help them.</p></div></div>`;
-    return;
-  }
-
-  if (snap.docs.length >= HIGHLIGHTED_PAGE_SIZE) {
-    highlightedLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
-
-  snap.docs.forEach(async (highlightDoc) => {
-    const tweetId = highlightDoc.id;
-    const communityId = highlightDoc.data().communityId;
-
-    const tweetDoc = communityId
-      ? await getDoc(doc(db, "communities", communityId, "posts", tweetId))
-      : await getDoc(doc(db, "tweets", tweetId));
-
-    if (!tweetDoc.exists()) return;
-
-    const tweetData = tweetDoc.data();
-
-    const userDoc = await getDoc(doc(db, "users", uid));
-    const userData = {
-      ...userDoc.data(),
-      uid
-    };
-
-    if (uid === document.querySelector("#user-name").dataset.uid) {
-      await renderTweet(tweetData, tweetId, userData, "append", highlightedList, communityId, true);
-    }
-  });
-
-  highlightedLoadedCount += snap.docs.length;
-
-  if (snap.docs.length >= HIGHLIGHTED_PAGE_SIZE) {
-    highlightedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 }
 
@@ -2197,7 +2246,6 @@ const profileScrollBox = document.querySelector("#userSubOverlay .user-box");
 
 let tweetLoading = false;
 let mentionLoading = false;
-let highlightLoading = false;
 
 profileScrollBox.addEventListener("scroll", async () => {
   const nearBottom =
@@ -2221,13 +2269,6 @@ profileScrollBox.addEventListener("scroll", async () => {
     mentionLoading = true;
     await loadUserMentionedTweets(uid);
     mentionLoading = false;
-  }
-
-  if (activeTab === "userHighlights") {
-    if (highlightLoading) return;
-    highlightLoading = true;
-    await loadHighlights(uid);
-    highlightLoading = false;
   }
 });
 

@@ -1,11 +1,11 @@
-import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter, runTransaction } from "./firebase.js";
+import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter, runTransaction, Timestamp, serverTimestamp } from "./firebase.js";
 import { fileToBase64 } from "./settings.js";
 import { sendadminDismissedNotification, sendCommunityJoinRequest, sendCommunityWarningNotification, sendAdminNotification, sendInviteNotification } from "./notification.js";
 import { renderTweet, openReportOverlay, getUserData, loadComments, getCommunityNameById } from "./index.js";
 import { askDeleteReason } from "./moderation.js";
 import { sendToDiscord } from "./discord.js";
 import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, info, log, inputDialog, confirmDialog } from "./texts.js";
-import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc } from "./attachments.js";
+import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc, uploadMedia, compressImageTo480 } from "./attachments.js";
 import { openUserSubProfile } from "./user.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { updatePostZIndex, updateCbDisplay } from "./main.js";
@@ -216,12 +216,14 @@ export async function loadMyCommunities(reset = false) {
     q = query(
       collection(db, "communities"),
       where("members", "array-contains", user.uid),
+      orderBy("lastActivity", "desc"),
       limit(MY_COM_PAGE_SIZE)
     );
   } else {
     q = query(
       collection(db, "communities"),
       where("members", "array-contains", user.uid),
+      orderBy("lastActivity", "desc"),
       startAfter(myComLastDoc),
       limit(MY_COM_PAGE_SIZE)
     );
@@ -319,7 +321,7 @@ async function showCreateCommunityOverlay(communityId = null) {
 
       <div class="ava-preview1">
         <div id="com-ava-preview"></div>
-        <label class="button" id="com-ava-label" for="com-ava-input"><img src="/image/upload.svg"></label>
+        <label class="button" id="com-ava-label" for="com-ava-input"></label>
       </div>
       <br>
 
@@ -395,8 +397,8 @@ async function showCreateCommunityOverlay(communityId = null) {
       </div>
 
       <input type="file" id="com-banner-input" class="hidden-input" accept="image/*">
-      <input type="file" id="com-ava-input" class="hidden-input" accept="image/*">
-      <br><br><br><br><br><br>
+      <button id="com-ava-input" class="hidden-input"></button>
+      <br><br><br><br><br><br><br>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -456,6 +458,16 @@ async function showCreateCommunityOverlay(communityId = null) {
     loading.classList.remove("show");
   });
 
+  avaInput.addEventListener("click", async (e) => {
+    const base91 = await uploadMedia({
+      allowImage: true,
+      allowGif: false
+    });
+    avaPreview.style.background = `url("${base91ToImageSrc(base91)}") center / cover`;
+    avaPreview.dataset.image = base91;
+  });
+
+  /*
   avaInput.addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -471,6 +483,7 @@ async function showCreateCommunityOverlay(communityId = null) {
     avaPreview.dataset.image = base64;
     loading.classList.remove("show");
   });
+  */
 
   const nameInput = document.getElementById("communityNameInput")
   nameInput.addEventListener("input", () => {
@@ -533,7 +546,9 @@ document.getElementById("createCommunityBtn").onclick = async () => {
 
   if (typeof editingId !== "string" || !editingId) {
     const banner = document.getElementById("com-banner-preview").dataset.image || "/image/default-banner.png";
-    const avatar = document.getElementById("com-ava-preview").dataset.image    || "/image/default-avatar.jpg";
+    const avatar = document.getElementById("com-ava-preview").dataset.image 
+      ? await compressImageTo480(document.getElementById("com-ava-preview").dataset.image) 
+      : "/image/default-avatar.jpg";
 
     const displayName = userData?.username || "Unknown";
 
@@ -541,10 +556,12 @@ document.getElementById("createCommunityBtn").onclick = async () => {
     const acceptingApplications = document.getElementById("acceptApplicationCheck")?.checked || false;
     const private1 = document.getElementById("privateCheck")?.checked || false;
 
-    if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
-      btn.disabled = false;
-      btn.classList.remove("disabled");
-      return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
+        btn.disabled = false;
+        btn.classList.remove("disabled");
+        return;
+      }
     }
 
     await runTransaction(db, async (tx) => {
@@ -560,6 +577,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
         avatar,
         members: arrayUnion(user.uid),
         posts: 0,
+        lastActivity: serverTimestamp(),
         membersCount: 1,
         acceptingApplications,
         private: private1,
@@ -619,7 +637,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       : cData.banner;
 
     const avatarImage = avaPreview.dataset.image
-      ? await dataUrlToBase91(avaPreview.dataset.image)
+      ? await compressImageTo480(avaPreview.dataset.image)
       : cData.avatar;
 
     await updateDoc(comRef, {
@@ -821,8 +839,10 @@ async function joinCommunity(communityId) {
   }
 
   if (comData.acceptingApplications) {
-    const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply?`);
-    if (!confirmApply) return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply?`);
+      if (!confirmApply) return;
+    }
 
     await sendCommunityJoinRequest(comData.creatorId, communityId, comData.name,
       comData.avatar
@@ -1831,10 +1851,12 @@ async function toggleAdmin(uid, isAdmin) {
     return;
   }
 
-  if (isAdmin) {
-    if (!(await confirmDialog("dismiss user as admin?", "are you sure you want to dismiss this user as admin?"))) return;
-  } else {
-    if (!(await confirmDialog("make user admin?", "are you sure you want to make this user admin? Once proceeded, This user can take dangerous actions to this community.", "red"))) return;
+  if (localStorage.getItem("disableConfirmation") != "true") {
+    if (isAdmin) {
+      if (!(await confirmDialog("dismiss user as admin?", "are you sure you want to dismiss this user as admin?"))) return;
+    } else {
+      if (!(await confirmDialog("make user admin?", "are you sure you want to make this user admin? Once proceeded, This user can take dangerous actions to this community.", "red"))) return;
+    }
   }
 
   await runTransaction(db, async (tx) => {

@@ -279,22 +279,23 @@
 
 #logout {
   background: none;
-  border: 1px solid #db1d23;
-  color: #db1d23;
+  border: 1px solid var(--color);
+  color: var(--color);
   padding: 10px;
-  font-weight: 900;
-  margin: 20px;
+  margin: 25px 0;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  width: calc(100% - 40px);
+  width: 100%;
   justify-content: center;
   border-radius: 15px;
-  box-sizing:border-box
+  box-sizing:border-box;
+  margin-top: 30px;
 }
 
 #logout svg {
-  color: #db1d23;
+  color: var(--color);
 }
 
 #logout:hover svg {
@@ -601,35 +602,36 @@
 
 #ava-label {
   z-index: 2;
-  height: 25px;
-  width: 25px;
-  background: rgba(0,0,0,0.7);
+  height: 120px;
+  width: 120px;
+  background: none;
   display: flex;
   align-items: center;
   justify-content: center;
   position: absolute;
-  top: 56%;
-  left: 56%;
+  border-radius: 50%;
+  top: 50%;
+  left: 51%;
   transform: translate(-50%, -50%);
 }
 
 #com-ava-label {
   position: absolute;
-  top: 55%;
-  left: 38%;
+  border-radius: 0;
+  top: 53%;
+  left: 36%;
   transform: translate(-50%, -50%);
-  height: 25px;
-  width: 25px;
-  background: rgba(0,0,0,0.7);
+  height: 120px;
+  width: 120px;
+  background: none;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .container1 {
-  padding: 10px;
-  border-radius: 10px;
-  border: var(--border);
+  padding: 5px 20px;
+  margin: 0 -20px;
   margin-bottom: 15px;
 }
 
@@ -823,13 +825,15 @@ input[type="checkbox"] {
 
 #leaderboardOverlay,
 #bookmarkOverlay, 
+#highlightOverlay,
 #comMenuOverlay,
 #blockOverlay,
 #inviteOverlay {
   z-index: 7;
 }
 
-#bookmarkTweetOverlay {
+#bookmarkTweetOverlay,
+#highlightTweetOverlay {
   z-index: 8 !important; 
 }
 
@@ -838,7 +842,7 @@ input[type="checkbox"] {
 #premiumOverlay,
 #tweetViewer,
 #commentViewer,
-#folderActionOverlay,
+#hfolderActionOverlay,
 #deleteReasonOverlay,
 #commentOverlay,
 #viewOverlay,
@@ -854,6 +858,7 @@ input[type="checkbox"] {
 }
 
 #bookmarkFolderOverlay,
+#highlightFolderOverlay,
 #tweetOverlay,
 #editOverlay,
 #tweetFilter, 
@@ -905,7 +910,7 @@ input[type="checkbox"] {
 
 @media (max-width:500px) {
   .user-link {
-    max-width: 200px;
+    max-width: 170px;
   }
   .tweet p.clamp-text .user-link {
     max-width: 100%;
@@ -985,7 +990,7 @@ input[type="checkbox"] {
 }
 
 .buy-btn button:hover {
-  background: #00b377;
+  background: #04aa6d;
   border: 1px solid white;
   color: white;
 }
@@ -1076,19 +1081,6 @@ input[type="checkbox"] {
     inset 4px 4px 6px 0 rgba(0, 0, 0, .2);
 }
 
-.settingsbtns {
-  padding: 10px !important;
-  height: 45px !important;
-  background: var(--normal);
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-top: var(--border);
-  border-bottom: var(--border);
-  margin-bottom: 15px;
-}
-
 .settingsbox {
   margin: 0 -20px !important;
   border-bottom:var(--border);
@@ -1107,9 +1099,41 @@ input[type="checkbox"] {
 
 .settingsbtns {
   margin: 0;
-  height: 55px !important;
   border-radius: 0;
   padding: 0 17px !important;
+}
+
+@media (max-width: 700px) {
+  #tosBtn,
+  #bookmarkBtn {
+    margin-top: 10px;
+  }
+  #openBlocks {
+    margin-bottom: 8px;
+  }
+  #openBlocks img {
+    height: 23px;
+    width: 23px;
+    margin-left: 1px;
+  }
+  #premiumbox div[style="display:flex;align-items:center;"] {
+    margin-top: 15px;
+  }
+}
+
+.settingsbtns {
+  height: 45px !important;
+  background: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (min-width: 700px) {
+  .settingsbtns {
+    height: 55px !important;
+  }
 }
 
 .settingsbtns:hover {
@@ -1146,7 +1170,7 @@ input[type="checkbox"] {
 .com-item {
   margin: 0 -15px;
   padding: 13px;
-  background: var(--normal);
+  background: var(--dark);
   border-radius: 10px;
   bordeR: var(--border);
   margin-top: 15px;
@@ -1169,7 +1193,7 @@ input[type="checkbox"] {
     margin-top: 0px !important;
     bordeR: none;
     border-radius: 0;
-    background: var(--normal);
+    background: var(--dark);
     border-bottom: var(--border);
   }
 
@@ -1330,7 +1354,94 @@ input[type="checkbox"] {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
-  z-index:100
+  z-index:1000
+}
+
+#mediaPreview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#mediaPreview:not(#mediaPreview[src="/image/placeholder.png"]):not(#mediaPreview.real) {
+  filter: brightness(.3);
+}
+
+#cropBox {
+  position: absolute;
+  border: 2px solid white;
+  box-sizing: border-box;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#cropBox img {
+  position: absolute;
+  filter: brightness(1);
+  pointer-events: none;
+}
+
+#cropInner,
+#mediaPreview {
+  image-rendering: auto;
+  transform: translateZ(0);
+}
+
+#cropHandle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  right: -8px;
+  bottom: -8px;
+  background: white;
+  border-radius: 50%;
+  cursor: nwse-resize;
+}
+
+#mediaUpload {
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.media-box {
+  width: 555px;
+  height: 333px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--dark);
+  border: var(--border);
+  border-radius: 15px;
+}
+
+.media-box h2 {
+  margin: 0;
+}
+
+#mediaContainer {
+  width: 100%;
+  height: 200px;
+  border-radius: 14px;
+  cursor: pointer;
+  background: #161b22;
+  border: 2px dashed #30363d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+#mediaInsert {
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 5px;
 }
 
 #log {
@@ -1921,4 +2032,69 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
   #tagstweet .skeleton-card {
     margin: 25px 0;
   }
+}
+
+#highlights-container,
+#profile-highlights-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  overflow-x: auto;
+  gap: 15px;
+  overflow-y: hidden;
+}
+
+#highlights-container.active,
+#profile-highlights-container.active {
+  margin-top: 10px;
+  padding-bottom: 10px;
+}
+
+.highlight-item {
+  cursor: pointer;
+  padding: 15px;
+  width: auto;
+  max-width: 300px;
+  border: var(--border);
+  height: 70px;
+  border-radius: 15px;
+}
+
+.highlight-item img,
+.highlight-icon {
+  height: 70px;
+  width: 70px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.highlight-item .user-link {
+  max-width: 200px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#highlights-container::-webkit-scrollbar,
+#profile-highlights-container::-webkit-scrollbar {
+  height: 0;
+}
+
+.unavailable {
+  margin: 0px -20px; 
+  padding: 0 20px; 
+  border-bottom: var(--border);
+}
+
+.unavailable .flex {
+  margin: -10px 0;
+}
+
+.unavailable p {
+  margin: 0;
+  color: grey;
+  font-style: italic
+}
+
+.unavailable button {
+  margin-left: auto
 }

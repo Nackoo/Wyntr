@@ -1,4 +1,4 @@
-import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, startAfter, query, setDoc, increment, updateDoc, addDoc, serverTimestamp, runTransaction } from './firebase.js';
+import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, startAfter, query, setDoc, increment, updateDoc, addDoc, serverTimestamp, runTransaction, onSnapshot } from './firebase.js';
 import { renderTweet } from './index.js';
 import { formatDate, inputDialog, log, confirmDialog } from "./texts.js";
 
@@ -17,10 +17,63 @@ let folderLastDoc = null;
 let folderNoMore = false;
 let currentFolderId = null;
 let boCurrentTweetId = null;
+let bookmarksLoaded = false;
+const renderedFolderIds = new Set();
 
 function setBtnVisible(btn, visible) {
   if (!btn) return;
   btn.style.display = visible ? 'block' : 'none';
+}
+
+function createFolderItem(folderDoc) {
+  const folderData = folderDoc.data();
+  const count = folderData.tweetsCount || 0;
+  const displayName = folderData.name || folderDoc.id;
+
+  const folderItem = document.createElement('div');
+  folderItem.className = 'folder-item';
+  folderItem.id = `folder-${folderDoc.id}`;
+  folderItem.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
+  folderItem.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${folderData.icon === "📁" || !folderData.icon ? `<img src="/image/folder.svg">` : `${folderData.icon}`} <div class="user-link">${displayName}</div> ${count > 0 ? `<span style="color:grey;margin-left:auto;">${count} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(folderData.lastUpdated) || `[missing value]`} ago</span></div>`;
+  folderItem.onclick = () => loadFolderTweets(folderDoc.id);
+  return folderItem;
+}
+
+function setupFolderSnapshot(uid) {
+  const foldersRef = collection(db, 'users', uid, 'bookmarks');
+  const q = query(foldersRef, orderBy('lastUpdated', 'desc'), limit(10));
+
+  let isFirst = true;
+  onSnapshot(q, (snap) => {
+    if (isFirst) {
+      isFirst = false;
+      return;
+    }
+
+    snap.docChanges().forEach((change) => {
+      if (change.type === 'removed') {
+        renderedFolderIds.delete(change.doc.id);
+        document.getElementById(`folder-${change.doc.id}`)?.remove();
+        return;
+      }
+
+      if (change.type === 'modified') {
+        const existing = document.getElementById(`folder-${change.doc.id}`);
+        if (!existing) return;
+        const updated = createFolderItem(change.doc);
+        existing.replaceWith(updated);
+        return;
+      }
+
+      if (change.type === 'added') {
+        if (renderedFolderIds.has(change.doc.id)) return;
+        renderedFolderIds.add(change.doc.id);
+        // Clear empty-state message if present
+        if (!bookmarkList.querySelector('.folder-item')) bookmarkList.innerHTML = '';
+        bookmarkList.prepend(createFolderItem(change.doc));
+      }
+    });
+  });
 }
 
 // LOAD FOLDERS
@@ -78,21 +131,10 @@ async function loadBookmarks(initial = false) {
   for (const folderDoc of folderSnap.docs) {
     if (folderDoc.id === 'index') hasIndex = true;
 
-    const folderData = folderDoc.data();
-    const count = folderData.tweetsCount || 0;
-
-    const folderItem = document.createElement('div');
-    folderItem.className = 'folder-item';
-    folderItem.id = `folder-${folderDoc.id}`;
-
-    const displayName = folderData.name || folderDoc.id;
-    folderItem.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
-    folderItem.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${folderData.icon === "📁" || !folderData.icon ? `<img src="/image/folder.svg">` : `${folderData.icon}`} <div class="user-link">${displayName}</div> ${count > 0 ? `<span style="color:grey;margin-left:auto;">${count} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(folderData.lastUpdated) || `[missing value]`} ago</span></div>`;
-    folderItem.onclick = () => loadFolderTweets(folderDoc.id);
-    
     if (!bookmarkList.querySelector(`#folder-${folderDoc.id}`)) {
       if (!bookmarkList.querySelector(".folder-item")) bookmarkList.innerHTML = "";
-      bookmarkList.appendChild(folderItem);
+      renderedFolderIds.add(folderDoc.id);
+      bookmarkList.appendChild(createFolderItem(folderDoc));
     }
   }
 
@@ -174,6 +216,7 @@ const skeleton = `
   </div>
 `
 
+let lastFolderId = null;
 // tweets inside folder
 async function loadFolderTweets(folderId, initial = true) {
   if (!auth.currentUser) return;
@@ -182,150 +225,143 @@ async function loadFolderTweets(folderId, initial = true) {
   const tweetList = document.getElementById('TweetList');
   const folderName = document.getElementById('folderName');
 
-  if (initial) {
-    tweetList.innerHTML = skeleton;
-    folderLastDoc = null;
-    folderNoMore = false;
-    currentFolderId = folderId;
-    const folderRef = doc(db, 'users', auth.currentUser.uid, 'bookmarks', folderId);
-    const folderSnap = await getDoc(folderRef);
-    const folderData = folderSnap.exists() ? folderSnap.data() : {};
-    const displayName = folderData.name || folderId;
-    folderName.innerHTML = `
-      <h3 style="margin:0;" class="user-link">${displayName}</h3> 
-      <h3 style="margin:0;color:grey;">folder</h3>`;
+  window.CURRENT_BOOKMARK_ID = folderId;
+
+  if (initial && lastFolderId == folderId) {
     tweetOverlay.classList.remove('hidden');
-  }
-
-  if (folderNoMore) {
-    setBtnVisible(folderLoadMore, false);
-    return;
-  }
-
-  const uid = auth.currentUser.uid;
-  const itemsRef = collection(db, 'users', uid, 'bookmarks', folderId, 'items');
-
-  let q = query(itemsRef, orderBy('bookmarkedAt', 'desc'), limit(BOOKMARK_PAGE_SIZE));
-  if (folderLastDoc) q = query(itemsRef, orderBy('bookmarkedAt', 'desc'), startAfter(folderLastDoc), limit(BOOKMARK_PAGE_SIZE));
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
+  } else {
     if (initial) {
-      const emptyMsg = document.createElement('div');
-      tweetList.innerHTML = "";
-      emptyMsg.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No Wynts for this folder</h2>
-            <p style="color:grey;margin:7px 0;">when you bookmark a Wynt to this folder, you'll see it here.</p>
-          </div>
-        </div>`;
-      tweetList.appendChild(emptyMsg);
+      tweetList.innerHTML = skeleton;
+      folderLastDoc = null;
+      folderNoMore = false;
+      currentFolderId = folderId;
+      const folderRef = doc(db, 'users', auth.currentUser.uid, 'bookmarks', folderId);
+      const folderSnap = await getDoc(folderRef);
+      const folderData = folderSnap.exists() ? folderSnap.data() : {};
+      const displayName = folderData.name || folderId;
+      folderName.innerHTML = `
+        <h3 style="margin:0;" class="user-link">${displayName}</h3> 
+        <h3 style="margin:0;color:grey;">folder</h3>`;
+      tweetOverlay.classList.remove('hidden');
     }
-    setBtnVisible(folderLoadMore, false);
-    folderNoMore = true;
-    return;
-  }
+    lastFolderId = folderId;
 
-  snap.docs.forEach(async (docSnap) => {
-    const tweetId = docSnap.id;
-    const data = docSnap.data();
-
-    const tweetRef = data.communityId
-      ? doc(db, "communities", data.communityId, "posts", tweetId)
-      : doc(db, "tweets", tweetId);
-
-    const tweetSnap = await getDoc(tweetRef);
-
-    if (tweetSnap.exists()) {
-      if (!tweetList.querySelector(".tweet")) {
-        tweetList.innerHTML = "";
-      }
-
-      await renderTweet(
-        tweetSnap.data(),
-        tweetId,
-        auth.currentUser,
-        "append",
-        tweetList,
-        data.communityId,
-        true,
-        data.private
-      );
+    if (folderNoMore) {
+      setBtnVisible(folderLoadMore, false);
       return;
     }
 
-    const box = document.createElement("div");
-    box.className = "unavailable";
-    box.style.cssText =
-      "margin:0 -20px;padding:10px 20px;border-bottom:var(--border);";
+    const uid = auth.currentUser.uid;
+    const itemsRef = collection(db, 'users', uid, 'bookmarks', folderId, 'items');
 
-    box.innerHTML = `
-      <div class="flex" style="margin:0">
-        <p style="margin:0;color:grey;font-style:italic">
-          This Wynt is unavailable
-        </p>
-        <button style="margin-left:auto" class="close-btn delete-unavailable">
-          <img src="/image/trash.svg">
-        </button>
-      </div>
-    `;
+    let q = query(itemsRef, orderBy('bookmarkedAt', 'desc'), limit(BOOKMARK_PAGE_SIZE));
+    if (folderLastDoc) q = query(itemsRef, orderBy('bookmarkedAt', 'desc'), startAfter(folderLastDoc), limit(BOOKMARK_PAGE_SIZE));
 
-    box.querySelector(".delete-unavailable").onclick = async () => {
-      loading1.classList.add("show");
+    const snap = await getDocs(q);
 
-      try {
-        const uid = auth.currentUser.uid;
-        const ref = doc(
-          db,
-          "users",
-          uid,
-          "bookmarks",
-          folderId,
-          "items",
-          tweetId
-        );
-
-        const folderRef = doc(
-          db,
-          "users",
-          uid,
-          "bookmarks",
-          folderId
-        );
-
-        await runTransaction(db, async (tx) => {
-          tx.delete(ref);
-          tx.update(folderRef, {
-            tweetsCount: increment(-1),
-            lastUpdated: serverTimestamp()
-          });
-        });
-
-        box.remove();
-      } finally {
-        loading1.classList.remove("show");
+    if (snap.empty) {
+      if (initial) {
+        const emptyMsg = document.createElement('div');
+        tweetList.innerHTML = "";
+        emptyMsg.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:50px;">
+            <div style="max-width:400px;text-align:left;">
+              <h2 style="margin:0;">No Wynts for this folder</h2>
+              <p style="color:grey;margin:7px 0;">when you bookmark a Wynt to this folder, you'll see it here.</p>
+            </div>
+          </div>`;
+        tweetList.appendChild(emptyMsg);
       }
-    };
+      setBtnVisible(folderLoadMore, false);
+      folderNoMore = true;
+      return;
+    }
 
-    tweetList.appendChild(box);
-  });
+    snap.docs.forEach(async (docSnap) => {
+      const tweetId = docSnap.id;
+      const data = docSnap.data();
 
-  folderLastDoc = snap.docs[snap.docs.length - 1];
+      const tweetRef = data.communityId
+        ? doc(db, "communities", data.communityId, "posts", tweetId)
+        : doc(db, "tweets", tweetId);
+
+      const tweetSnap = await getDoc(tweetRef);
+
+      if (tweetSnap.exists()) {
+        if (!tweetList.querySelector(".tweet")) {
+          tweetList.innerHTML = "";
+        }
+
+        if (data.communityId) {
+          await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, "append", tweetList, data.communityId, true, data.private);
+        } else {
+          await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, "append", tweetList, data.communityId, false, data.private);
+        }
+        return;
+      } else {
+        const box = document.createElement("div");
+        box.className = "unavailable";
+
+        box.innerHTML = `
+          <div class="flex" id="delete-${folderId}-${tweetId}">
+            <p>
+              This Wynt is unavailable
+            </p>
+            <button class="close-btn delete-unavailable">
+              <img src="/image/trash.svg">
+            </button>
+          </div>
+        `;
+
+        box.querySelector(".delete-unavailable").onclick = async () => {
+          loading1.classList.add("show");
+
+          try {
+            const uid = auth.currentUser.uid;
+            const ref = doc(db, "users", uid, "bookmarks", folderId, "items", tweetId);
+            const folderRef = doc(db, "users", uid, "bookmarks", folderId);
+
+            await runTransaction(db, async (tx) => {
+              tx.delete(ref);
+              tx.update(folderRef, {
+                tweetsCount: increment(-1),
+                lastUpdated: serverTimestamp()
+              });
+            });
+
+            box.remove();
+          } finally {
+            loading1.classList.remove("show");
+          }
+        };
+
+        if (!document.querySelector(`#delete-${folderId}-${tweetId}`)) {
+          tweetList.appendChild(box);
+        }
+      }
+    });
+
+    folderLastDoc = snap.docs[snap.docs.length - 1];
+  }
 }
 
 document.getElementById('bookmarksvg').addEventListener('click', async () => {
   userOverlay.classList.remove('hidden');
+  if (bookmarksLoaded) return;
+  bookmarksLoaded = true;
   lastDoc = null;
   noMore = false;
   await loadBookmarks(true);
+  setupFolderSnapshot(auth.currentUser.uid);
 });
 
 document.getElementById('bookmarkBtn').addEventListener('click', async () => {
   userOverlay.classList.remove('hidden');
+  if (bookmarksLoaded) return;
+  bookmarksLoaded = true;
   lastDoc = null;
   noMore = false;
   await loadBookmarks(true);
+  setupFolderSnapshot(auth.currentUser.uid);
 });
 
 loadMoreBtn.addEventListener('click', () => loadBookmarks());
@@ -378,6 +414,11 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
             : data.icon}
           <div class="user-link">${name}</div>
           <span style="color:grey;margin-left:auto;">Loading...</span>
+        </div>
+        <div>
+          <span style="color:grey;">
+            last updated ${formatDate(data.lastUpdated) || '[missing value]'} ago
+          </span>
         </div>
       `;
 
@@ -560,6 +601,7 @@ document.getElementById("changeFolderName").addEventListener("click", async () =
     return;
   }
 
+  /*
   const userRef = doc(db, "users", auth.currentUser.uid);
   const userSnap = await getDoc(userRef);
   const data = userSnap.data();
@@ -571,6 +613,7 @@ document.getElementById("changeFolderName").addEventListener("click", async () =
     log("red", "Folder actions are only available for premium users");
     return;
   }
+  */
 
   document.getElementById("folderActionOverlay").classList.remove("hidden");
 });

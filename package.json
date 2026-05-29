@@ -1,20 +1,14 @@
 {
   "name": "wyntr",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
-    "build:js": "for f in public/script/*.js; do if [ -f \"$f\" ]; then terser \"$f\" -o \"$f\" --config-file terser.config.json; fi; done",
-    "build": "npm run build:js"
+    "build": "echo skibidi"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "eslint": "^9.39.1",
-    "globals": "^16.5.0",
-    "terser": "^5.46.0"
+    "globals": "^16.5.0"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",

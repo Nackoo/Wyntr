@@ -87,10 +87,12 @@ async function quickImageNSFWCheck(file) {
     };
   }
 
+  loading.classList.add("show");
   // Run deep ML scan
   const preds = await deepScanImage(file);
   const deepNSFW = nsfwFromPredictions(preds);
 
+  loading.classList.remove("show");
   return {
     ...quick,
     finalNSFW: deepNSFW,

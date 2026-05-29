@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, auth
 import { extractMentions } from "./mention.js";
 import { parseMentionsToLinks, log, confirmDialog, formatNum } from "./texts.js";
 import { applyUserEffect } from "./profile.js";
-import { compressImageTo480, base91ToImageSrc } from "./attachments.js";
+import { compressImageTo480, base91ToImageSrc, uploadMedia } from "./attachments.js";
 import { quickImageNSFWCheck, logNSFWResult } from "./nsfw.js";
  
 const bannerInput = document.getElementById("banner-input");
@@ -34,7 +34,10 @@ function escapeHTML(text) {
 }
 
 document.getElementById("logout").addEventListener("click", async () => {
-  if (!(await confirmDialog('log out', 'are you sure you want to log out?', 'red'))) return;
+  if (localStorage.getItem("disableConfirmation") != "true") {
+    if (!(await confirmDialog('log out', 'are you sure you want to log out?', 'red'))) return;
+  }
+  
   try {
     await signOut(auth);
     window.location.href = "/user/login";
@@ -159,22 +162,13 @@ bannerInput.addEventListener("change", async (e) => {
   loading.classList.remove("show");
 });
 
-avaInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  loading.classList.add("show");
-  const result = await quickImageNSFWCheck(file);
-  logNSFWResult("image", result);
-  if (result.finalNSFW) {
-    log("red", "image cannot contain NSFW");
-    e.target.value = "";
-    loading.classList.remove("show");
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  avaPreview.style.background = `url("${url}") center / cover`;
-  avaPreview.dataset.file = file;
-  loading.classList.remove("show");
+avaInput.addEventListener("click", async (e) => {
+  const base91 = await uploadMedia({
+    allowImage: true,
+    allowGif: false
+  });
+  avaPreview.style.background = `url("${base91ToImageSrc(base91)}") center / cover`;
+  avaPreview.dataset.image = base91;
 });
 
 saveButton.addEventListener("click", async () => {
@@ -194,9 +188,7 @@ saveButton.addEventListener("click", async () => {
     ? bannerInput.files[0]
     : bannerPreview.dataset.image;
 
-  const newAvatar = avaInput.files[0]
-    ? avaInput.files[0]
-    : avaPreview.dataset.image;
+  const newAvatar = avaPreview.dataset.image;
 
   if (!newDisplayName) {
     log("red", "Display name cannot be empty");

@@ -1,7 +1,285 @@
 import { supabase } from "./firebase.js"
 import { db, doc, getDoc, auth } from "./firebase.js";
 import { log } from "./texts.js";
-import { quickImageNSFWCheck, quickVideoNSFWCheck, logNSFWResult } from "./nsfw.js"
+import { quickImageNSFWCheck, quickVideoNSFWCheck, logNSFWResult } from "./nsfw.js";
+
+export function uploadMedia({ allowImage = true, allowGif = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const overlay = document.getElementById("mediaUpload");
+    const preview = document.getElementById("mediaPreview");
+    const input = document.getElementById("mediaInputx");
+    const insertBtn = document.getElementById("mediaInsert");
+    const cropBox = document.getElementById("cropBox");
+    const cropHandle = document.getElementById("cropHandle");
+
+    let selectedFile = null;
+    let crop = { x: 20, y: 20, size: 100 };
+
+    let dragging = false;
+    let resizing = false;
+    let startX = 0;
+    let startY = 0;
+
+    preview.src = "/image/placeholder.png";
+    preview.removeAttribute("data-file");
+    preview.style.background = "";
+
+    input.value = "";
+    selectedFile = null;
+
+    crop.x = 20;
+    crop.y = 20;
+    crop.size = 100;
+
+    dragging = false;
+    resizing = false;
+
+    cropBox.classList.add("hidden");
+    cropBox.style.left = "";
+    cropBox.style.top = "";
+    cropBox.style.width = "";
+    cropBox.style.height = "";
+
+    overlay.classList.remove("hidden");
+
+    const accepted = [];
+    if (allowImage) accepted.push("image/png", "image/jpeg", "image/webp");
+    if (allowGif) accepted.push("image/gif");
+
+    input.accept = accepted.join(",");
+
+    function getImageBounds() {
+      const container = preview.parentElement;
+
+      const containerRatio = container.clientWidth / container.clientHeight;
+      const imageRatio = preview.naturalWidth / preview.naturalHeight;
+
+      let width, height, offsetX, offsetY;
+
+      if (imageRatio > containerRatio) {
+        width = container.clientWidth;
+        height = width / imageRatio;
+        offsetX = 0;
+        offsetY = (container.clientHeight - height) / 2;
+      } else {
+        height = container.clientHeight;
+        width = height * imageRatio;
+        offsetY = 0;
+        offsetX = (container.clientWidth - width) / 2;
+      }
+
+      return {
+        width: Math.round(width),
+        height: Math.round(height),
+        offsetX: Math.round(offsetX),
+        offsetY: Math.round(offsetY)
+      };
+    }
+
+    async function setCropperContrast(img) {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = 32;
+      canvas.height = 32;
+
+      ctx.drawImage(img, 0, 0, 32, 32);
+
+      const data = ctx.getImageData(0, 0, 32, 32).data;
+
+      let total = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        total += (r * 299 + g * 587 + b * 114) / 1000;
+      }
+
+      const brightness = total / (data.length / 4);
+
+      const light = brightness > 160;
+
+      cropBox.style.borderColor = light ? "#111" : "#fff";
+      cropHandle.style.background = light ? "#111" : "#fff";
+    }
+
+    function updateCropBox() {
+      const bounds = getImageBounds();
+      const cropInner = document.getElementById("cropInner");
+
+      crop.x = Math.round(crop.x);
+      crop.y = Math.round(crop.y);
+      crop.size = Math.round(crop.size);
+
+      crop.x = Math.max(
+        bounds.offsetX,
+        Math.min(crop.x, bounds.offsetX + bounds.width - crop.size)
+      );
+
+      crop.y = Math.max(
+        bounds.offsetY,
+        Math.min(crop.y, bounds.offsetY + bounds.height - crop.size)
+      );
+
+      cropBox.style.left = crop.x + "px";
+      cropBox.style.top = crop.y + "px";
+      cropBox.style.width = crop.size + "px";
+      cropBox.style.height = crop.size + "px";
+
+      cropInner.src = preview.src;
+
+      cropInner.style.width = bounds.width + "px";
+      cropInner.style.height = bounds.height + "px";
+
+      cropInner.style.left = -(crop.x - bounds.offsetX) + "px";
+      cropInner.style.top = -(crop.y - bounds.offsetY) + "px";
+    }
+
+    preview.onclick = () => input.click();
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const result = await quickImageNSFWCheck(file);
+      logNSFWResult("image", result);
+
+      if (result.finalNSFW) {
+        log("red", "image cannot contain NSFW");
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.classList.remove("real");
+      selectedFile = file;
+
+      preview.onload = async () => {
+        await setCropperContrast(preview);
+
+        if (preview.naturalWidth !== preview.naturalHeight) {
+          cropBox.classList.remove("hidden");
+
+          const bounds = getImageBounds();
+
+          crop.size = Math.min(bounds.width, bounds.height);
+
+          crop.x = bounds.offsetX + (bounds.width - crop.size) / 2;
+          crop.y = bounds.offsetY + (bounds.height - crop.size) / 2;
+
+          updateCropBox();
+        } else {
+          cropBox.classList.add("hidden");
+          preview.classList.add("real")
+        }
+      };
+    };
+
+    cropBox.onpointerdown = (e) => {
+      e.preventDefault();
+
+      if (e.target === cropHandle) {
+        resizing = true;
+      } else {
+        dragging = true;
+      }
+
+      startX = e.clientX;
+      startY = e.clientY;
+
+      cropBox.setPointerCapture(e.pointerId);
+    };
+
+    document.onpointermove = (e) => {
+      if (!dragging && !resizing) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      const bounds = getImageBounds();
+
+      const maxX = bounds.offsetX + bounds.width - crop.size;
+      const maxY = bounds.offsetY + bounds.height - crop.size;
+
+      if (dragging) {
+        crop.x += dx;
+        crop.y += dy;
+
+        crop.x = Math.max(bounds.offsetX, Math.min(crop.x, maxX));
+        crop.y = Math.max(bounds.offsetY, Math.min(crop.y, maxY));
+      }
+
+      if (resizing) {
+        let newSize = crop.size + Math.max(dx, dy);
+
+        const maxSize = Math.min(
+          bounds.offsetX + bounds.width - crop.x,
+          bounds.offsetY + bounds.height - crop.y
+        );
+
+        crop.size = Math.max(50, Math.min(newSize, maxSize));
+      }
+
+      updateCropBox();
+
+      startX = e.clientX;
+      startY = e.clientY;
+    };
+
+    document.onpointerup = () => {
+      dragging = false;
+      resizing = false;
+    };
+
+    insertBtn.onclick = async () => {
+      if (!selectedFile) return;
+
+      const img = new Image();
+      img.src = preview.src;
+
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+
+        canvas.width = cropBox.classList.contains("hidden")
+          ? img.width
+          : Math.round(crop.size);
+
+        canvas.height = canvas.width;
+
+        const ctx = canvas.getContext("2d");
+
+        if (cropBox.classList.contains("hidden")) {
+          ctx.drawImage(img, 0, 0);
+        } else {
+          const bounds = getImageBounds();
+
+          const scaleX = img.width / bounds.width;
+          const scaleY = img.height / bounds.height;
+
+          ctx.drawImage(
+            img,
+            (crop.x - bounds.offsetX) * scaleX,
+            (crop.y - bounds.offsetY) * scaleY,
+            crop.size * scaleX,
+            crop.size * scaleY,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+        }
+
+        const dataUrl = canvas.toDataURL();
+        const encoded = await dataUrlToBase91(dataUrl);
+
+        overlay.classList.add("hidden");
+        resolve(encoded);
+      };
+    };
+  });
+}
 
 function base91ToImageSrc(input, mime = "image/jpeg") {
   if (!input) {
@@ -447,7 +725,7 @@ function canvasToWebP(canvas, quality) {
 
 async function compressImageTo480(input) {
   const MAX_BASE91 = 1024 * 1024;
-  const BASE91_RATIO = 16 / 13; // ≈1.23
+  const BASE91_RATIO = 16 / 13;
   const MAX_BINARY = Math.floor(MAX_BASE91 / BASE91_RATIO);
 
   const readFile = (file) =>
@@ -457,11 +735,17 @@ async function compressImageTo480(input) {
       r.readAsDataURL(file);
     });
 
-  const base64 =
-    typeof input === "string" ? input : await readFile(input);
+  const source =
+    typeof input === "string"
+      ? (
+          input.startsWith("data:")
+            ? input
+            : base91ToImageSrc(input)
+        )
+      : await readFile(input);
 
   const img = new Image();
-  img.src = base64;
+  img.src = source;
   await img.decode();
 
   const canvas = document.createElement("canvas");
@@ -738,7 +1022,6 @@ setupDragAndDrop({
   input: "#retweetMedia-TWEETID",
   preview: "retweetPreview-TWEETID"
 });
-
 
 function setupDragAndDrop({ box, overlay, input, preview }) {
   const dropBox = document.querySelector(box);

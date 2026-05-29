@@ -13,6 +13,7 @@ import { sendToDiscord, reportToDiscord } from "./discord.js";
 import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
 import { openCommunity } from "./community.js";
 import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
+import { openHighlightOverlay } from "./highlight.js";
 
 //2541
 
@@ -576,7 +577,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
 
     const tagMatches = text.match(/#(\w+)/g) || [];
-    const tags = [...new Set(tagMatches.map(tag => tag.slice(1).toLowerCase().slice(0, 30)))];
 
     let permission = "everyone";
     if (document.getElementById("replyPermissionMentioned").checked === true) {
@@ -590,156 +590,167 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     const shareToFollowers = document.getElementById("shareToFollowers").checked;
     const muteNotif = document.getElementById("mute").checked;
     const sensitiveMedia = document.getElementById("sensitive").checked;
+    
+    let tags = [];
 
-    const baseData = {
-      text: processedText,
-      originalText: text,
-      originalTitle: title,
-      title,
-      media: mediaURL,
-      mediaType,
-      mediaPath,
-      createdAt: new Date(),
-      language: detectedLanguage,
-      uid: user.uid,
-      replyPermission: permission,
-      poll,
-      tags,
-      mentions,
-      likeCount: 0,
-      commentCount: 0,
-      viewsCount: 0,
-      editUntil,
-      searchTokens: tokenize(text),
-      noPrivateReply,
-      muteNotif,
-      sensitiveMedia
-    };
+    try {
+      if (!window.communityID) {
+        tags = await handleTags(text.toLowerCase());
+      }
 
-    await runTransaction(db, async (tx) => {
-      if (window.communityID) {
-        const communityPostRef = doc(
-          collection(db, "communities", window.communityID, "posts")
-        );
+      const baseData = {
+        text: processedText,
+        originalText: text,
+        originalTitle: title,
+        title,
+        media: mediaURL,
+        mediaType,
+        mediaPath,
+        createdAt: new Date(),
+        language: detectedLanguage,
+        uid: user.uid,
+        replyPermission: permission,
+        poll,
+        tags,
+        mentions,
+        likeCount: 0,
+        commentCount: 0,
+        viewsCount: 0,
+        editUntil,
+        searchTokens: tokenize(text),
+        noPrivateReply,
+        muteNotif,
+        sensitiveMedia
+      };
 
-        tx.set(communityPostRef, {
-          ...baseData,
-          communityId: window.communityID
-        });
-        tx.update(doc(db, "communities", window.communityID), {
-          posts: increment(1)
-        });
-        tweetRef = communityPostRef;
+      await runTransaction(db, async (tx) => {
+        if (window.communityID) {
+          const communityPostRef = doc(
+            collection(db, "communities", window.communityID, "posts")
+          );
 
-        if (shareToFollowers) {
+          tx.set(communityPostRef, {
+            ...baseData,
+            communityId: window.communityID
+          });
+          tx.update(doc(db, "communities", window.communityID), {
+            posts: increment(1),
+            lastActivity: serverTimestamp()
+          });
+          tweetRef = communityPostRef;
+
+          if (shareToFollowers) {
+            const publicTweetRef = doc(collection(db, "tweets"));
+            tx.set(publicTweetRef, {
+              ...baseData,
+              retweetCount: 0,
+              communityId: window.communityID,
+              sharedFromCommunity: window.communityID,
+              connectedWynt: null
+            });
+            tx.update(communityPostRef, {
+              connectedWynt: publicTweetRef.id,
+              postedInPublic: false
+            });
+            tx.update(publicTweetRef, {
+              connectedWynt: communityPostRef.id,
+              postedInPublic: true
+            });
+          }
+        } else {
           const publicTweetRef = doc(collection(db, "tweets"));
           tx.set(publicTweetRef, {
             ...baseData,
-            retweetCount: 0,
-            communityId: window.communityID,
-            sharedFromCommunity: window.communityID,
-            connectedWynt: null
+            retweetCount: 0
           });
-          tx.update(communityPostRef, {
-            connectedWynt: publicTweetRef.id,
-            postedInPublic: false
-          });
-          tx.update(publicTweetRef, {
-            connectedWynt: communityPostRef.id,
-            postedInPublic: true
-          });
+          tweetRef = publicTweetRef;
         }
-      } else {
-        const publicTweetRef = doc(collection(db, "tweets"));
-        tx.set(publicTweetRef, {
-          ...baseData,
-          retweetCount: 0
-        });
-        tweetRef = publicTweetRef;
-      }
-    });
+      });
 
-    const communityName = window.communityID
-      ? await getCommunityNameById(window.communityID)
-      : null;
+      const communityName = window.communityID
+        ? await getCommunityNameById(window.communityID)
+        : null;
 
-    await Promise.all(
-      mentions.map(async (uid) => {
-        if (!window.communityID) {
-          await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), {
-            mentionedAt: new Date()
-          });
+      await Promise.all(
+        mentions.map(async (uid) => {
+          if (!window.communityID) {
+            await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), {
+              mentionedAt: new Date()
+            });
 
-          if (mediaType === "image") {
-            sendMentionNotification(tweetRef.id, uid, text, mediaURL);
-          } else {
-            sendMentionNotification(tweetRef.id, uid, text);
-          }
-        }
-
-        if (window.communityID && window.isOnPrivate === false) {
-          if (mediaType === "image") {
-            sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
-          } else {
-            sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
-          }
-          return;
-        }
-
-        if (window.isOnPrivate && window.communityID != null) {
-          const userDoc = await getDoc(doc(db, "users", uid));
-
-          if (userDoc.exists()) {
-            const userCommunities = userDoc.data().communities || [];
-
-            if (userCommunities.includes(window.communityID)) {
-              if (mediaType === "image") {
-                sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
-              } else {
-                sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
-              }
+            if (mediaType === "image") {
+              sendMentionNotification(tweetRef.id, uid, text, mediaURL);
             } else {
-              info(
-                "x",
-                "insufficient permission",
-                "user is not notified due to this is a private community and the user doesn't have permission to view it."
-              );
+              sendMentionNotification(tweetRef.id, uid, text);
             }
           }
-          return;
+
+          if (window.communityID && window.isOnPrivate === false) {
+            if (mediaType === "image") {
+              sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
+            } else {
+              sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
+            }
+            return;
+          }
+
+          if (window.isOnPrivate && window.communityID != null) {
+            const userDoc = await getDoc(doc(db, "users", uid));
+
+            if (userDoc.exists()) {
+              const userCommunities = userDoc.data().communities || [];
+
+              if (userCommunities.includes(window.communityID)) {
+                if (mediaType === "image") {
+                  sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
+                } else {
+                  sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text);
+                }
+              } else {
+                info(
+                  "x",
+                  "insufficient permission",
+                  "user is not notified due to this is a private community and the user doesn't have permission to view it."
+                );
+              }
+            }
+            return;
+          }
+        })
+      );
+
+      const data = userSnap.data();
+      const premiumExpiry = data.premium ? data.premium.toDate() : null;
+      const now = new Date();
+      const isPremium = premiumExpiry && premiumExpiry > now;
+      let cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
+
+      await runTransaction(db, async (tx) => {
+        if ((window.communityID && shareToFollowers) || !window.communityID) {
+          tx.update(userRef, {
+            posts: increment(1),
+            lastActivity: serverTimestamp()
+          });
+          tx.update(userRef, {
+            cooldown: Timestamp.fromDate(new Date(Date.now() + cooldownDuration))
+          });
         }
-      })
-    );
+      });
 
-    if (!window.communityID) await handleTags(text.toLowerCase(), tweetRef.id);
-
-    const data = userSnap.data();
-    const premiumExpiry = data.premium ? data.premium.toDate() : null;
-    const now = new Date();
-    const isPremium = premiumExpiry && premiumExpiry > now;
-    let cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
-
-    await runTransaction(db, async (tx) => {
-      if ((window.communityID && shareToFollowers) || !window.communityID) {
-        tx.update(userRef, {
-          posts: increment(1)
-        });
-        tx.update(userRef, {
-          cooldown: Timestamp.fromDate(new Date(Date.now() + cooldownDuration))
-        });
-      }
-    });
-
-    document.getElementById("tweetInput").value = "";
-    document.getElementById("tweetTitle").value = "";
-    document.getElementById("mediaInput").value = "";
-    document.getElementById("tweetPreview").innerHTML = "";
-    document.getElementById("privateOK").checked = true;
-    document.getElementById("replyPermissionEveryone").checked = true;
-    document.getElementById("replyPermissionMentioned").checked = false;
-    document.getElementById("mute").checked = false;
-    document.getElementById("sensitive").checked = false;
-    log("green", "Wynt posted");
+      document.getElementById("tweetInput").value = "";
+      document.getElementById("tweetTitle").value = "";
+      document.getElementById("mediaInput").value = "";
+      document.getElementById("tweetPreview").innerHTML = "";
+      document.getElementById("privateOK").checked = true;
+      document.getElementById("replyPermissionEveryone").checked = true;
+      document.getElementById("replyPermissionMentioned").checked = false;
+      document.getElementById("mute").checked = false;
+      document.getElementById("sensitive").checked = false;
+      log("green", "Wynt posted");
+    } catch (error) {
+      console.error("Tweet failed:", error);
+      info("x", "Wynt failed:", error)
+    }
   } catch (error) {
     console.error("Tweet failed:", error);
     info("x", "Wynt failed:", error)
@@ -2357,7 +2368,6 @@ document.body.addEventListener("click", async (e) => {
       tweetRef = doc(db, "tweets", tweetId);
     }
 
-    const highlightRef = doc(db, "users", auth.currentUser.uid, "highlights", tweetId);
     const userRef = doc(db, "users", auth.currentUser.uid);
 
     let comRef = null;
@@ -2367,7 +2377,6 @@ document.body.addEventListener("click", async (e) => {
 
     const firstBatch = [
       getDoc(tweetRef),
-      getDoc(highlightRef),
       getDoc(userRef),
     ];
 
@@ -2378,9 +2387,8 @@ document.body.addEventListener("click", async (e) => {
     const results = await Promise.all(firstBatch);
 
     const tweetSnap = results[0];
-    const highlightedSnap = results[1];
-    const userSnap = results[2];
-    const comSnap = comRef ? results[3] : null;
+    const userSnap = results[1];
+    const comSnap = comRef ? results[2] : null;
 
     if (!tweetSnap.exists()) {
       loading.classList.remove("show");
@@ -2410,8 +2418,6 @@ document.body.addEventListener("click", async (e) => {
     const hasMedia =
       data.media &&
       (data.mediaType === "image" || data.mediaType === "video");
-
-    const isHighlighted = highlightedSnap.exists();
 
     const tweetUserRole = tweetUserSnap.exists()
       ? tweetUserSnap.data().role
@@ -2448,7 +2454,7 @@ document.body.addEventListener("click", async (e) => {
 
         ${showEditBtn && !data.postedInPublic ?
           `<div class="menu-item edit-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
-            <img loading='lazy' src="/image/edit.svg"> Edit this Wynt
+            <img loading='lazy' src="/image/edit1.svg"> Edit this Wynt
           </div>`
         : ""}
 
@@ -2462,13 +2468,21 @@ document.body.addEventListener("click", async (e) => {
 
         <div class="menu-item bookmark-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from bookmark folder</div>
 
-        ${(window.communityID && window.isOnPrivate) || isPrivate ? "" : 
-          `<div class="menu-item highlight-btn" ${window.communityID ? `data-community="${window.communityID}"` : `${isStored ? `data-community=${communityId}` : ""}`} id="highlightBtn-${tweetId}">
-            ${isHighlighted
-            ? `<img loading='lazy' src="/image/highlighted.svg"> Unhighlight from your profile`
-            : `<img loading='lazy' src="/image/highlight.svg"> highlight to your profile`}
+        ${window.CURRENT_BOOKMARK_ID ? `
+          <div class="menu-item unbookmark-btn" data-tweet="${tweetId}">
+            <img src="/image/ban.svg"> remove from this bookmark folder  
           </div>
-        `}
+        ` : ""}
+
+        ${(window.communityID && window.isOnPrivate) || isPrivate ? "" : 
+          `<div class="menu-item highlight-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="highlightBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from highlight folder</div>`
+        }
+
+        ${window.CURRENT_HIGHLIGHT_ID ? `
+          <div class="menu-item unhighlight-btn" data-tweet="${tweetId}">
+            <img src="/image/ban.svg"> remove from this highlight folder  
+          </div>
+        ` : ""}
 
         ${hasMedia ? 
           `<div class="menu-item download-btn" data-community-id="${hascom ? communityId : null}" data-tweet="${tweetId}"><img loading='lazy' src="/image/download.svg"> Download attachment</div>`
@@ -2530,6 +2544,56 @@ document.body.addEventListener("click", async (e) => {
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
   }
 
+  const unbookmarkbtn = e.target.closest(".unbookmark-btn");
+  if (unbookmarkbtn) {
+    const ref = doc(db, "users", auth.currentUser.uid, "bookmarks", window.CURRENT_BOOKMARK_ID, "items", unbookmarkbtn.dataset.tweet);
+    const folderRef = doc(db, "users", auth.currentUser.uid, "bookmarks", window.CURRENT_BOOKMARK_ID);
+
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (!(await confirmDialog("Remove from folder?", "are you sure you want to remove this Wynt from folder?", "red"))) return;
+    }
+
+    loading.classList.add("show");
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+
+    await runTransaction(db, async (tx) => {
+      tx.delete(ref);
+      tx.update(folderRef, {
+        tweetsCount: increment(-1),
+        lastUpdated: serverTimestamp()
+      })
+    });
+
+    log("green", "Wynt removed")
+    loading.classList.remove("show");
+    document.querySelector(`#bookmarkTweetOverlay .tweet[data-id="${unbookmarkbtn.dataset.tweet}"]`).remove();
+  }
+
+  const unhighlightbtn = e.target.closest(".unhighlight-btn");
+  if (unhighlightbtn) {
+    const ref = doc(db, "users", auth.currentUser.uid, "highlights", window.CURRENT_HIGHLIGHT_ID, "items", unhighlightbtn.dataset.tweet);
+    const folderRef = doc(db, "users", auth.currentUser.uid, "highlights", window.CURRENT_HIGHLIGHT_ID);
+
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (!(await confirmDialog("Remove from folder?", "are you sure you want to remove this Wynt from folder?", "red"))) return;
+    }
+
+    loading.classList.add("show");
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+
+    await runTransaction(db, async (tx) => {
+      tx.delete(ref);
+      tx.update(folderRef, {
+        tweetsCount: increment(-1),
+        lastUpdated: serverTimestamp()
+      })
+    });
+
+    log("green", "Wynt removed")
+    loading.classList.remove("show");
+    document.querySelector(`#highlightTweetOverlay .tweet[data-id="${unhighlightbtn.dataset.tweet}"]`).remove();
+  }
+
   const hideBtn = e.target.closest(".comment-hide-btn");
   if (hideBtn) {
     document.getElementById("cMenuOverlay").classList.add("hidden");
@@ -2577,9 +2641,10 @@ document.body.addEventListener("click", async (e) => {
       }
 
       if (!isHidden) {
-        const confirmHide = await confirmDialog("hide reply?", "Are you sure you want to hide this reply? This will make this reply limited.");
-
-        if (!confirmHide) return;
+        if (localStorage.getItem("disableConfirmation") != "true") {
+          const confirmHide = await confirmDialog("hide reply?", "Are you sure you want to hide this reply? This will make this reply limited.");
+          if (!confirmHide) return;
+        }
         loading.classList.add("show");
 
         let reason = null;
@@ -2683,11 +2748,10 @@ document.body.addEventListener("click", async (e) => {
         return;
       }
 
-      const confirmUnhide = await confirmDialog(
-        "unhide reply?",
-        "Are you sure you want to unhide this reply?"
-      );
-      if (!confirmUnhide) return;
+      if (localStorage.getItem("disableConfirmation") != "true") {
+        const confirmUnhide = await confirmDialog("unhide reply?", "Are you sure you want to unhide this reply?");
+        if (!confirmUnhide) return;
+      }
 
       if (data.hiddenByAuthority && !isAuthority) {
         log("red", "cannot unhide (hidden by global admin)");
@@ -3230,7 +3294,7 @@ document.body.addEventListener("click", async (e) => {
 
       ${showEditBtn && !commentData.isHidden
         ? `<div class="c-menu-item comment-edit-btn" data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img loading='lazy' src="/image/edit.svg"> Edit this reply
+            <img loading='lazy' src="/image/edit1.svg"> Edit this reply
           </div>`
         : ""
       }
@@ -3378,6 +3442,7 @@ document.body.addEventListener("click", async (e) => {
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(tweetRef);
+
         if (!snap.exists()) throw new Error("already deleted");
 
         const d = snap.data();
@@ -3390,8 +3455,11 @@ document.body.addEventListener("click", async (e) => {
           throw new Error("insufficient permission");
         }
 
+        let originalRef = null;
+        let connectedRef = null;
+        let commentRef = null;
+
         if (d.retweetOf) {
-          let originalRef;
           if (isCommunityPost) {
             originalRef = doc(db, "communities", window.communityID, "posts", d.retweetOf);
           } else if (d.sharedFromCommunity || d.communityId) {
@@ -3399,30 +3467,46 @@ document.body.addEventListener("click", async (e) => {
           } else {
             originalRef = doc(db, "tweets", d.retweetOf);
           }
-          const originalSnap = await tx.get(originalRef);
-          if (originalSnap.exists()) {
-            tx.update(originalRef, { retweetCount: increment(-1) });
-          }
         }
 
         if (d.connectedWynt && d.postedInPublic === false) {
-          const snap = await tx.get(doc(db, "tweets", d.connectedWynt));
-          if (snap.exists()) {
-            tx.delete(doc(db, "tweets", d.connectedWynt));
-            tx.update(doc(db, "users", d.uid), { posts: increment(-1) });
-            tx.delete(doc(db, "users", d.uid, "posts", d.connectedWynt));   
-          }
+          connectedRef = doc(db, "tweets", d.connectedWynt);
         }
 
         if (d.retweetOfComment) {
           const { tweetId: parentId, commentId } = d.retweetOfComment;
-          const commentRef = isCommunityPost
+
+          commentRef = isCommunityPost
             ? doc(db, "communities", window.communityID, "posts", parentId, "comments", commentId)
             : doc(db, "tweets", parentId, "comments", commentId);
-          const commentSnap = await tx.get(commentRef);
-          if (commentSnap.exists()) {
-            tx.update(commentRef, { retweetCount: increment(-1) });
-          }
+        }
+
+        const [originalSnap, connectedSnap, commentSnap] = await Promise.all([
+          originalRef ? tx.get(originalRef) : Promise.resolve(null),
+          connectedRef ? tx.get(connectedRef) : Promise.resolve(null),
+          commentRef ? tx.get(commentRef) : Promise.resolve(null),
+        ]);
+
+        if (originalSnap?.exists()) {
+          tx.update(originalRef, {
+            retweetCount: increment(-1),
+          });
+        }
+
+        if (connectedSnap?.exists()) {
+          tx.delete(connectedRef);
+
+          tx.update(doc(db, "users", d.uid), {
+            posts: increment(-1),
+          });
+
+          tx.delete(doc(db, "users", d.uid, "posts", d.connectedWynt));
+        }
+
+        if (commentSnap?.exists()) {
+          tx.update(commentRef, {
+            retweetCount: increment(-1),
+          });
         }
 
         if (!isCommunityPost && Array.isArray(d.mentions)) {
@@ -3431,21 +3515,16 @@ document.body.addEventListener("click", async (e) => {
           }
         }
 
-        if (Array.isArray(d.tags)) {
-          for (const tagId of d.tags) {
-            const tagRef = doc(db, "tags", tagId);
-            tx.update(tagRef, { tweetCount: increment(-1) });
-            tx.delete(doc(tagRef, "tweets", tweetId));
-          }
-        }
-
         if (isCommunityPost) {
           tx.update(doc(db, "communities", window.communityID), {
-            posts: increment(-1)
+            posts: increment(-1),
           });
         } else {
-          tx.update(doc(db, "users", d.uid), { posts: increment(-1) });
-          tx.delete(doc(db, "users", d.uid, "posts", tweetId));    
+          tx.update(doc(db, "users", d.uid), {
+            posts: increment(-1),
+          });
+
+          tx.delete(doc(db, "users", d.uid, "posts", tweetId));
         }
 
         tx.delete(tweetRef);
@@ -3517,10 +3596,12 @@ document.body.addEventListener("click", async (e) => {
   if (pinBtn) {
     const textContent = document.querySelector(".pin-btn").textContent;
 
-    if (textContent.includes("Unpin")) {
-      if (!(await confirmDialog("unpin from profile?", "you may re-pin it anytime."))) return log("var(--light)", "canceled");    
-    } else {
-      if (!(await confirmDialog("pin to profile?", "This will replace the current pinned Wynt on your profile."))) return log("var(--light)", "canceled");
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (textContent.includes("Unpin")) {
+        if (!(await confirmDialog("unpin from profile?", "you may re-pin it anytime."))) return log("var(--light)", "canceled");    
+      } else {
+        if (!(await confirmDialog("pin to profile?", "This will replace the current pinned Wynt on your profile."))) return log("var(--light)", "canceled");
+      }
     }
 
     loading.classList.add("show");
@@ -3588,7 +3669,7 @@ const newBanner = document.createElement("div");
 newBanner.style.cssText = `display:none;margin-top:20px;background:none;pointer-events:none;z-index:3;`;
 newBanner.className = "overlay1";
 const banner = document.createElement("div");
-banner.style.cssText = `position:absolute;top:0;right:auto;left:auto;width: fit-content; background: #00ba7c; color:white; padding: 8px 15px; border-radius: 50px;pointer-events:auto;cursor:pointer`;
+banner.style.cssText = `position:absolute;top:0;right:auto;left:auto;width: fit-content; background: #04aa6d; color:white; padding: 8px 15px; border-radius: 50px;pointer-events:auto;cursor:pointer;`;
 banner.textContent = `0 new Wynt posted`;
 newBanner.appendChild(banner);
 let unsubscribeMain = null;
@@ -4605,49 +4686,23 @@ document.body.addEventListener("click", async (e) => {
     await openBookmarkOverlay(tweetId, isPremium, true, communityId);
     loading.classList.remove("show");
   }
+  
   const highlightBtn = e.target.closest(".highlight-btn");
   if (highlightBtn) {
     loading.classList.add("show");
-
     const btn = highlightBtn;
+    const tweetId = btn.id.replace("highlightBtn-", "");
     const communityId = btn.dataset.community || null;
-    const tweetId = btn.dataset.id || btn.id.replace("highlightBtn-", "");
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
 
     const userRef = doc(db, "users", auth.currentUser.uid);
-    const highlightRef = doc(db, "users", auth.currentUser.uid, "highlights", tweetId);
-
-    const [userSnap, snap] = await Promise.all([
-      getDoc(userRef),
-      getDoc(highlightRef)
-    ]);
-    
-    if (!userSnap.exists()) return log("red", "user isn't logged in");
+    const userSnap = await getDoc(userRef);
     const data = userSnap.data();
+
     const premiumExpiry = data.premium ? data.premium.toDate() : null;
     const now = new Date();
     const isPremium = premiumExpiry && premiumExpiry > now;
-    if (!isPremium) {
-      document.getElementById("premiumOverlay").classList.remove("hidden");
-      loading.classList.remove("show");
-      return;
-    }
-    
-    if (snap.exists()) {
-      await deleteDoc(highlightRef);
-      btn.innerHTML = `<img loading='lazy' src="/image/highlight.svg"> Highlight to your profile`;
-    } else {
-      if (communityId) {
-        await setDoc(highlightRef, {
-          highlightedAt: new Date(),
-          communityId
-        });
-      } else {
-        await setDoc(highlightRef, {
-          highlightedAt: new Date()
-        });
-      }
-      btn.innerHTML = `<img loading='lazy' src="/image/highlighted.svg"> Unhighlight from your profile`;
-    }
+    await openHighlightOverlay(tweetId, isPremium, true, communityId);
     loading.classList.remove("show");
   }
 });
@@ -6127,10 +6182,12 @@ document.body.addEventListener("click", async (e) => {
     const communityId = pinBtn.dataset.communityId;
     const isPinned = pinBtn.dataset.pinned === "true";
 
-    if (isPinned) {
-      if (!(await confirmDialog("unpin reply?", "you will still be able to re-pin this reply later."))) return;
-    } else {
-      if (!(await confirmDialog("pin reply?", "This will replace the current pinned reply."))) return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (isPinned) {
+        if (!(await confirmDialog("unpin reply?", "you will still be able to re-pin this reply later."))) return;
+      } else {
+        if (!(await confirmDialog("pin reply?", "This will replace the current pinned reply."))) return;
+      }
     }
     
     loading.classList.add("show");
@@ -6910,7 +6967,8 @@ sendRetweet.onclick = async () => {
             tweetRef = communityPostRef;
           }
           tx.update(doc(db, "communities", window.communityID), {
-            posts: increment(1)
+            posts: increment(1),
+            lastActivity: serverTimestamp()
           });
         } else {
           tweetRef = doc(collection(db, "tweets"));
@@ -7032,6 +7090,7 @@ sendRetweet.onclick = async () => {
         if ((window.communityID && postedToMain) || !window.communityID) {
           tx.update(userRef, {
             posts: increment(1),
+            lastActivity: serverTimestamp()
           });
         }
         tx.update(userRef, {
@@ -7230,10 +7289,12 @@ document.body.addEventListener("click", async (e) => {
     const pinId = pincom.dataset.id;
     const alreadyPinned = cData.pinned === pinId;
     
-    if (alreadyPinned) {
-      if (!(await confirmDialog("unpin from community?", "This will unpin the current Wynt pinned in this community."))) return;
-    } else {
-      if (!(await confirmDialog("pin to community?", "This will replace the current Wynt pinned in this community."))) return;
+    if (localStorage.getItem("disableConfirmation") != "true") {
+      if (alreadyPinned) {
+        if (!(await confirmDialog("unpin from community?", "This will unpin the current Wynt pinned in this community."))) return;
+      } else {
+        if (!(await confirmDialog("pin to community?", "This will replace the current Wynt pinned in this community."))) return;
+      }
     }
 
     try {

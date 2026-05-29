@@ -1,5 +1,3 @@
-node_modules/
 desktop.ini
-# Local Netlify folder
 .netlify
 .env
