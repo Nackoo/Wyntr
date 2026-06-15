@@ -5,6 +5,7 @@ import { log } from "./texts.js";
 
 const followingContainer = document.getElementById("following1");
 
+/*
 let followingTweetDocs = [];
 let followingNoMore = false;
 let followingLoading = false;
@@ -81,8 +82,16 @@ followingBannerInner.onclick = async () => {
 
   await resetFollowingListener(getFollowingIdsFromCache());
 };
+*/
 
 export async function loadFollowingTweets(reset = false) {
+    followingContainer.innerHTML = `
+      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+        <div style="max-width:400px;text-align:left;"><h2 style="margin:0;">Feature unavailable</h2><p style="color:grey;margin:7px 0;">This feature is still being under construction and will be updated soon.</p>
+        </div>
+      </div>
+    `;
+/*
   if (!auth.currentUser || followingLoading) return;
   followingLoading = true;
 
@@ -105,11 +114,7 @@ export async function loadFollowingTweets(reset = false) {
   if (followedUserIds.length === 0) {
     followingContainer.innerHTML = `
       <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-        <div style="max-width:400px;text-align:left;">
-          <h2 style="margin:0;">No followings — yet</h2>
-          <p style="color:grey;margin:7px 0;">
-            seems like you don't have anyone followed, or everyone that you follow have no posts.
-          </p>
+        <div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No followings — yet</h2><p style="color:grey;margin:7px 0;">seems like you don't have anyone followed, or everyone that you follow have no posts.</p>
         </div>
       </div>
     `;
@@ -180,8 +185,10 @@ export async function loadFollowingTweets(reset = false) {
   }
 
   followingLoading = false;
+*/
 }
 
+/*
 window.addEventListener("scroll", async () => {
   const followingTab = document.querySelector("#following1");
   if (!followingTab || !followingTab.classList.contains("active")) return;
@@ -194,4 +201,4 @@ window.addEventListener("scroll", async () => {
   if (distanceFromBottom < 300) {
     await loadFollowingTweets();
   }
-});
+});*/

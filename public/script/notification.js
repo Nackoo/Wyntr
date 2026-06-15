@@ -1,5 +1,5 @@
 import { runTransaction, auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment, arrayRemove } from "./firebase.js";
-import { loadComments, getUserData } from "./index.js";
+import { loadComments, getUserData, waitForAuth } from "./index.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { confirmDialog, escapeHTML, log } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
@@ -23,6 +23,8 @@ let notificationLastDoc = null;
 let notificationLoading = false;
 let notificationsLoaded = false;
 let notificationsNewestDoc = null;
+let uiNotificationListener = null;
+
 const NOTIFICATION_PAGE_SIZE = 30;
 const loading = document.getElementById("loadingOverlay");
 const notificationsContainer = document.getElementById("notifications");
@@ -505,11 +507,13 @@ document.addEventListener("mousedown", (e) => {
   }
 });
 
+div.dataset.id = notification.id;
 div.dataset.tweetId = notification.tweetId;
+div.dataset.type = notification.type;
+
 if (notification.commentId) div.dataset.commentId = notification.commentId;
 if (notification.communityId) div.dataset.communityId = notification.communityId;
 if (notification.replyId) div.dataset.replyId = notification.replyId; 
-div.dataset.type = notification.type;
 
 div.addEventListener("click", () => {
   handleNotificationClick(div.dataset);
@@ -904,50 +908,6 @@ export async function handleNotificationClick({
 
 let lastUnreadCount = 0;
 
-export function listenForUnreadNotifications() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const ref = collection(db, "users", user.uid, "notifications");
-  const q = query(ref, where("read", "==", false), limit(30));
-
-  onSnapshot(q, (snap) => {
-    const unreadCount = snap.size;
-    const hasUnread = unreadCount > 0;
-    const unread = document.getElementById('unread');
-
-    if (unread) {
-      unread.classList.toggle("has-unread", hasUnread);
-    }
-
-    if (unreadCount === 0) {
-      document.title = "Wyntr";
-    } else {
-      document.title = `(${unreadCount > 29 ? "30+" : unreadCount}) Wyntr`;
-      unread.textContent = `${unreadCount > 29 ? "30+" : unreadCount}`;
-    }
-  });
-}
-
-export function listenForSystemNotifications() {
-  const user = auth.currentUser;
-  if (!user || !("Notification" in window) || Notification.permission !== "granted") return;
-
-  const ref = collection(db, "users", user.uid, "notifications");
-  const q = query(ref, orderBy("createdAt", "desc"), limit(1));
-
-  onSnapshot(q, (snap) => {
-    snap.docChanges().forEach((change) => {
-      if (change.type === "added") {
-        const data = change.doc.data();
-        if (data.read === false) {
-          showSystemNotification(data);
-        }
-      }
-    });
-  });
-}
-
 navigator.serviceWorker.addEventListener("message", event => {
   if (event.data?.type === "NOTIFICATION_CLICK") {
     handleNotificationClick(event.data.data);
@@ -1079,6 +1039,7 @@ export async function loadNotifications(initial = false) {
         ...docSnap.data()
       };
       if (!data.createdAt) continue;
+      if (document.querySelector(`.notification[data-id="${data.id}"]`)) continue;
 
       const date = data.createdAt.toDate();
       const formattedDate = formatDateHeader(date);
@@ -1106,11 +1067,13 @@ function createDateDivider(dateText) {
 
 const notifications = document.getElementById("notifications");
 
+await waitForAuth();
+await loadNotifications(true);
+
 document.getElementById('notifsvg1').addEventListener("click", async () => {
   document.getElementById("notificationOverlay").classList.remove("hidden");
   notifications.classList.remove("hidden");
 
-  // Mark unread as read every time the panel is opened
   const user = auth.currentUser;
   if (user) {
     const notificationsRef = collection(db, "users", user.uid, "notifications");
@@ -1120,63 +1083,92 @@ document.getElementById('notifsvg1').addEventListener("click", async () => {
     const batch = writeBatch(db);
     snap.docs.forEach(docSnap => batch.update(docSnap.ref, { read: true }));
     await batch.commit();
+
+    document.title = "Wyntr";
   }
-  document.title = "Wyntr";
+});
 
-  // Only load and set up the real-time listener once
-  if (notificationsLoaded) return;
-  notificationsLoaded = true;
+let enableUIUpdates = false;
+let enableSystemNotifs = false;
+let sharedNotificationListener = null;
+let isInitialLoad = true;
 
-  await loadNotifications(true);
+function initSharedNotificationListener() {
+  const user = auth.currentUser;
+  if (!user) return;
 
-  // After initial load, listen for brand-new notifications and prepend them
-  if (user) {
-    const notificationsRef = collection(db, "users", user.uid, "notifications");
-    const newNotifQuery = query(notificationsRef, orderBy("createdAt", "desc"), limit(1));
+  if (sharedNotificationListener) return;
 
-    let isFirst = true;
-    onSnapshot(newNotifQuery, (snap) => {
-      // Skip the first emission — it fires immediately and duplicates the initial load
-      if (isFirst) {
-        isFirst = false;
-        // Capture the newest doc so we can detect truly new ones later
-        if (!snap.empty) notificationsNewestDoc = snap.docs[0];
-        return;
+  const ref = collection(db, "users", user.uid, "notifications");
+  const q = query(ref, where("read", "==", false), limit(30));
+
+  const supportsSystemNotifs = typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+
+  sharedNotificationListener = onSnapshot(q, (snap) => {
+    if (enableUIUpdates) {
+      const unreadCount = snap.size;
+      const hasUnread = unreadCount > 0;
+      const unread = document.getElementById('unread');
+
+      if (unread) {
+        unread.classList.toggle("has-unread", hasUnread);
       }
 
-snap.docChanges().forEach((change) => {
-  if (change.type !== "added") return;
+      if (unreadCount === 0) {
+        document.title = "Wyntr";
+      } else {
+        document.title = `(${unreadCount > 29 ? "30+" : unreadCount}) Wyntr`;
+        unread.textContent = `${unreadCount > 29 ? "30+" : unreadCount}`;
+      }
+    }
 
-  const data = { id: change.doc.id, ...change.doc.data() };
-  if (!data.createdAt) return;
+    if (!isInitialLoad) {
+      snap.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = { id: change.doc.id, ...change.doc.data() };
+          
+          const isBrandNew = data.createdAt && (Date.now() - data.createdAt.toDate().getTime() < 120000);
+          if (!isBrandNew) return;
 
-  if (
-    notificationsNewestDoc &&
-    change.doc.id === notificationsNewestDoc.id
-  ) return;
+          if (enableSystemNotifs && supportsSystemNotifs && data.read === false) {
+            showSystemNotification(data);
+          }
 
-  notificationsNewestDoc = change.doc;
+          if (enableUIUpdates) {
+            if (document.querySelector(`.notification[data-id="${data.id}"]`)) return;
 
-  const date = data.createdAt.toDate();
-  const formattedDate = formatDateHeader(date);
+            const date = data.createdAt.toDate();
+            const dateText = formatDateHeader(date);
+            const firstChild = notificationsContainer.firstElementChild;
+            const notifEl = createNotificationElement(data);
 
-  const el = createNotificationElement(data);
+            if (firstChild && firstChild.classList.contains("date-divider") && firstChild.textContent === dateText) {
+              firstChild.after(notifEl);
+            } else {
+              notificationsContainer.prepend(notifEl);
+              notificationsContainer.prepend(createDateDivider(dateText));
+            }
+          }
+        }
+      });
+    }
 
-  // Use the first divider only if it already matches — otherwise prepend a new one
-  const firstDivider = notificationsContainer.querySelector(".date-divider");
-  if (firstDivider && firstDivider.textContent === formattedDate) {
-    // Insert right after the existing matching divider at the top
-    firstDivider.insertAdjacentElement("afterend", el);
-  } else {
-    // Prepend a new divider, then insert the notification right after it
-    const newDivider = createDateDivider(formattedDate);
-    notificationsContainer.prepend(el);        // el first, so divider ends up above it
-    notificationsContainer.prepend(newDivider);
+    isInitialLoad = false;
+  });
+}
+
+export function listenForUnreadNotifications() {
+  enableUIUpdates = true;
+  initSharedNotificationListener();
+}
+
+export function listenForSystemNotifications() {
+  // Only enable if the browser actually supports and allows it
+  if ("Notification" in window && Notification.permission === "granted") {
+    enableSystemNotifs = true;
   }
-});
-    });
-  }
-});
+  initSharedNotificationListener();
+}
 
 function textClamp(text, maxLength = 30) {
   if (!text || typeof text !== "string") return "…";

@@ -7182,7 +7182,7 @@ sendRetweet.onclick = async () => {
   }
 };
 
-async function waitForAuth() {
+export async function waitForAuth() {
   if (auth.currentUser) return auth.currentUser;
   return new Promise(resolve => {
     const unsub = auth.onAuthStateChanged(user => {
