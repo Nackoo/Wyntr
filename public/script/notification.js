@@ -1163,7 +1163,6 @@ export function listenForUnreadNotifications() {
 }
 
 export function listenForSystemNotifications() {
-  // Only enable if the browser actually supports and allows it
   if ("Notification" in window && Notification.permission === "granted") {
     enableSystemNotifs = true;
   }
