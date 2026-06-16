@@ -5,8 +5,8 @@
 ## netlify .env
 
 ```
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK
-DISCORD_WEBHOOK_URL_1=https://discord.com/api/webhooks/YOUR_WEBHOOK
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1423693997813268500/e-0SOE1JlwsjqHtT3XxV5HSeEHGg8UC8JEIqIX802V08MNVLEf8jjFgGJEQMF7OhWfo-
+DISCORD_WEBHOOK_URL_1=https://discord.com/api/webhooks/1423705843672547468/sJkRUT1sjoEdo0fYjo0uptcwXRXbuCMuipiyF8SNzTR9PP0RO9mMKtxcraDU6g3O6Rq8
 ```
 
 ## Firestore rules
@@ -23,6 +23,7 @@ read [Firestore rules](/firestore_rules.txt)
 | comments      | `likeCount ↓`, `createdAt ↑`, `__name__ ↑`                   | Collection   |
 | comments      | `searchTokens []`. `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
 | communities   | `lowerCase ↑`, `createdAt ↓`, `__name__ ↓`                   | Collection   |
+| communities   | `members []`, `lastActivity ↓`, `__name__ ↓`                 | Collection   |
 | communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
 | posts         | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
 | posts         | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   |
