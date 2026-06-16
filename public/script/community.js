@@ -864,7 +864,7 @@ async function joinCommunity(communityId) {
       photoURL: userData.photoURL,
       username: userData.username,
       displayName: userData.displayName,
-      description: userData.description,
+      description: userData.description || null,
       role: 1
     });
     transaction.update(userRef1, {
@@ -1196,10 +1196,9 @@ export async function openCommunity(communityId) {
   if (!bruh) {
     loadCommunityTweets(communityId);
   } else {
-    document.getElementById("appendCommunityTweet").innerHTML = `
-<div style="margin-top:60px;width:100%;display:flex;justify-content:center"><div style="max-width:400px;text-align:left;;"><h2 style="margin:0;">This community is private.</h2><p style="color:grey;margin:7px 0;">you have to join first before seeing posts here</p></div></div>
-    `;
+    document.getElementById("appendCommunityTweet").innerHTML = `<div style="margin-top:60px;width:100%;display:flex;justify-content:center"><div style="max-width:400px;text-align:left;;"><h2 style="margin:0;">This community is private.</h2><p style="color:grey;margin:7px 0;">you have to join first before seeing posts here</p></div></div>`;
   }
+
   const communityTweetContainer = document.querySelector(".communityo .user-box");
 
   if (!bruh) {
@@ -1933,7 +1932,7 @@ async function banMember(uid) {
       photoURL: data.photoURL,
       username: data.username,
       displayName: data.displayName,
-      description: data.description
+      description: data.description || null
     });
     tx.update(userRef3, {
       communitiesCount: increment(-1)

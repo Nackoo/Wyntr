@@ -5977,32 +5977,25 @@ document.body.addEventListener("click", async (e) => {
     commentLikeBtn.style.pointerEvents = "none";
 
     try {
-      icon1.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
-
-      const [ userSnap, tweetSnap, likeSnap, commentSnap, d ] = await Promise.all([
+      const [ userSnap, tweetSnap, likeSnap, commentSnap] = await Promise.all([
         getDoc(userRef),
         getDoc(tweetRef),
         getDoc(likeDocRef),
-        getDoc(commentRef),
-        getUserData(auth.currentUser.uid)
+        getDoc(commentRef)
       ]);
+      const userData = userSnap.data();
 
-      if (d.privateLikes) {
-        d.photoURL = "/image/default-avatar.jpg";
-        d.username = "Anonymous";
-        d.displayName = "Anonymous";
+      if (userData.privateLikes) {
+        userData.photoURL = "/image/default-avatar.jpg";
+        userData.username = "Anonymous";
+        userData.displayName = "Anonymous";
       }
 
-      const userData = userSnap.data();
       if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
         info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
-        icon1.innerHTML = `
-          <div class="likeicon" style="height:20px">
-            <img loading='lazy' height="20" src="/image/heart.svg">
-          </div>
-        `;
         return;
       }
+      icon1.innerHTML = `<img loading='lazy' height="20" src="/image/loader.svg">`;
 
       await runTransaction(db, async (transaction) => {
         const tweetData = tweetSnap.data();
@@ -6045,9 +6038,9 @@ document.body.addEventListener("click", async (e) => {
         } else {
           transaction.set(likeDocRef, {
             likedAt: new Date(),
-            photoURL: d.photoURL || "/image/default-avatar.jpg",
-            displayName: d.displayName || "anonymous",
-            username: d.username || "anonymous",
+            photoURL: userData.photoURL || "/image/default-avatar.jpg",
+            displayName: userData.displayName || "anonymous",
+            username: userData.username || "anonymous",
           });
           transaction.update(commentRef, {
             likeCount: currentCount + 1,
@@ -6090,23 +6083,28 @@ document.body.addEventListener("click", async (e) => {
       postRef = doc(db, "tweets", tweetId);
       likeRef = doc(db, "tweets", tweetId, "likes", auth.currentUser.uid);
     }
+
     const userRef = doc(db, "users", auth.currentUser.uid);
     btn.style.pointerEvents = "none";
 
-    const [ userSnap, postSnap, likeSnap, d ] = await Promise.all([
+    const [ userSnap, postSnap, likeSnap] = await Promise.all([
       getDoc(userRef),
       getDoc(postRef),
-      getDoc(likeRef),
-      getUserData(auth.currentUser.uid)
+      getDoc(likeRef)
     ]);
+    const userData = userSnap.data();
 
-    if (d.privateLikes) {
-      d.photoURL = "/image/default-avatar.jpg";
-      d.username = "Anonymous";
-      d.displayName = "Anonymous";
+    if (userData.privateLikes) {
+      userData.photoURL = "/image/default-avatar.jpg";
+      userData.username = "Anonymous";
+      userData.displayName = "Anonymous";
     }
 
-    const userData = userSnap.data();
+    if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
+      info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
+      return;
+    }
+
     if (userData.suspended === true && userData.suspended > Timestamp.now()) {
       info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
       btn.innerHTML = `
@@ -6154,9 +6152,9 @@ document.body.addEventListener("click", async (e) => {
         } else {
           transaction.set(likeRef, {
             likedAt: new Date(),
-            photoURL: d.photoURL || "/image/default-avatar.jpg",
-            username: d.username || "Anonymous",
-            displayName: d.displayName || "Anonymous"
+            photoURL: userData.photoURL || "/image/default-avatar.jpg",
+            username: userData.username || "Anonymous",
+            displayName: userData.displayName || "Anonymous"
           });
           transaction.update(postRef, {
             likeCount: newCount + 1
@@ -6169,7 +6167,6 @@ document.body.addEventListener("click", async (e) => {
         }
       });
     } catch (err) {
-      console.error("Error liking post:", err);
       log("red", "error liking Wynt");
     } finally {
       btn.style.pointerEvents = "auto";
