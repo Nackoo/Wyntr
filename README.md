@@ -23,6 +23,7 @@ read [Firestore rules](/firestore_rules.txt)
 | comments      | `likeCount ↓`, `createdAt ↑`, `__name__ ↑`                   | Collection   |
 | comments      | `searchTokens []`. `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
 | communities   | `lowerCase ↑`, `createdAt ↓`, `__name__ ↓`                   | Collection   |
+| communities   | `members []`, `lastActivity ↓`, `__name__ ↓`                 | Collection   |
 | communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
 | posts         | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
 | posts         | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   |
