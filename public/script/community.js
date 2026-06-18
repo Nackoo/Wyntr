@@ -2351,10 +2351,7 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
     if (snap.empty) {
       list.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No communities found</h2>
-            <p style="color:grey;margin:7px 0;">Try a different name.</p>
-          </div>
+          <div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No communities found</h2><p style="color:grey;margin:7px 0;">Try a different name.</p></div>
         </div>`;
       return;
     }
@@ -2831,10 +2828,7 @@ async function openCommunityOverlay(uid, reset) {
     if (userData.cannotSeeCom && uid != auth.currentUser.uid) {
       container.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No permission</h2>
-            <p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p>
-          </div>
+          <div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No permission</h2><p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p></div>
         </div>
       `;
       window.cannotSeeCom = true;
@@ -2951,10 +2945,7 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
     if (window.cannotSeeCom) {
       list.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No permission</h2>
-            <p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p>
-          </div>
+          <div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No permission</h2><p style="color:grey;margin:7px 0;">This user chose to not show their communities publicly.</p></div>
         </div>
       `;
       return;

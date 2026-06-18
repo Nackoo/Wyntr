@@ -6,9 +6,8 @@ const loading1 = document.getElementById("loadingOverlay");
 
 const userOverlay = document.getElementById('bookmarkOverlay');
 const bookmarkList = document.getElementById("bookmarkList");
-const loadMoreBtn = document.getElementById('bookmarkLoadMore');
 const folderLoadMore = document.getElementById("folderLoadMore");
-const BOOKMARK_PAGE_SIZE = 5;
+const BOOKMARK_PAGE_SIZE = 10;
 
 let lastDoc = null;
 let loading = false;
@@ -19,11 +18,6 @@ let currentFolderId = null;
 let boCurrentTweetId = null;
 let bookmarksLoaded = false;
 const renderedFolderIds = new Set();
-
-function setBtnVisible(btn, visible) {
-  if (!btn) return;
-  btn.style.display = visible ? 'block' : 'none';
-}
 
 function createFolderItem(folderDoc) {
   const folderData = folderDoc.data();
@@ -68,7 +62,6 @@ function setupFolderSnapshot(uid) {
       if (change.type === 'added') {
         if (renderedFolderIds.has(change.doc.id)) return;
         renderedFolderIds.add(change.doc.id);
-        // Clear empty-state message if present
         if (!bookmarkList.querySelector('.folder-item')) bookmarkList.innerHTML = '';
         bookmarkList.prepend(createFolderItem(change.doc));
       }
@@ -78,8 +71,6 @@ function setupFolderSnapshot(uid) {
 
 // LOAD FOLDERS
 async function loadBookmarks(initial = false) {
-  setBtnVisible(loadMoreBtn, true);
-  setBtnVisible(folderLoadMore, false);
 
   if (!auth.currentUser || loading || noMore) return;
 
@@ -120,7 +111,6 @@ async function loadBookmarks(initial = false) {
         </div>
       `;
     }
-    setBtnVisible(loadMoreBtn, false);
     noMore = true;
     loading = false;
     return;
@@ -141,10 +131,8 @@ async function loadBookmarks(initial = false) {
   lastDoc = folderSnap.docs[folderSnap.docs.length - 1];
 
   if (folderSnap.docs.length < BOOKMARK_PAGE_SIZE) {
-    setBtnVisible(loadMoreBtn, false);
     noMore = true;
   } else {
-    setBtnVisible(loadMoreBtn, true);
   }
 
   loading = false;
@@ -217,6 +205,7 @@ const skeleton = `
 `
 
 let lastFolderId = null;
+
 // tweets inside folder
 async function loadFolderTweets(folderId, initial = true) {
   if (!auth.currentUser) return;
@@ -247,7 +236,6 @@ async function loadFolderTweets(folderId, initial = true) {
     lastFolderId = folderId;
 
     if (folderNoMore) {
-      setBtnVisible(folderLoadMore, false);
       return;
     }
 
@@ -271,7 +259,6 @@ async function loadFolderTweets(folderId, initial = true) {
           </div>`;
         tweetList.appendChild(emptyMsg);
       }
-      setBtnVisible(folderLoadMore, false);
       folderNoMore = true;
       return;
     }
@@ -364,12 +351,33 @@ document.getElementById('bookmarkBtn').addEventListener('click', async () => {
   setupFolderSnapshot(auth.currentUser.uid);
 });
 
-loadMoreBtn.addEventListener('click', () => loadBookmarks());
+const bookmarkScrollBox =
+  document.querySelector("#bookmarkOverlay .user-box");
 
-document.getElementById("boLoadMore").addEventListener("click", () => {
-  if (!boNoMore && boCurrentTweetId) {
-    openBookmarkOverlay(boCurrentTweetId, true, false);
-  }
+bookmarkScrollBox.addEventListener("scroll", async () => {
+  const nearBottom =
+    bookmarkScrollBox.scrollTop +
+    bookmarkScrollBox.clientHeight >=
+    bookmarkScrollBox.scrollHeight - 150;
+
+  if (!nearBottom) return;
+
+  await loadBookmarks(false);
+});
+
+const bookmarkFolderScrollBox =
+  document.querySelector("#bookmarkFolderOverlay .user-box");
+
+bookmarkFolderScrollBox.addEventListener("scroll", async () => {
+  const nearBottom =
+    bookmarkFolderScrollBox.scrollTop +
+      bookmarkFolderScrollBox.clientHeight >=
+    bookmarkFolderScrollBox.scrollHeight - 150;
+
+  if (!nearBottom) return;
+  if (boNoMore || !boCurrentTweetId) return;
+
+  await openBookmarkOverlay(boCurrentTweetId, true, false);
 });
 
 let boLastDoc = null;
@@ -381,8 +389,6 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
   const folderList = document.getElementById('folderList');
   boCurrentTweetId = tweetId;
   const addBtn = document.getElementById('addFolder');
-
-  setBtnVisible(document.getElementById('boLoadMore'), true);
 
   if (initial) {
     folderList.innerHTML = '';
@@ -405,6 +411,7 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
 
       const div = document.createElement('div');
       div.className = 'folder-item';
+      div.id = `folder-${f.id}`;
       div.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
 
       div.innerHTML = `
@@ -423,7 +430,8 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
       `;
 
       div.onclick = () => selectFolder(f.id, tweetId, true, communityId);
-      folderList.appendChild(div);
+
+      if (!document.querySelector(`#bookmarkFolderOverlay #folder-${f.id}`)) folderList.appendChild(div);
 
       const ref = doc(db, 'users', auth.currentUser.uid, 'bookmarks', f.id, 'items', tweetId);
 
@@ -487,10 +495,8 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
     }
 
     if (folderSnap.docs.length < BOOKMARK_PAGE_SIZE) {
-      setBtnVisible(document.getElementById('boLoadMore'), false);
       boNoMore = true;
     } else {
-      setBtnVisible(document.getElementById('boLoadMore'), true);
       boNoMore = false;
     }
 
@@ -525,8 +531,6 @@ async function openBookmarkOverlay(tweetId, isPremium, initial = true, community
     `<div style="display:flex;align-items:center;gap:10px;">${data.icon === "📁" || !data.icon ? `<img src="/image/folder.svg">` : `${data.icon}`} <div class="user-link">Index</div> ${data.tweetsCount > 0 ? `<span style="color:grey;margin-left:auto;">${data.tweetsCount} Wynts</span>` : ""}</div><div><span style="color:grey;">last updated ${formatDate(data.lastUpdated) || `[missing value]`} ago</span></div>`;
     div.onclick = () => selectFolder('index', tweetId, false, communityId);
     folderList.appendChild(div);
-
-    setBtnVisible(document.getElementById('boLoadMore'), false);
   }
   overlay.classList.remove('hidden');
 }

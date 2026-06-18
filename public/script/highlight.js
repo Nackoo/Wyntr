@@ -7,7 +7,7 @@ const loading1 = document.getElementById("loadingOverlay");
 
 const userOverlay = document.getElementById('highlightOverlay');
 const folderLoadMore = document.getElementById("folderLoadMore");
-const HIGHLIGHT_PAGE_SIZE = 5;
+const HIGHLIGHT_PAGE_SIZE = 10;
 
 let lastDoc = null;
 let loading = false;
@@ -89,6 +89,7 @@ const skeleton = `
 `
 
 let lastFolderId = null;
+
 // tweets inside folder
 export async function loadFolderTweets(folderId, initial = true, userID) {
 
@@ -232,10 +233,19 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
   }
 }
 
-document.getElementById("hboLoadMore").addEventListener("click", () => {
-  if (!boNoMore && boCurrentTweetId) {
-    openHighlightOverlay(boCurrentTweetId, true, false);
-  }
+const highlightFolderScrollBox =
+  document.querySelector("#highlightFolderOverlay .user-box");
+
+highlightFolderScrollBox.addEventListener("scroll", async () => {
+  const nearBottom =
+    highlightFolderScrollBox.scrollTop +
+    highlightFolderScrollBox.clientHeight >=
+    highlightFolderScrollBox.scrollHeight - 150;
+
+  if (!nearBottom) return;
+  if (boNoMore || !boCurrentTweetId) return;
+
+  await openHighlightOverlay(boCurrentTweetId, true, false);
 });
 
 let boLastDoc = null;
@@ -271,6 +281,7 @@ async function openHighlightOverlay(tweetId, isPremium, initial = true, communit
 
       const div = document.createElement('div');
       div.className = 'folder-item';
+      div.id = `folder-item-${f.id}`;
       div.style.cssText = 'padding:10px;cursor:pointer;border-bottom:1px solid var(--border);';
 
       div.innerHTML = `
@@ -293,7 +304,7 @@ async function openHighlightOverlay(tweetId, isPremium, initial = true, communit
       `;
 
       div.onclick = () => selectFolder(f.id, tweetId, true, communityId);
-      folderList.appendChild(div);
+      if (!document.querySelector(`#hfolderList #folder-item-${f.id}`)) folderList.appendChild(div);
 
       const ref = doc(db, 'users', auth.currentUser.uid, 'highlights', f.id, 'items', tweetId);
 

@@ -5,8 +5,8 @@
 ## netlify .env
 
 ```
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1423693997813268500/e-0SOE1JlwsjqHtT3XxV5HSeEHGg8UC8JEIqIX802V08MNVLEf8jjFgGJEQMF7OhWfo-
-DISCORD_WEBHOOK_URL_1=https://discord.com/api/webhooks/1423705843672547468/sJkRUT1sjoEdo0fYjo0uptcwXRXbuCMuipiyF8SNzTR9PP0RO9mMKtxcraDU6g3O6Rq8
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK
+DISCORD_WEBHOOK_URL_1=https://discord.com/api/webhooks/YOUR_WEBHOOK
 ```
 
 ## Firestore rules
