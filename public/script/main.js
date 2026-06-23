@@ -808,7 +808,7 @@ mentioned1.addEventListener("change", () => {
   }
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+function init() {
   document.getElementById("privateOK").checked = true;
   document.getElementById("rtprivateOK").checked = true;
   document.getElementById("replyPermissionEveryone").checked = true;
@@ -816,7 +816,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (localStorage.getItem("disableConfirmation") === "true") {
     discon.checked = true;
   }
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
 
 export async function showOriginal(text, mentions, title) {
   const parsedText = await parseMentionsToLinks(text, mentions || []);

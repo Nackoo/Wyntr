@@ -12,7 +12,7 @@ import { openBookmarkOverlay } from "./bookmark.js";
 import { sendToDiscord, reportToDiscord } from "./discord.js";
 import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
 import { openCommunity } from "./community.js";
-import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
+// import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
 import { openHighlightOverlay } from "./highlight.js";
 
 //2541
@@ -40,6 +40,7 @@ export async function getCommunityNameById(communityId) {
   }
 }
 
+/*
 export async function loadFollowing(uid) {
   const cached = await loadFollowingFromCache();
   if (cached) {
@@ -78,6 +79,7 @@ export async function loadFollowing(uid) {
   startFollowingListener(uid);
   document.dispatchEvent(new Event("following-cache-ready"));
 }
+*/
 
 async function initNotifications() {
   if (!("Notification" in window)) return;
@@ -167,7 +169,7 @@ export let currentUserRole = "user";
 async function initMainFeatures(user) {
   loadTweets(true);
   loadNotifications(true);
-  loadFollowing(user.uid);
+  // loadFollowing(user.uid);
   listenForUnreadNotifications();
   listenForSystemNotifications();
 }
@@ -205,7 +207,7 @@ async function checkBans(user) {
             <h2>Account Suspended</h2>
             <p class="subtitle">This account has been suspended for violating the Wyntr guidelines.</p>
             <div class="reason-box">“${banReason}”</div>
-            <a href="/user/login" class="btn-primary">Log out</a>
+            <a href="/user/login" class="btn-primary" style="color:white">Log out</a>
             <p class="support">If you believe this is a mistake, contact us on <a target="_blank" href="https://discord.gg/9SsDWAjfVV">Discord</a>.</p>
           </div>
         </div>
@@ -254,6 +256,7 @@ onAuthStateChanged(auth, async (user) => {
     } else {
       currentUserRole = "user";
     }
+
     if (window.innerWidth > 700) {
       if (snap.exists()) {
         const data = snap.data();
@@ -268,6 +271,7 @@ onAuthStateChanged(auth, async (user) => {
       if (nameEl) nameEl.textContent = displayName;
       if (usernameEl) usernameEl.textContent = `@${username}`;
     }
+
     async function generateUnique(fieldValue, field, lower = false) {
       let base = fieldValue || "user";
       base = base.replace(/\s+/g, "");
@@ -278,13 +282,17 @@ onAuthStateChanged(auth, async (user) => {
       let candidate = base;
       let suffix = 1;
       while (suffix <= 100) {
-        const qSnap = await getDocs(query(collection(db, "users"), where(field, "==", candidate)));
+        const qSnap = await getDocs(query(
+          collection(db, "users"), 
+          where(field, "==", candidate)
+        ));
         if (qSnap.empty) break;
         candidate = `${base}${suffix}`;
         suffix++;
       }
       return candidate;
     }
+    
     if (!snap.exists()) {
       const rawName = user.displayName || "user";
       let finalDisplayName = rawName.slice(0, 15);
@@ -297,8 +305,7 @@ onAuthStateChanged(auth, async (user) => {
         createdAt: new Date(),
         posts: 0,
         photoURL: "/image/default-avatar.jpg",
-        banner: "/image/default-banner.png",
-        IQ: 0,
+        banner: "/image/default-banner.png"
       });
       location.reload();
     } else {
@@ -566,15 +573,12 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     }
 
     let processedText = text;
-    const mentionsRaw = await extractMentions(text);
-    mentionsRaw.sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
-    const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    for (const {username, uid} of mentionsRaw) {
-      if (!username || !uid) continue;
-      const regex = new RegExp(`@${escapeRegExp(username)}(?=\\s|$)`, "gi");
-      processedText = processedText.replace(regex, `@${uid}`);
+
+    const mentions = await extractMentions(text);
+    let mentioned = null;
+    if (!window.communityID) {
+      mentioned = Object.values(mentions).filter(Boolean);
     }
-    const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
 
     const tagMatches = text.match(/#(\w+)/g) || [];
 
@@ -599,6 +603,8 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       }
 
       const baseData = {
+        archived: false,
+        mentioned,
         text: processedText,
         originalText: text,
         originalTitle: title,
@@ -672,12 +678,8 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         : null;
 
       await Promise.all(
-        mentions.map(async (uid) => {
+        Object.values(mentions).filter(Boolean).map(async (uid) => {
           if (!window.communityID) {
-            await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), {
-              mentionedAt: new Date()
-            });
-
             if (mediaType === "image") {
               sendMentionNotification(tweetRef.id, uid, text, mediaURL);
             } else {
@@ -695,12 +697,10 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           }
 
           if (window.isOnPrivate && window.communityID != null) {
-            const userDoc = await getDoc(doc(db, "users", uid));
+            const communitySnap = await getDoc(doc(db, "communities", window.communityID));
 
-            if (userDoc.exists()) {
-              const userCommunities = userDoc.data().communities || [];
-
-              if (userCommunities.includes(window.communityID)) {
+            if (communitySnap.exists()) {
+              if (communitySnap.data().members.includes(uid)) {
                 if (mediaType === "image") {
                   sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, text, mediaURL);
                 } else {
@@ -1028,9 +1028,9 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
 
       let parsedCommentText;
       if (t.retweettext) {
-        parsedCommentText = await parseMentionsToLinks(t.retweettext || "", comment.mentions || []);
+        parsedCommentText = await parseMentionsToLinks(t.retweettext || "", comment.mentions || {});
       } else {
-        parsedCommentText = await parseMentionsToLinks(comment.text || "", comment.mentions || []);
+        parsedCommentText = await parseMentionsToLinks(comment.text || "", comment.mentions || {});
       }
 
       const hasImage = comment.media && comment.mediaType === "image";
@@ -1182,7 +1182,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
             <div class="quoted-comment retweet" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1190,7 +1190,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                   `${comment.likedByCreator === true ? 
                     `<img style="margin-right:-3px" src="/image/star.svg">` :
-                    `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                    `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                       `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                       ""
                     }`
@@ -1272,7 +1272,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
             <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1280,7 +1280,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                   `${comment.likedByCreator === true ? 
                     `<img style="margin-right:-3px" src="/image/star.svg">` :
-                    `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                    `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                       `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                       ""
                     }`
@@ -1332,7 +1332,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
             <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1340,7 +1340,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                   `${comment.likedByCreator === true ? 
                     `<img style="margin-right:-3px" src="/image/star.svg">` :
-                    `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                    `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                       `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                       ""
                     }`
@@ -1395,7 +1395,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
           <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}"  data-comment-id="${commentId}">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1403,7 +1403,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" : 
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1473,7 +1473,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
           <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}"  data-comment-id="${commentId}">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -1481,7 +1481,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1653,115 +1653,220 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
         </div>
       `
 
-      if (d.banned === true) {
-        quotedHTML = `
-          <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
+      if (rt.archived) {
+        retweetHTML = `
+          <div class="quoted-comment">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-              <img loading='lazy' class="avatar" src="/image/default-avatar.jpg" width="30">
-              <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">Suspended user</strong>
+            <img loading='lazy' class="avatar" src="/image/default-avatar.jpg" width="30">
+            <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer">System</strong>
               <span style="color:grey;font-size:12px;">
-              ${formatDate(rt.createdAt)}
+                <img loading='lazy' src="/image/icon.png" height="20" width="20" style="margin:0; margin-left:-5px;">
               </span>
             </div>
             <div class="quoted-body">
-            <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a user suspended for: ${d.bannedFor || "no reason stated"}</p>
+            <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;"><i>this Wynt is archived</i></p>
             </div>
           </div>
         `;
       } else {
-        if (hasImage && hasText) {
-          let parsedText;
-          if (t.retweettext) {
-            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
-          } else {
-            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
-          }
-
-          const rtsrc = base91ToImageSrc(rt.media);
-          const rtcontainsSpoiler = rt.sensitiveMedia === true;
-
+        if (d.banned === true) {
           retweetHTML = `
-            ${rt.retweetOf || rt.originalId || rt.retweetOfComment ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              ">↳  click to view full context</p>` : 
-            ""}
             <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img loading='lazy' class="avatar" src="${rtAvatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
-                <div style="margin-left:auto">
-                  <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
-                    <img loading='lazy' src="/image/three-dots.svg">
-                  </span>
-                </div>
+                <img loading='lazy' class="avatar" src="/image/default-avatar.jpg" width="30">
+                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">Suspended user</strong>
+                <span style="color:grey;font-size:12px;">
+                ${formatDate(rt.createdAt)}
+                </span>
               </div>
               <div class="quoted-body">
-                ${titleHTML1}
-                <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                  ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)}` : `${parsedText}`}
-                </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                  document.getElementById('expand-${expandretweet}').remove();
-                  document.getElementById('${expandretweet}').classList.remove('hidden');
-                  this.remove();
-                ">
-                    <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                    Expand to read more
-                </button>
-                <div id="${expandretweet}" class="hidden">
-                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                  ${translateHTML6} 
-                  ${baninfo1}
-                  ${pollHTML2}
-                  ${rtcontainsSpoiler ?
-                    `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                      <div class="spoiler-overlay">
-                        <div class="spoilertxt">sensitive</div>
-                      </div>
-                      <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                    </div>` :
-                    `<div class="attachment" style="margin-bottom:5px">
-                      <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                    </div>`
-                  }
-                </div>
-                ${retweetinfo}
+              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a user suspended for: ${d.bannedFor || "no reason stated"}</p>
               </div>
             </div>
           `;
-        } else if (hasVideo && hasText) {
+        } else {
+          if (hasImage && hasText) {
+            let parsedText;
+            if (t.retweettext) {
+              parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || {});
+            } else {
+              parsedText = await parseMentionsToLinks(rt.text, rt.mentions || {});
+            }
+
+            const rtsrc = base91ToImageSrc(rt.media);
+            const rtcontainsSpoiler = rt.sensitiveMedia === true;
+
+            retweetHTML = `
+              ${rt.retweetOf || rt.originalId || rt.retweetOfComment ? `<p style="
+                color: grey;
+                font-size: 14px;
+                margin: 0;
+                ">↳  context available</p>` : 
+              ""}
+              <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img loading='lazy' class="avatar" src="${rtAvatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
+                  <div style="margin-left:auto">
+                    <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                      <img loading='lazy' src="/image/three-dots.svg">
+                    </span>
+                  </div>
+                </div>
+                <div class="quoted-body">
+                  ${titleHTML1}
+                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
+                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)}` : `${parsedText}`}
+                  </p>
+                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                    document.getElementById('expand-${expandretweet}').remove();
+                    document.getElementById('${expandretweet}').classList.remove('hidden');
+                    this.remove();
+                  ">
+                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
+                      Expand to read more
+                  </button>
+                  <div id="${expandretweet}" class="hidden">
+                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                    ${translateHTML6} 
+                    ${baninfo1}
+                    ${pollHTML2}
+                    ${rtcontainsSpoiler ?
+                      `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                        <div class="spoiler-overlay">
+                          <div class="spoilertxt">sensitive</div>
+                        </div>
+                        <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                      </div>` :
+                      `<div class="attachment" style="margin-bottom:5px">
+                        <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                      </div>`
+                    }
+                  </div>
+                  ${retweetinfo}
+                </div>
+              </div>
+            `;
+          } else if (hasVideo && hasText) {
+            let parsedText;
+            if (t.retweettext) {
+              parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || {});
+            } else {
+              parsedText = await parseMentionsToLinks(rt.text, rt.mentions || {});
+            }
+
+            vidRtId = rt.id ? `vid-${rt.id}` : `vid-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+            const rtcontainsSpoiler = rt.sensitiveMedia === true;
+
+            retweetHTML = `
+              ${rt.retweetOf || rt.originalId || rt.retweetOfComment ? `<p style="
+                color: grey;
+                font-size: 14px;
+                margin: 0;
+                ">↳  context available</p>` : 
+              ""}
+
+              <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img loading='lazy' class="avatar" src="${rtAvatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
+                  <div style="margin-left:auto">
+                    <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                      <img loading='lazy' src="/image/three-dots.svg">
+                    </span>
+                  </div>
+                </div>
+            
+                <div class="quoted-body">
+                  ${titleHTML1}
+                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
+                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
+                  </p>
+                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                    document.getElementById('expand-${expandretweet}').remove();
+                    document.getElementById('${expandretweet}').classList.remove('hidden');
+                    this.remove();
+                  ">
+                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
+                      Expand to read more
+                  </button>
+                  <div id="${expandretweet}" class="hidden">
+                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                    ${translateHTML6} 
+                    ${baninfo1}
+                    ${pollHTML2}
+                    ${rtcontainsSpoiler ?
+                      `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
+                        <div class="spoiler-overlay">
+                          <div class="spoilertxt">sensitive</div>
+                        </div>
+                        <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>` :
+                      `<div class="attachment" style="margin-bottom:5px">
+                        <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>`
+                    }
+                  </div>
+                  <div class="flex">
+                    <span style="cursor:pointer;color:#757779" data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="like-btn" id="likeBtn-${t.retweetOf || t.originalId}">
+                      <div id="${rtlikeId}" class="likeicon" style="height:20px">
+                        <img loading='lazy' src="/image/heart.svg">
+                      </div>
+                      ${rt.likeCount > 0 ? `<span id="likeCount-${t.retweetOf || t.originalId}">${rt.likeCount}</span>` : ""}
+                    </span>
+                    <span style="cursor:pointer;color:#757779" class="comment-btn" data-id="${t.retweetOf || t.originalId}">
+                      <img loading='lazy' src="/image/message.svg"> ${rt.commentCount > 0 ? rt.commentCount : ""}
+                    </span>
+                    <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${t.retweetOf || t.originalId}">
+                      <img loading='lazy' src="/image/rewint.svg"> ${rt.retweetCount > 0 ? rt.retweetCount : ""}
+                    </span>
+                    <div style="margin-left:auto;">
+                      <span class="viewbtn" style="margin-left:10px;color:#757779"><img loading='lazy' src="/image/chart.svg"> ${rt.viewsCount > 0 ? rt.viewsCount : ""}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>   
+            `;
+            getSupabaseVideo(rt.media, vidRtId);
+          } else {
           let parsedText;
           if (t.retweettext) {
-            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
+            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || {});
           } else {
-            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
+            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || {});
           }
-
-          vidRtId = rt.id ? `vid-${rt.id}` : `vid-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-          const rtcontainsSpoiler = rt.sensitiveMedia === true;
 
           retweetHTML = `
             ${rt.retweetOf || rt.originalId || rt.retweetOfComment ? `<p style="
               color: grey;
               font-size: 14px;
               margin: 0;
-              ">↳  click to view full context</p>` : 
+              ">↳  context available</p>` : 
             ""}
 
             <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
                 <img loading='lazy' class="avatar" src="${rtAvatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
                 ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
+                  `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1774,41 +1879,32 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                   </span>
                 </div>
               </div>
-          
               <div class="quoted-body">
                 ${titleHTML1}
-                <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                  ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
-                </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                  document.getElementById('expand-${expandretweet}').remove();
-                  document.getElementById('${expandretweet}').classList.remove('hidden');
-                  this.remove();
-                ">
-                    <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                    Expand to read more
-                </button>
-                <div id="${expandretweet}" class="hidden">
+                ${parsedText.length > 100 || pollHTML2 != "" ? `
+                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
+                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
+                  </p>
+                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
+                    document.getElementById('expand-${expandretweet}').remove();
+                    document.getElementById('${expandretweet}').classList.remove('hidden');
+                      this.remove();
+                  ">
+                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
+                      Expand to read more
+                  </button>
+                  <div id="${expandretweet}" class="hidden">
+                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                    ${translateHTML6} 
+                    ${baninfo1}
+                    ${pollHTML2}
+                  </div>
+                ` : `
                   <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
                   ${translateHTML6} 
                   ${baninfo1}
-                  ${pollHTML2}
-                  ${rtcontainsSpoiler ?
-                    `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
-                      <div class="spoiler-overlay">
-                        <div class="spoilertxt">sensitive</div>
-                      </div>
-                      <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>` :
-                    `<div class="attachment" style="margin-bottom:5px">
-                      <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>`
-                  }
-                </div>
+                  ${pollHTML2}    
+                `}
                 <div class="flex">
                   <span style="cursor:pointer;color:#757779" data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="like-btn" id="likeBtn-${t.retweetOf || t.originalId}">
                     <div id="${rtlikeId}" class="likeicon" style="height:20px">
@@ -1827,88 +1923,9 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                   </div>
                 </div>
               </div>
-            </div>   
+            </div>
           `;
-          getSupabaseVideo(rt.media, vidRtId);
-        } else {
-        let parsedText;
-        if (t.retweettext) {
-          parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
-        } else {
-          parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
-        }
-
-        retweetHTML = `
-          ${rt.retweetOf || rt.originalId || rt.retweetOfComment ? `<p style="
-            color: grey;
-            font-size: 14px;
-            margin: 0;
-            ">↳  click to view full context</p>` : 
-          ""}
-
-          <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
-            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-              <img loading='lazy' class="avatar" src="${rtAvatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
-                  `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                  ""
-                }`
-              }
-              <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
-              <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
-              <div style="margin-left:auto">
-                <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
-                  <img loading='lazy' src="/image/three-dots.svg">
-                </span>
-              </div>
-            </div>
-            <div class="quoted-body">
-              ${titleHTML1}
-              ${parsedText.length > 100 || pollHTML2 != "" ? `
-                <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                  ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
-                </p>
-                <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                  document.getElementById('expand-${expandretweet}').remove();
-                  document.getElementById('${expandretweet}').classList.remove('hidden');
-                    this.remove();
-                ">
-                    <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                    Expand to read more
-                </button>
-                <div id="${expandretweet}" class="hidden">
-                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                  ${translateHTML6} 
-                  ${baninfo1}
-                  ${pollHTML2}
-                </div>
-              ` : `
-                <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                ${translateHTML6} 
-                ${baninfo1}
-                ${pollHTML2}    
-              `}
-              <div class="flex">
-                <span style="cursor:pointer;color:#757779" data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="like-btn" id="likeBtn-${t.retweetOf || t.originalId}">
-                  <div id="${rtlikeId}" class="likeicon" style="height:20px">
-                    <img loading='lazy' src="/image/heart.svg">
-                  </div>
-                  ${rt.likeCount > 0 ? `<span id="likeCount-${t.retweetOf || t.originalId}">${rt.likeCount}</span>` : ""}
-                </span>
-                <span style="cursor:pointer;color:#757779" class="comment-btn" data-id="${t.retweetOf || t.originalId}">
-                  <img loading='lazy' src="/image/message.svg"> ${rt.commentCount > 0 ? rt.commentCount : ""}
-                </span>
-                <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${t.retweetOf || t.originalId}">
-                  <img loading='lazy' src="/image/rewint.svg"> ${rt.retweetCount > 0 ? rt.retweetCount : ""}
-                </span>
-                <div style="margin-left:auto;">
-                  <span class="viewbtn" style="margin-left:10px;color:#757779"><img loading='lazy' src="/image/chart.svg"> ${rt.viewsCount > 0 ? rt.viewsCount : ""}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
+          }
         }
       }
     } else {
@@ -1927,8 +1944,10 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
         </div>
       `;
     }
+    
   }
-  const parsedText = await parseMentionsToLinks(t.text, t.mentions || []);
+
+  const parsedText = await parseMentionsToLinks(t.text, t.mentions || {});
   const defaultLanguage = getDefaultLanguage();
   const isTranslate = isTranslateEnabled();
   if (t.language && t.language !== defaultLanguage && isTranslate) {
@@ -2033,15 +2052,16 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
         <div style="display:flex;gap:10px;">
           <img loading='lazy' class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
           <div style="display:flex;flex-direction:column;width:100%;">
-            <div class="flex" style="gap:10px;margin:0">\
+            <div class="flex" style="gap:10px;margin:0">
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
-                `${(t.mentions && t.mentions.includes(auth.currentUser.uid)) ?
+                `${(t.mentions && Object.values(t.mentions).includes(auth.currentUser.uid)) ?
                   `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                   ""
                 }`
               }
               <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
               <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
+              ${t.archived ? `<img title="archived" src="/image/archive.svg">` : ""}
               <span style="cursor:pointer;margin-left:auto" data-shared="${t.sharedFromCommunity || null}" data-community-id="${communityId || t.communityId || null}" data-author="${t.uid}" data-stored=${isStored} data-id=${tweetId} class="menubtn" ${isPrivate ? "data-private=true" : ""}><img loading='lazy' src="/image/three-dots.svg"></span>
             </div>
             ${communityHTML}
@@ -2110,17 +2130,17 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
 
   if (editHTML2 != "") { if (comment.editAfterComment) {
     tweetNode.querySelector(".editedat").onclick = () => {
-      showOriginal(comment.originalText, comment.mentions || [])
+      showOriginal(comment.originalText, comment.mentions || {})
     };
   }}
   if (editHTML1 != "") { if (rt.editAfterComment) {
     tweetNode.querySelector(".editedat1").onclick = () => {
-      showOriginal(rt.originalText, rt.mentions || [], rt.originalTitle)
+      showOriginal(rt.originalText, rt.mentions || {}, rt.originalTitle)
     };
   }}
   if (editHTML != "") { if (t.editAfterComment) {
     tweetNode.querySelector(".editedat2").onclick = () => {
-      showOriginal(t.originalText, t.mentions || [], t.originalTitle)
+      showOriginal(t.originalText, t.mentions || {}, t.originalTitle)
     };
   }}
 
@@ -2524,6 +2544,10 @@ document.body.addEventListener("click", async (e) => {
         <div class="menu-item author-share" data-author="${author}">
           <img loading='lazy' src="/image/copy.svg"> copy user ID
         </div>
+
+        <div class="menu-item archive" data-archived="${data.archived}" data-id="${tweetId}" ${window.communityID ? `data-community="${window.communityID}"` : ""}>
+          <img loading='lazy' src="/image/archive.svg"> ${data.archived ? "unarchive" : "archive"} Wynt
+        </div>
     `;
 
     overlay.classList.remove("hidden");
@@ -2542,6 +2566,46 @@ document.body.addEventListener("click", async (e) => {
 
   if (e.target.id === "tweetMenuOverlay" || e.target.closest(".close-menu")) {
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
+  }
+
+  const archivebtn = e.target.closest(".archive");
+  if (archivebtn) {
+    const tweetId = archivebtn.dataset.id;
+    const communityId = archivebtn.dataset.community || null;
+    const archived = archivebtn.dataset.archived;
+
+    if (archived == "true") {
+      if (!(await confirmDialog("unarchive Wynt?", "this wynt will regain its public accessibility"))) return;
+    } else {
+      if (!(await confirmDialog("archive Wynt?", "this wynt will lose its public accessibility"))) return;
+    }
+
+    loading.classList.add("show");
+    const ref = communityId ? 
+      doc(db, "communities", communityId, "posts", tweetId) :
+      doc(db, "tweets", tweetId);
+
+    if (archived == "true") {
+      await updateDoc(ref, {
+        archived: false
+      });
+      log("green", "Wynt unarchived");
+    } else {
+      await updateDoc(ref, {
+        archived: true
+      });
+      log("green", "Wynt archived");
+    }
+    loading.classList.remove("show");
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+
+    if (archived == "true") {
+      if (communityId) {
+        document.getElementById("communityArchiveList").querySelector(`.tweet[data-id="${tweetId}"]`)?.remove();
+      } else {
+        document.getElementById("archiveList").querySelector(`.tweet[data-id="${tweetId}"]`)?.remove();
+      }
+    }
   }
 
   const unbookmarkbtn = e.target.closest(".unbookmark-btn");
@@ -2818,7 +2882,7 @@ document.body.addEventListener("click", async (e) => {
                 <div class="flex" style="gap:10px;margin:0;">
                   ${data.likedByCreator === true ? 
                     `<img style="margin-right:-3px" src="/image/star.svg">` :
-                    `${(data.mentions && data.mentions.includes(auth.currentUser.uid)) ?
+                    `${(data.mentions && Object.values(data.mentions).includes(auth.currentUser.uid)) ?
                       `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                       ""
                     }`
@@ -3056,7 +3120,7 @@ document.body.addEventListener("click", async (e) => {
             <img loading='lazy' class="avatar" src="${avatar}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px;height:40px;border-radius:10px;">
             <div style="display:flex;flex-direction:column;width:100%;">
               <div class="flex" style="gap:10px;margin:0;">
-                ${(data.mentions && data.mentions.includes(auth.currentUser.uid)) ?
+                ${(data.mentions && Object.values(data.mentions).includes(auth.currentUser.uid)) ?
                   `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                   ""
                 }
@@ -3509,12 +3573,6 @@ document.body.addEventListener("click", async (e) => {
           });
         }
 
-        if (!isCommunityPost && Array.isArray(d.mentions)) {
-          for (const uid of d.mentions) {
-            tx.delete(doc(db, "users", uid, "mentioned", tweetId));
-          }
-        }
-
         if (isCommunityPost) {
           tx.update(doc(db, "communities", window.communityID), {
             posts: increment(-1),
@@ -3675,10 +3733,18 @@ newBanner.appendChild(banner);
 let unsubscribeMain = null;
 let firstVisibleMain = null;
 let newIncomingMain = [];
+
 async function resetMainListener() {
   if (unsubscribeMain) unsubscribeMain();
   if (!firstVisibleMain) return;
-  const listenQ = query(collection(db, "tweets"), orderBy("createdAt", "desc"), where("createdAt", ">", firstVisibleMain.data().createdAt));
+
+  const listenQ = query(
+    collection(db, "tweets"), 
+    orderBy("createdAt", "desc"), 
+    where("archived", "!=", true),
+    where("createdAt", ">", firstVisibleMain.data().createdAt)
+  );
+
   unsubscribeMain = onSnapshot(listenQ, async (snapshot) => {
     const docs = snapshot.docs.filter(d => !newIncomingMain.some(i => i.id === d.id) && !document.querySelector(`[data-id="${d.id}"]`));
     if (!docs.length) return;
@@ -3690,6 +3756,7 @@ async function resetMainListener() {
   });
 }
 mainContainer.prepend(newBanner);
+
 banner.onclick = async () => {
   if (!newIncomingMain.length) return;
   banner.classList.add("disabled");
@@ -3732,6 +3799,7 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
       ? query(
           tweetsRef,
           orderBy("createdAt", "desc"),
+          where("archived", "!=", true),
           ...(newestSnapshotNewest
             ? [startAfter(newestSnapshotNewest)]
             : []),
@@ -3740,6 +3808,7 @@ async function loadTweets(initial = false, direction = "down", count = 10) {
       : query(
           tweetsRef,
           orderBy("createdAt", "asc"),
+          where("archived", "!=", true),
           ...(oldestSnapshotNewest
             ? [startAfter(oldestSnapshotNewest)]
             : []),
@@ -4100,7 +4169,7 @@ document.body.addEventListener("click", async (e) => {
     const {avatar} = await getUserData(auth.currentUser.uid);
     document.getElementById("commentAvatar").src = avatar;
     const createdAt = formatDate(tweetData.createdAt);
-    const parsedText = await parseMentionsToLinks(tweetData.text, tweetData.mentions || []);
+    const parsedText = await parseMentionsToLinks(tweetData.text, tweetData.mentions || {});
     const tweetOwnerId = tweetData.uid;
     let titleHTML = "";
     if (tweetData.title) {
@@ -4169,7 +4238,7 @@ document.body.addEventListener("click", async (e) => {
                       </div>
                       <div>
                         <div class=flex style="display:Flex;gap:5px;">
-                         ${(tweetData.mentions && tweetData.mentions.includes(auth.currentUser.uid)) ?
+                         ${(tweetData.mentions && Object.values(tweetData.mentions).includes(auth.currentUser.uid)) ?
                             `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                             ""
                           }
@@ -4187,7 +4256,7 @@ document.body.addEventListener("click", async (e) => {
 
     if (editHTML4 != "") { if (tweetData.editAfterComment) {
       document.getElementById("commentTweet").querySelector(".editedatt").onclick = () => {
-        showOriginal(tweetData.originalText, tweetData.mentions || [], tweetData.originalTitle);
+        showOriginal(tweetData.originalText, tweetData.mentions || {}, tweetData.originalTitle);
       };
     }}
 
@@ -4299,19 +4368,13 @@ document.body.addEventListener("click", async (e) => {
         }
 
         if (commentText || media) {
-          const mentionsRaw = await extractMentions(commentText);
-          let processedText = commentText;
-
-          mentionsRaw.sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
-
-          const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          for (const {username, uid} of mentionsRaw) {
-            if (!username || !uid) continue;
-            const regex = new RegExp(`@${escapeRegExp(username)}(?=\\s|$)`, "gi");
-            processedText = processedText.replace(regex, `@${uid}`);
+          const mentions = await extractMentions(commentText);
+          let mentioned = null;
+          if (!window.communityID) {
+            mentioned = Object.values(mentions).filter(Boolean);
           }
 
-          const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
+          let processedText = commentText;
 
           let donation = 0;
           let donationReceived = 0;
@@ -4445,6 +4508,7 @@ document.body.addEventListener("click", async (e) => {
             if (TWEETOWNERSUSPENDED === false) {
               tx.set(commentRef, {
                 text: processedText,
+                mentioned,
                 originalText: commentText,
                 communityId: window.communityID || null,
                 media,
@@ -4528,8 +4592,8 @@ document.body.addEventListener("click", async (e) => {
               ? await getCommunityNameById(window.communityID)
               : null;
 
-            const invalidMentions = mentions.filter(
-              (uid) => uid !== auth.currentUser.uid && uid !== tweetData.uid
+            const invalidMentions = Object.values(mentions).filter(
+              (uid) => uid && uid !== auth.currentUser.uid && uid !== tweetData.uid
             );
 
             if (isPrivate && invalidMentions.length > 0) {
@@ -4538,7 +4602,7 @@ document.body.addEventListener("click", async (e) => {
 
             if (!isPrivate) {
               await Promise.all(
-                mentions.map(async (uid) => {
+                Object.values(mentions).filter(Boolean).map(async (uid) => {
                   if (uid === tweetData.uid) return;
 
                   if (window.communityID && !window.isOnPrivate) {
@@ -4548,23 +4612,23 @@ document.body.addEventListener("click", async (e) => {
                       sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
                     }
                   } else if (window.isOnPrivate && window.communityID) {
-                    const userDoc = await getDoc(doc(db, "users", uid));
-                    const userCommunities = userDoc.data().communities || [];
+                      const communitySnap = await getDoc(doc(db, "communities", window.communityID));
 
-                    if (userCommunities.includes(window.communityID)) {
-                      if (mediaType === "image") {
-                        sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media);
-                      } else {
-                        sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                      if (communitySnap.exists()) {
+                        if (communitySnap.data().members.includes(uid)) {
+                          if (mediaType === "image") {
+                              sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media);
+                          } else {
+                              sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                          }
+                        } else {
+                          info(
+                            "x",
+                            "insufficient permission",
+                            "user is not notified due to this is a private community and the user doesn't have permission to view it."
+                          );
+                        }
                       }
-                    } else {
-                      info(
-                        "x",
-                        "insufficient permission",
-                        "user is not notified due to this is a private community and the user doesn't have permission to view it."
-                      );
-                    }
-
                   } else {
                     if (mediaType === "image") {
                       sendCommentMentionNotification(tweetId, uid, processedText, commentId, tweetText, media);
@@ -4764,7 +4828,7 @@ document.body.addEventListener("click", async (e) => {
   }
   const commentData = commentSnap.data();
   const {avatar: avatar1, username, displayName} = await getUserData(commentData.uid);
-  const parsedText = await parseMentionsToLinks(commentData.text || "", commentData.mentions || []);
+  const parsedText = await parseMentionsToLinks(commentData.text || "", commentData.mentions || {});
   const createdAt = formatDate(commentData.createdAt);
   let editHTML6 = "";
   if (commentData.edited) {
@@ -4833,7 +4897,7 @@ document.body.addEventListener("click", async (e) => {
                         <div class=flex style="display:Flex;gap:5px;">
                           ${commentData.likedByCreator === true ? 
                             `<img style="margin-right:-3px" src="/image/star.svg">` :
-                            `${(commentData.mentions && commentData.mentions.includes(auth.currentUser.uid)) ?
+                            `${(commentData.mentions && Object.values(commentData.mentions).includes(auth.currentUser.uid)) ?
                               `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                               ""
                             }`
@@ -4850,7 +4914,7 @@ document.body.addEventListener("click", async (e) => {
 
   if (editHTML6 != "") {  if (commentData.editAfterComment) {
     document.getElementById("replyComment").querySelector(".editedatt").onclick = () => {
-      showOriginal(commentData.originalText, commentData.mentions || []);
+      showOriginal(commentData.originalText, commentData.mentions || {});
     };
   }}
 
@@ -4962,15 +5026,11 @@ document.body.addEventListener("click", async (e) => {
 
       let processedText = text;
 
-      const mentionsRaw = await extractMentions(text);
-      mentionsRaw.sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
-      const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      for (const {username, uid} of mentionsRaw) {
-        if (!username || !uid) continue;
-        const regex = new RegExp(`@${escapeRegExp(username)}(?=\\s|$)`, "gi");
-        processedText = processedText.replace(regex, `@${uid}`);
+      const mentions = await extractMentions(text);
+      let mentioned = null;
+      if (!window.communityID) {
+        mentioned = Object.values(mentions).filter(Boolean);
       }
-      const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
 
       const editUntil = new Date(Date.now() + 15 * 60 * 1000);
       const detectedLanguage = await detectLanguage(processedText);
@@ -4990,6 +5050,7 @@ document.body.addEventListener("click", async (e) => {
       const sensitiveMedia = document.getElementById("rsensitive").checked;
 
       const payload = {
+        mentioned,
         text: processedText,
         originalText: text,
         communityId: window.communityID || null,
@@ -5001,7 +5062,7 @@ document.body.addEventListener("click", async (e) => {
         createdAt: serverTimestamp(),
         searchTokens: tokenize(text),
         editUntil,
-        mentions: mentions || [],
+        mentions: mentions || {},
         likeCount: 0,
         replyCount: 0,
         parentId: commentId,
@@ -5096,8 +5157,8 @@ document.body.addEventListener("click", async (e) => {
           ? await getCommunityNameById(window.communityID)
           : null;
 
-        const invalidMentions = mentions.filter(
-          (uid) => uid !== auth.currentUser.uid && uid !== commentData.uid
+        const invalidMentions = Object.values(mentions).filter(
+          (uid) => uid && uid !== auth.currentUser.uid && uid !== commentData.uid
         );
 
         if (isPrivateParent && invalidMentions.length > 0) {
@@ -5106,7 +5167,7 @@ document.body.addEventListener("click", async (e) => {
 
         if (!isPrivateParent) {
           await Promise.all(
-            mentions.map(async (uid) => {
+            Object.values(mentions).filter(Boolean).map(async (uid) => {
               if (uid === commentData.uid) return;
 
               if (window.communityID && !window.isOnPrivate) {
@@ -5305,7 +5366,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
   }
 
   const { displayName: displayName3, username: username3, avatar: avatar3, d } = await getUserData(data.uid);
-  const parsedText1 = await parseMentionsToLinks(data.text, data.mentions || []);
+  const parsedText1 = await parseMentionsToLinks(data.text, data.mentions || {});
   const defaultLanguage = getDefaultLanguage();
   const isTranslate = isTranslateEnabled();
 
@@ -5418,14 +5479,14 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
       `;
     } else {
       ownerHTML1 = `
-        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
+        <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item comment-owner" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
           <img loading='lazy' src="${escapeHTML(avatar3)}" onerror="this.src='/image/default-avatar.jpg'" class="avatar comment-avatar" style="z-index:1">
           <div style="display:flex;flex-direction:column;width:100%">
             <div class="flex comment-header" style="gap:10px;margin:0;">
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${data.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(data.mentions && data.mentions.includes(auth.currentUser.uid)) ?
+                  `${(data.mentions && Object.values(data.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -5498,7 +5559,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
   }
   if (editHTML4 != "") { if (data.editAfterComment) {
     el.querySelector(".editedatt").onclick = () => {
-      showOriginal(data.originalText, data.mentions || []);
+      showOriginal(data.originalText, data.mentions || {});
     };
   }}
 }
@@ -5620,7 +5681,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
 
     const commentLikeCount = d.likeCount || 0;
     const vidId = `vid-${commentId}-${Math.random().toString(36).slice(2,8)}`;
-    const parsedText = await parseMentionsToLinks(d.text, d.mentions || []);
+    const parsedText = await parseMentionsToLinks(d.text, d.mentions || {});
     let donationHTML = "";
     let ownerHTML = "";
 
@@ -5794,7 +5855,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${d.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(d.mentions && d.mentions.includes(auth.currentUser.uid)) ?
+                  `${(d.mentions && Object.values(d.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -5874,7 +5935,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
     }
     if (editHTML3 != "") { if (d.editAfterComment) {
       commentHTML.querySelector(".editedatt").onclick = () => {
-        showOriginal(d.originalText, d.mentions || []);
+        showOriginal(d.originalText, d.mentions || {});
       };
     }}
   }
@@ -6487,7 +6548,7 @@ document.body.addEventListener("click", async (e) => {
     if (commentSnap.exists()) {
       c = commentSnap.data();
       authorUid = c.uid;
-      const parsedCommentText = await parseMentionsToLinks(c.text || "", c.mentions || []);
+      const parsedCommentText = await parseMentionsToLinks(c.text || "", c.mentions || {});
       let username1 = "unknown";
       let avatar1 = "/image/default-avatar.jpg";
       let displayName1 = "Unnamed";
@@ -6567,7 +6628,7 @@ document.body.addEventListener("click", async (e) => {
         <div class=flex style="display:Flex;gap:5px;">
           ${c.likedByCreator === true ? 
             `<img style="margin-right:-3px" src="/image/star.svg">` :
-            `${(c.mentions && c.mentions.includes(auth.currentUser.uid)) ?
+            `${(c.mentions && Object.values(c.mentions).includes(auth.currentUser.uid)) ?
               `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
               ""
             }`
@@ -6593,7 +6654,7 @@ document.body.addEventListener("click", async (e) => {
       titleHTML = `<h3 style="margin:10px 0;margin-bottom:5px;">${escapeHTML(t.title)}</h3>`;
     }
 
-    parsedText = await parseMentionsToLinks(t.text || "", t.mentions || []);
+    parsedText = await parseMentionsToLinks(t.text || "", t.mentions || {});
     if (t.edited) {
       editHTML5 = `
         <img src="/image/editicon.svg" class="editedatt1 editedatt" title="edited at ${formatTime(t.edited)}. ${t.editAfterComment ? "click me" : ""}"> 
@@ -6656,7 +6717,7 @@ document.body.addEventListener("click", async (e) => {
           </div>
         <div>
         <div class=flex style="display:Flex;gap:5px;">
-          ${(t.mentions && t.mentions.includes(auth.currentUser.uid)) ?
+          ${(t.mentions && Object.values(t.mentions).includes(auth.currentUser.uid)) ?
             `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
             ""
           }
@@ -6677,12 +6738,12 @@ document.body.addEventListener("click", async (e) => {
 
   if (editHTML7 != "") { if (c.editAfterComment) {
     document.getElementById("retweetOriginal").querySelector(".edit1").onclick = () => {
-      showOriginal(c.originalText, c.mentions || [])
+      showOriginal(c.originalText, c.mentions || {})
     };
   }}
   if (editHTML5 != "") { if (t.editAfterComment) {
     document.getElementById("retweetOriginal").querySelector(".editedatt1").onclick = () => {
-      showOriginal(t.originalText, t.mentions || [], t.originalTitle);
+      showOriginal(t.originalText, t.mentions || {}, t.originalTitle);
     };
   }}
 });
@@ -6828,17 +6889,14 @@ sendRetweet.onclick = async () => {
     if (document.getElementById("replyPermissionMentioned").checked === true) {
       permission = "mentioned";
     }
-    const mentionsRaw = await extractMentions(text);
-    let processedText = text;
 
-    mentionsRaw.sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
-    const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    for (const {username, uid} of mentionsRaw) {
-      if (!username || !uid) continue;
-      const regex = new RegExp(`@${escapeRegExp(username)}(?=\\s|$)`, "gi");
-      processedText = processedText.replace(regex, `@${uid}`);
+    const mentions = await extractMentions(text);
+    let mentioned = null;
+    if (!window.communityID) {
+      mentioned = Object.values(mentions).filter(Boolean);
     }
-    const mentions = [...new Set(mentionsRaw.map(m => m.uid).filter(Boolean))];
+
+    let processedText = text;
 
     const isCommentRetweet = !!selectedCommentRetweet;
 
@@ -6851,9 +6909,12 @@ sendRetweet.onclick = async () => {
     const muteNotif = document.getElementById("rtmute").checked;
     const noPrivateReply = !document.getElementById("rtprivateOK").checked;
     const sensitiveMedia = document.getElementById("sensitive").checked;
+    const noNotify = document.getElementById("rtnonotify").checked;
 
     let retweetData = {
+      mentioned,
       muteNotif,
+      archived: false,
       sensitiveMedia,
       noPrivateReply,
       text: processedText,
@@ -6990,7 +7051,7 @@ sendRetweet.onclick = async () => {
       const tweetText = data1.originalText || data1.text;
       const notifyId = (window.communityID && !postedToMain) ? communityPostRef.id : tweetRef.id;
 
-      if (data1.muteNotif != true) {
+      if (data1.muteNotif != true && !noNotify) {
         if (isCommentRetweet) {
           if (window.communityID) {
             const communityName = await getCommunityNameById(window.communityID);
@@ -7029,12 +7090,8 @@ sendRetweet.onclick = async () => {
         : null;
 
       await Promise.all(
-        mentions.map(async (uid) => {
+        Object.values(mentions).filter(Boolean).map(async (uid) => {
           if (!window.communityID) {
-            await setDoc(doc(db, "users", uid, "mentioned", tweetRef.id), { 
-              mentionedAt: new Date() 
-            });
-
             if (data1.mediaType === "image") {
               return sendMentionNotification(tweetRef.id, uid, tweetText, tweetText, data1.media);
             } else {
@@ -7051,25 +7108,23 @@ sendRetweet.onclick = async () => {
           }
 
           if (window.communityID && window.isOnPrivate) {
-            const userDoc = await getDoc(doc(db, "users", uid));
+            const communitySnap = await getDoc(doc(db, "communities", window.communityID));
 
-            if (!userDoc.exists()) return;
-
-            const userCommunities = userDoc.data().communities || [];
-
-            if (userCommunities.includes(window.communityID)) {
-              if (data1.mediaType === "image") {
-                return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText, data1.media);
+            if (communitySnap.exists()) {
+              if (communitySnap.data().members.includes(uid)) {
+                if (data1.mediaType === "image") {
+                  return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText, data1.media);
+                } else {
+                  return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText);
+                }
               } else {
-                return sendCommunityMentionNotification(tweetRef.id, uid, window.communityID, communityName, tweetText);
+                info(
+                  "x",
+                  "insufficient permission",
+                  "user is not notified due to this is a private community and the user doesn't have permission to view it."
+                );
+                return;
               }
-            } else {
-              info(
-                "x",
-                "insufficient permission",
-                "user is not notified due to this is a private community and the user doesn't have permission to view it."
-              );
-              return;
             }
           }
         })
@@ -7170,6 +7225,7 @@ sendRetweet.onclick = async () => {
     document.getElementById("shareToFollowers1").checked = false;
     document.getElementById("rtmute").checked = false;
     document.getElementById("rtsensitive").checked = false;
+    document.getElementById("rtnonotify").checked = false;
     document.getElementById("rtprivateOK").checked = true;
     document.getElementById("replyPermission1Everyone").checked = true;
     document.getElementById("replyPermission1Mentioned").checked = false;
@@ -7192,9 +7248,15 @@ export async function waitForAuth() {
   });
 }
 
-window.addEventListener("DOMContentLoaded", async () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+
+async function init() {
   const user = await waitForAuth();
-  if (!user) return log("red", "user isn't logged in");
+  if (!user) return info("x", "Unauthorized", "user is not logged in");
   const path = window.location.pathname;
   const communityMatch = path.match(/^\/community\/([^/]+)\/wynt\/([^/]+)$/);
   const normalMatch = path.match(/^\/wynt\/([^/]+)$/);
@@ -7217,7 +7279,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const tweetId = normalMatch[1];
     viewTweet(tweetId);
   }
-});
+}
 
 document.body.addEventListener("click", async (e) => {
   const copytext = e.target.closest(".text-copy");
@@ -7422,39 +7484,68 @@ document.body.addEventListener("click", async (e) => {
 });
 
 document.getElementById("tweetSS").addEventListener("click", async () => {
-  if (window.isOnPrivate) return log("red", "screenshotting is disabled in private communities");
+  if (window.isOnPrivate) {
+    return log("red", "screenshotting is disabled in private communities");
+  }
+
   loading.classList.add("show");
 
-  const target = document.getElementById("appendTweet");
-  await document.fonts.ready;
+  try {
+    const target = document.getElementById("appendTweet");
+    await document.fonts.ready;
 
-  const canvas = await html2canvas(target, {
-    backgroundColor: "#000000",
-    scale: Math.min(window.devicePixelRatio, 2),
-    useCORS: true,
-    allowTaint: false,
-    scrollX: 0,
-    scrollY: -window.scrollY
-  });
+    const originalCanvas = await html2canvas(target, {
+      backgroundColor: "#000000",
+      scale: Math.min(window.devicePixelRatio, 2),
+      useCORS: true,
+      allowTaint: false,
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
 
-  canvas.toBlob((blob) => {
-    if (!blob) {
+    const topPadding = 70;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = originalCanvas.width;
+    canvas.height = originalCanvas.height + topPadding;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "grey";
+    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
+
+    ctx.drawImage(originalCanvas, 0, topPadding);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        loading.classList.remove("show");
+        log("red", "failed to create blob");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "screenshot.jpg";
+      link.click();
+
+      URL.revokeObjectURL(url);
       loading.classList.remove("show");
-      log("red", "failed to create blob");
-      return;
-    }
+      log("green", "screenshoted");
+    }, "image/jpeg", 0.92);
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "screenshot.jpg"; 
-    link.click();
-
-    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
     loading.classList.remove("show");
-    log("green", "screenshoted");
-  }, "image/jpeg", 0.92); 
+    log("red", "failed to create screenshot");
+  }
 });
 
 document.getElementById("commentSS").addEventListener("click", async () => {
@@ -7462,36 +7553,62 @@ document.getElementById("commentSS").addEventListener("click", async () => {
   if (window.isPrivateReply) return log("red", "screenshotting is disabled in private replies");
   loading.classList.add("show");
 
-  const target = document.getElementById("appendComment");
-  await document.fonts.ready;
+  try {
+    const target = document.getElementById("appendComment");
+    await document.fonts.ready;
 
-  const canvas = await html2canvas(target, {
-    backgroundColor: "#000000",
-    scale: Math.min(window.devicePixelRatio, 2), 
-    useCORS: true,
-    allowTaint: false,
-    scrollX: 0,
-    scrollY: -window.scrollY
-  });
+    const originalCanvas = await html2canvas(target, {
+      backgroundColor: "#000000",
+      scale: Math.min(window.devicePixelRatio, 2),
+      useCORS: true,
+      allowTaint: false,
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
 
-  canvas.toBlob((blob) => {
-    if (!blob) {
+    const topPadding = 70;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = originalCanvas.width;
+    canvas.height = originalCanvas.height + topPadding;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "grey";
+    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
+
+    ctx.drawImage(originalCanvas, 0, topPadding);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        loading.classList.remove("show");
+        log("red", "failed to create blob");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "screenshot.jpg";
+      link.click();
+
+      URL.revokeObjectURL(url);
       loading.classList.remove("show");
-      log("red", "failed to create blob");
-      return;
-    }
+      log("green", "screenshoted");
+    }, "image/jpeg", 0.92);
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "screenshot.jpg"; 
-    link.click();
-
-    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
     loading.classList.remove("show");
-    log("green", "screenshoted");
-  }, "image/jpeg", 0.92); 
+    log("red", "failed to create screenshot");
+  }
 });
 
 let quoteState = {
@@ -7610,6 +7727,7 @@ async function loadMoreQuotes() {
   let q = query(
     baseRef,
     where(whereField, "==", commentId || tweetId),
+    where("archived", "!=", true),
     orderBy("likeCount", "desc"),
     ...(lastDoc ? [startAfter(lastDoc)] : []),
     limit(5)

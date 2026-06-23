@@ -11,12 +11,12 @@ body {
 }
 
 #form {
-  border-radius: 20px;
-  border: 1px solid white;
   padding: 10px 40px 30px 30px;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
   width: 100%;
-  max-width: 300px;
+}
+
+#illustration {
+  display: none;
 }
 
 button {
@@ -48,7 +48,8 @@ h1 {
   background: #070709;
   color: white;
   overflow: hidden;
-  border: 1px solid white;
+  border: 1px solid grey;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
 .btn-11:before {
@@ -100,4 +101,65 @@ a {
 
 #tosCheckbox {
   margin-top: 6px;
+}
+
+#card {
+  border-radius: 20px;
+  border: 1px solid white;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  width: 100%;
+  overflow: hidden;
+  background: #070709;
+  display: flex;
+}
+
+@media (min-width: 860px) {
+  #card {
+    max-width: 720px;
+    align-items: stretch;
+    border-radius: 24px;
+    height: 400px;
+    border: 1px solid grey;
+    background: black;
+  }
+  
+
+  #form {
+    max-width: 320px;
+    padding: 36px 40px 40px 40px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: none;
+  }
+
+  button {
+    margin-top: auto;
+  }
+
+  h1 {
+    margin-top: 0;
+  }
+
+  #illustration {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 75px;
+    padding-left: 30px;
+    min-width: 320px;
+    box-sizing: border-box;
+  }
+
+  #illustration img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    opacity: 0.9
+  }
 }

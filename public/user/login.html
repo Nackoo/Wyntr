@@ -13,16 +13,22 @@
 </head>
 
 <body>
-  <div id="form">
-    <h1>Login</h1>
-    <p style="margin-top:0;text-align:left;line-height:1.5;">Login to continue using Wyntr.</p>
-    <div style="display:flex;gap:8px;align-items:flex-start;">
-      <input type="checkbox" id="tosCheckbox">
-      <span>You agree to Wyntr <a href="tos" target="_blank">Terms of service</a> and our <a href="privacy" target="_blank">Privacy policy</a></span>
+  <div id="card">
+    <div id="form">
+      <h1>Login</h1>
+      <p style="margin-top:0;text-align:left;line-height:1.5;">Login to continue using Wyntr.</p>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <input type="checkbox" id="tosCheckbox">
+        <span>You agree to Wyntr <a href="tos" target="_blank">Terms of service</a> and our <a href="privacy" target="_blank">Privacy policy</a></span>
+      </div>
+      <br><br>
+      <p id="error" style="color: #db1d23; display: none; margin-top: 10px;">You must agree to above to log in.</p>
+      <button id="loginBtn" class="fill custom-btn btn-11" disabled>Google Login</button>
     </div>
-    <br><br>
-    <p id="error" style="color: #db1d23; display: none; margin-top: 10px;">You must agree to above to log in.</p>
-    <button id="loginBtn" class="fill custom-btn btn-11" disabled>Google Login</button>
+
+    <div id="illustration">
+      <img src="/image/w.png" alt="">
+    </div>
   </div>
 
   <script type="module" src="script/login.js"></script>

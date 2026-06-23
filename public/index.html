@@ -19,7 +19,7 @@
   <script src="/lib/script/base91.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script type="module">
-    import { log } from "./script/texts.js";
+    import { log } from "/script/texts.js";
 
     if (location.hash === '#debug') {
       eruda.init();
@@ -30,7 +30,8 @@
 
 <div id="loadingO" class="overlay" style="background:var(--dark);z-index:100">
   <img height="120" src="/image/icon.png">
-  <div style="gap:10px;display:flex;align-items:center;position:absolute;right:50%;left:50%;transform:translateX(-50%);bottom:25px;width:fit-content">
+  <div style="position:absolute;bottom:40px;width:100%;text-align:center;color:grey">
+    Alpha testing
   </div>
 </div>
 
@@ -76,6 +77,18 @@
       </header>
       <br>
       <div id="blockList"></div>
+      <br><br><br><br><br><br>
+    </div>
+  </div>
+
+  <div id="archiveOverlay" class="useroverlay hidden">
+    <div class="user-box">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
+        <button onclick="document.getElementById('archiveOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
+        <input style="margin-right:20px;" type="text" placeholder="search archives">
+      </header>
+      <br>
+      <div id="archiveList"></div>
       <br><br><br><br><br><br>
     </div>
   </div>
@@ -349,7 +362,7 @@
             <div id="profile-highlights-container"></div>
             <div class="tab-container" style="border-bottom: var(--border);padding:0 20px;margin:0 -20px;">
               <button class="tab2 active" data-target="youList" style="margin:0">Wynts</button>
-              <button class="tab2" data-target="mentionedList" style="margin:0">Tagged</button>
+              <button class="tab2" data-target="mentionedList" style="margin:0">Mentioned</button>
             </div>
           </div>
           <div id="youList" class="tab-content"></div>
@@ -529,7 +542,12 @@
               <img style="height:25px;" src="/image/shop.svg">
               <span style="color:var(--color);">Shop</span>
               <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>      
+            </button>   
+            <button class="settingsbtns" id="openArchive">
+              <img style="height:25px;" src="/image/archive.svg">
+              <span style="color:var(--color)">Archives</span>
+              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+            </button>     
             <button class="settingsbtns" id="openBlocks">
               <img style="height:25px;" src="/image/ban.svg">
               <span style="color:var(--color)">People you muted</span>
@@ -546,31 +564,8 @@
             <span id="C" style="color: grey; font-size: 16px; margin-top: -10px; display: none;">Expand settings to see more</span>
 
             <div id="B" style="display: block;">
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
-                <span style="color:grey">show translations for posts outside your language</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="isT" type="checkbox">
-                  <label for="isT" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
 
-              <div id="lp" style="display: none;">
-                
-                <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
-                  <option value="en">English</option>
-                  <option value="id">Bahasa Indonesia</option>
-                  <option value="zh">中文 (Chinese)</option>
-                  <option value="ja">日本語</option>
-                  <option value="ko">한국어</option>
-                  <option value="de">Deutsch</option>
-                  <option value="fr">Français</option>
-                  <option value="es">Español</option>
-                </select>
-              </div>
+              <span style="color:grey;display:flex;gap:10px;"><img src="/image/info.svg"> some settings might require a client restart for changes to apply.</span>
 
               <h3 style="margin:0;margin-top:10px">privacy</h3>
 
@@ -636,7 +631,7 @@
                 </div>
               </div>
 
-              <h3 style="margin:0;margin-top:10px">Accessibility</h3>
+              <h3 style="margin:0;margin-top:10px">Others</h3>
 
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
                 <span style="color:grey">Disable confirmation popup</span>
@@ -648,6 +643,32 @@
                     </span>
                   </label>
                 </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
+                <span style="color:grey">show translations for posts outside your language</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="isT" type="checkbox">
+                  <label for="isT" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="lp" style="display: none;">
+                
+                <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
+                  <option value="en">English</option>
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="zh">中文 (Chinese)</option>
+                  <option value="ja">日本語</option>
+                  <option value="ko">한국어</option>
+                  <option value="de">Deutsch</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                </select>
               </div>
 
               <!--hr style="margin:0 -13px;margin-top:17px;margin-bottom:10px;"-->
@@ -733,28 +754,23 @@
             <input style="margin-right:20px;" type="text" placeholder="search anything">
           </header>
           <div class="tab-container" style="margin-top:10px">
-            <button class="tab1 active" data-target="tweetsView">Wynts</button>
-            <button class="tab1" data-target="usersView">Users</button>
-            <button class="tab1" data-target="tagsView">tags</button>
+            <button class="tab1 active" data-target="tweetsView">Explore</button>
+            <button class="tab1" data-target="topicsView">Topics</button>
           </div>
+
           <div id="tweetsView" class="tab-content">
+            <div id="displaySkeletons"></div>
+            <div id="displayUsers"></div>
+            <div id="displayTweets"></div>
+          </div>
 
-          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-            <div style="max-width:400px;text-align:left;">
-              <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
-              <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
+          <div id="topicsView" class="tab-content hidden">
+            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+              <div style="max-width:400px;text-align:left;">
+                <h2 style="margin:0;">Feature unavailable</h2>
+                <p style="color:grey;margin:7px 0;">This feature is still being under construction and will be updated soon.</p>
+              </div>
             </div>
-          </div>
-
-          </div>
-          <div id="usersView" class="tab-content hidden">
-            <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-          </div>
-          <div id="usersSearch" class="tab-content hidden">
-            <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-          </div>
-          <div id="tagsView" class="tab-content hidden">
-            <div style="margin:0 -10px"><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div><div style="margin:0 -10px"><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
           </div>
           <br><br><br>
         </div>
@@ -840,7 +856,7 @@
             <div id="highlights-container"></div>
             <div class="tab-container" style="border-bottom: var(--border);padding:0 20px;margin:0 -20px;">
               <button class="tab3 active" data-target="userList" style="margin:0;">Wynts</button>
-              <button class="tab3" data-target="usermentionedList" style="margin:0;">Tagged</button>
+              <button class="tab3" data-target="usermentionedList" style="margin:0;">Mentioned</button>
             </div>
           </div>
           <div id="userList"></div>
@@ -901,6 +917,20 @@
           <div class="menu-item dismiss-admin" style="cursor:pointer;display:none;">
             <img src="/image/ban.svg"> Resign as admin
           </div>
+        </div>
+      </div>
+
+      <div class="useroverlay hidden" id="communityArchiveOverlay" style="z-index:7">
+        <div class="user-box">
+          <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="document.getElementById('communityArchiveOverlay').classList.add('hidden')" class="close-btn" style="padding:0 !important;"><img src="/image/leftArrow.svg"></button>
+              <input style="padding:10px 10px;margin:15px 0;" id="banSearch" type="text" placeholder="search archives in this community">
+            </div>
+          </header>
+          <br>
+          <div id="communityArchiveList"></div>
+          <br><br><br><br><br><br>
         </div>
       </div>
 
@@ -1470,6 +1500,17 @@
                   </label>
                 </div>
               </div>
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span style="color:grey">Don't notify Wynt author about this</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="rtnonotify" type="checkbox">
+                  <label for="rtnonotify" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
               <h3 style="margin:0;margin-top:10px;">Who can reply</h3>
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
                 <span style="color:grey">Everyone</span>
@@ -2013,6 +2054,7 @@
   <script type="module" src="/script/commentviewer.js"></script>
   <script type="module" src="/script/community.js"></script>
   <script type="module" src="/script/blocks.js"></script> 
+  <script type="module" src="/script/archive.js"></script> 
   <script src="/lib/script/ffmpeg.min.js"></script>
   <script src="/lib/script/html2canvas.min.js"></script>
 
@@ -2047,7 +2089,7 @@
       }
     };
 
-    import { log } from "./script/texts.js";
+    import { log } from "/script/texts.js";
     
     window.addEventListener("online", () => { 
       log("green", "you're back online");

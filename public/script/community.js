@@ -9,6 +9,7 @@ import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc, 
 import { openUserSubProfile } from "./user.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { updatePostZIndex, updateCbDisplay } from "./main.js";
+import { initArchiveViewer } from "./archive.js";
 
 let lastCommunityDoc          = null;
 let hasMoreCommunities        = true;
@@ -143,19 +144,6 @@ function rebuildIndexes() {
   rules = newRules;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("comsvg").addEventListener("click", async () => {
-    document.getElementById("myCommunities").classList.remove("hidden");
-    document.querySelector(`.tab5[data-target="communityList"]`).classList.remove("active");
-    document.querySelector(`.tab5[data-target="myCommunities"]`).classList.add("active");
-    searchcom.classList.add("hidden");
-    searchMyCom.classList.remove("hidden");
-    loadingMyCom = true;
-    await loadMyCommunities();
-    loadingMyCom = false;
-  });
-});
-
 document.querySelectorAll(".tab5").forEach(tab5 => {
   tab5.addEventListener("click", () => {
     document.querySelectorAll(".tab5").forEach(t => t.classList.remove("active"));
@@ -274,7 +262,7 @@ export async function loadMyCommunities(reset = false) {
           <img src="/image/loader.svg" height="20" style="margin-left:auto;" class="hidden">
         </div>
 
-        <span style="color:grey;font-size:14px;display:flex;gap:5px;">
+        <span style="color:grey;font-size:14px;display:flex;gap:5px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
           ${formatNumber(cData.posts)} posts •
           by @${escapeHTML(cData.creatorName)} •
           ${formatNumber(cData.membersCount)} members
@@ -1034,6 +1022,7 @@ export async function openCommunity(communityId) {
       <div style="display:flex;align-items:center;gap:10px;margin-top:13px;">
         ${!isJoined && cData.private === true ? "" : `<button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openMembers">members (${cData.membersCount})</button>`}
         ${canModerate ? `<button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openBans">bans</button>` : ""}
+        <button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;" id="openComArchives">archives</button>
         <button class="link" style="text-decoration:underline;font-size:15px;color:var(--color);margin:0;margin-left:auto;" id="openComRule">rules</button>
       </div>
       </div>
@@ -1041,6 +1030,7 @@ export async function openCommunity(communityId) {
       <br><br><br><br><br><br>
     </div>
   `;
+
   overlay.querySelector(".close-btn").addEventListener("click", () => {
     window.communityID = null;
     window.isOnPrivate = false;
@@ -1136,6 +1126,16 @@ export async function openCommunity(communityId) {
   });
 
   document.body.appendChild(overlay);
+
+  initArchiveViewer({
+      openButton: document.getElementById("openComArchives"), 
+      overlay: document.getElementById("communityArchiveOverlay"), 
+      listElement: document.getElementById("communityArchiveList"),
+      scrollBox: document.querySelector("#communityArchiveOverlay .user-box"),
+      searchInput: document.querySelector("#communityArchiveOverlay input"),
+      getCollectionRef: () => collection(db, "communities", window.communityID, "posts"),
+      emptyMessage: "No archived community posts found"
+  });
 
   if (document.getElementById("openMembers")) {
     document.getElementById("openMembers").addEventListener("click", () => {
@@ -2292,9 +2292,18 @@ async function waitForAuth() {
   });
 }
 
-window.addEventListener("DOMContentLoaded", async () => {
-  const user = await waitForAuth();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
 
+async function init() {
+  document.getElementById("comsvg").addEventListener("click", async () => {
+    document.querySelector(`.tab5[data-target="myCommunities"]`).click();
+  });
+  const user = await waitForAuth();
+  if (!user) return info("x", "Unauthorized", "user is not logged in");
   const path = window.location.pathname;
   const comMatch = path.match(/^\/community\/([^/]+)$/);
   if (comMatch) {
@@ -2314,7 +2323,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     loading.classList.remove("show");
     await openCommunity(communityId);
   }
-});
+}
 
 document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) => {
     if (e.key !== "Enter") return;  
@@ -2374,8 +2383,8 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
       wrapper.innerHTML = `
         <div>
           <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
-            <div id="com-avatar" style="min-height:43px;min-width:43px;border-radius:5px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
-            <div style="display:flex;flex-direction:column;max-width:300px;">
+            <div id="com-avatar" style="min-height:43px;min-width:43px;border-radius:10px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
+            <div style="display:flex;flex-direction:column;max-width:300px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
               <strong style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;margin-bottom:3px" id="com-name">${escapeHTML(c.name)}</strong>
               <span id="com-desc" style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
                 ${escapeHTML(c.description) || "No description"}
@@ -2461,8 +2470,8 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
       wrapper.innerHTML = `
         <div>
           <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:5px;">
-            <div style="min-height:43px;min-width:43px;border-radius:5px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
-            <div style="display:flex;flex-direction:column;max-width:300px;">
+            <div style="min-height:43px;min-width:43px;border-radius:10px;background:url('${base91ToImageSrc(c.avatar)}') no-repeat center / cover"></div>
+            <div style="display:flex;flex-direction:column;max-width:300px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
               <strong>${escapeHTML(c.name)}</strong>
               <span style="color:grey;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 ${escapeHTML(c.description) || "No description"}
@@ -2570,7 +2579,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
         const pinnedRef = doc(db, "communities", communityId, "posts", pinnedId);
         const pinnedSnap = await getDoc(pinnedRef);
 
-        if (pinnedSnap.exists()) {
+        if (pinnedSnap.exists() && pinnedSnap.data().archived == false) {
           const label = document.createElement("div");
           label.className = "pinned-label";
           label.innerHTML = `
@@ -2601,6 +2610,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
     q = query(
       baseRef,
       orderBy("createdAt", "desc"),
+      where("archived", "!=", "true"),
       startAfter(lastVisibleCommunityTweet),
       limit(3)
     );
@@ -2608,6 +2618,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
     q = query(
       baseRef,
       orderBy("createdAt", "desc"),
+      where("archived", "!=", "true"),
       limit(3)
     );
   }
@@ -2764,6 +2775,7 @@ async function searchTweets(term, reset = true) {
 
   const base = [
     where("searchTokens", "array-contains-any", searchList),
+    where("archived", "!=", "true"),
     orderBy("createdAt", "desc"),
     limit(TWEETS_PAGE),
   ];

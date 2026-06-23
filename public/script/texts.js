@@ -368,7 +368,7 @@ function applyReadMoreLogic(container) {
   });
 }
 
-async function parseMentionsToLinks(text, mentions = []) {
+function parseMentionsToLinks(text, mentions = {}) {
   let tokenIndex = 0;
   const tokens = {};
   const token = () => `__TOKEN_${tokenIndex++}__`;
@@ -390,30 +390,21 @@ async function parseMentionsToLinks(text, mentions = []) {
     return id;
   });
 
-  if (mentions.length > 0) {
-    const results = await Promise.all(
-      mentions.map(async (uid) => {
-        const userSnap = await getDoc(doc(db, "users", uid));
-        if (!userSnap.exists()) return null;
+  for (const [displayName, uid] of Object.entries(mentions || {})) {
+    const id = token();
 
-        const data = userSnap.data();
-        const displayName = data.displayName || "unknown";
+    if (uid) {
+      tokens[id] = `<span class="user-link" data-uid="${uid}" style="color:#04aa63; cursor:pointer">@${escapeHTML(displayName)}</span>`;
+    } else {
+      tokens[id] = `@${escapeHTML(displayName)}`;
+    }
 
-        return { uid, displayName };
-      })
+    const regex = new RegExp(
+      `@${displayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "g"
     );
 
-    for (const res of results) {
-      if (!res) continue;
-
-      const { uid, displayName } = res;
-
-      const id = token();
-      tokens[id] = `<span class="user-link" data-uid="${uid}" style="color:#04aa63; cursor:pointer">@${escapeHTML(displayName)}</span>`;
-
-      const regex = new RegExp(`@${uid}\\b`, "g");
-      text = text.replace(regex, id);
-    }
+    text = text.replace(regex, id);
   }
 
   text = text.replace(/#(\w+)/g, (match, tag) => {

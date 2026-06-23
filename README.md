@@ -15,24 +15,33 @@ read [Firestore rules](/firestore_rules.txt)
 
 ## firestore indexes
 
-| Collection ID | Fields indexed                                               | Query scope  |
-|---------------|--------------------------------------------------------------|--------------|
-| comments      | `parentId ↑`, `likeCount ↓`, `createdAt ↓`, `__name__ ↓`     | Collection   |
-| comments      | `likeCount ↓`, `createdAt ↓`, `__name__ ↓`                   | Collection   |
-| comments      | `parentId ↑`, `uid ↑`, `__name__ ↑`                          | Collection   |
-| comments      | `likeCount ↓`, `createdAt ↑`, `__name__ ↑`                   | Collection   |
-| comments      | `searchTokens []`. `parentId ↑`, `createdAt ↓`, `__name__ ↓` | Collection   |
-| communities   | `lowerCase ↑`, `createdAt ↓`, `__name__ ↓`                   | Collection   |
-| communities   | `members []`, `lastActivity ↓`, `__name__ ↓`                 | Collection   |
-| communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                    | Collection   |
-| posts         | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
-| posts         | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   |
-| posts         | `retweetOfComment.commentId ↑`, `likeCount ↓`, `__name__ ↓`  | Collection   |
-| tweets        | `uid ↑`, `createdAt ↓`, `__name__ ↓`                         | Collection   |
-| tweets        | `likeCount ↓`, `createdAt ↓`, `__name__ ↓`                   | Collection   |
-| tweets        | `searchTokens []`, `createdAt ↓`, `__name__ ↓`               | Collection   |
-| tweets        | `retweetOf ↑`, `likeCount ↓`, `__name__ ↓`                   | Collection   |
-| tweets        | `retweetOfComment.commentId ↑`, `likeCount ↓`, `__name__ ↓`  | Collection   |
+| Collection ID | Fields indexed                                                            | Query scope  |
+|---------------|---------------------------------------------------------------------------|--------------|
+| comments      | `parentId ↑`, `likeCount ↓`, `createdAt ↓`, `__name__ ↓`                  | Collection   |
+| comments      | `likeCount ↓`, `createdAt ↓`, `__name__ ↓`                                | Collection   |
+| comments      | `parentId ↑`, `uid ↑`, `__name__ ↑`                                       | Collection   |
+| comments      | `likeCount ↓`, `createdAt ↑`, `__name__ ↑`                                | Collection   |
+| comments      | `searchTokens []`. `parentId ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
+| communities   | `lowerCase ↑`, `createdAt ↓`, `__name__ ↓`                                | Collection   |
+| communities   | `members []`, `lastActivity ↓`, `__name__ ↓`                              | Collection   |
+| communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                                 | Collection   |
+| posts         | `searchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`              | Collection   |
+| posts         | `createdAt ↓`, `archived ↓`, `__name__ ↓`                                 | Collection   |
+| posts         | `archived ↑`, `createdAt ↓`, `__name__ ↓`                                 | Collection   |
+| posts         | `retweetOf ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓`                  | Collection   |
+| posts         | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
+| posts         | `retweetOfComment.commentId ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓` | Collection   |
+| tweets        | `uid ↑`, `createdAt ↓`, `__name__ ↓`                                      | Collection   |
+| tweets        | `likeCount ↓`, `createdAt ↓`, `__name__ ↓`                                | Collection   |
+| tweets        | `searchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`              | Collection   |
+| tweets        | `retweetOf ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓`                  | Collection   |
+| tweets        | `retweetOfComment.commentId ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓` | Collection   |
+| tweets        | `mentioned []`, `createdAt ↓`, `__name__ ↓`                               | Collection   |
+| tweets        | `createdAt ↓`, `archived ↓`, `__name__ ↓`                                 | Collection   |
+| tweets        | `archived ↑`, `createdAt ↓`, `__name__ ↓`                                 | Collection   |
+| tweets        | `uid ↑`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                        | Collection   |
+| tweets        | `mentioned []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                 | Collection   |
+| tweets        | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
 
 ## supabase policies
 

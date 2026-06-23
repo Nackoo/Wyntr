@@ -279,7 +279,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -353,7 +353,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
             ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
               `${comment.likedByCreator === true ? 
                 `<img style="margin-right:-3px" src="/image/star.svg">` :
-                `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                   `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                   ""
                 }`
@@ -414,7 +414,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -473,7 +473,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -529,7 +529,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -710,157 +710,173 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
         `;
       }
       
-      if (d.banned === true && currentUserRole != "admin") {
-        retweetHTML = `
-          <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
-            <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-              <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-              <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">Suspended user</strong>
-              <span style="color:grey;font-size:12px;">${formatDate(rDate)}</span>
-            </div>
-            <div class="quoted-body" style="margin-bottom:22px;">
-              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a suspended user</p>
-            </div>
-          </div>`;
+      if (rt.archived) {
+      retweetHTML = `
+        <div class="quoted-comment">
+          <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+          <img loading='lazy' class="avatar" src="/image/default-avatar.jpg" width="30">
+          <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer">System</strong>
+            <span style="color:grey;font-size:12px;">
+              <img loading='lazy' src="/image/icon.png" height="20" width="20" style="margin:0; margin-left:-5px;">
+            </span>
+          </div>
+          <div class="quoted-body" style="margin-bottom:22px;">
+            <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;"><i>this Wynt is archived</i></p>
+          </div>
+        </div>`;
       } else {
-        if (hasImage && hasText) {
-          let parsedText;
-          if (t.retweettext) {
-            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
-          } else {
-            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
-          }
-
-          const rtsrc = base91ToImageSrc(rt.media);
-          const rtcontainsSpoiler = rt.sensitiveMedia === true;
-
+        if (d.banned === true && currentUserRole != "admin") {
           retweetHTML = `
             <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
                 <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
-                <div style="margin-left:auto">
-                  <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
-                    <img loading='lazy' src="/image/three-dots.svg">
-                  </span>
-                </div>
-              </div>
-              <div class="quoted-body">
-                ${titleHTML1}
-                <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                ${translateHTML2} 
-                ${baninfo}
-                ${pollHTML2}
-                ${rtcontainsSpoiler ?
-                  `<div class="attachment spoiler-media" onclick="this.classList.add('revealed')" style="margin-bottom:20px;">
-                    <div class="spoiler-overlay">
-                      <div class="spoilertxt">sensitive</div>
-                    </div>
-                    <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                  </div>` :
-                  `<div class="attachment" style="margin-bottom:20px;">
-                    <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                  </div>`
-                }
-                ${info}
-              </div>
-            </div>` ;
-        } else if (hasVideo && hasText) {
-          let parsedText;
-          if (t.retweettext) {
-            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
-          } else {
-            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
-          }
-          vidRtId = rt.id ? `vid-${rt.id}` : `vid-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-          const rtcontainsSpoiler = rt.sensitiveMedia === true;
-
-          retweetHTML = `
-            <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
-              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
-                <div style="margin-left:auto">
-                  <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
-                    <img loading='lazy' src="/image/three-dots.svg">
-                  </span>
-                </div>
-              </div>
-              <div class="quoted-body">
-                ${titleHTML1}
-                <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                ${translateHTML2} 
-                ${baninfo}
-                ${pollHTML2}
-                ${rtcontainsSpoiler ?
-                  `<div class="attachment spoiler-media" style="margin-bottom:15px" onclick="this.classList.add('revealed')">
-                    <div class="spoiler-overlay">
-                      <div class="spoilertxt">sensitive</div>
-                    </div>
-                    <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>` :
-                  `<div class="attachment" style="margin-bottom:15px">
-                    <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>`
-                }
-                ${info}
-              </div>
-            </div>
-            `;
-          getSupabaseVideo(rt.media, vidRtId);
-        } else {
-          let parsedText;
-          if (t.retweettext) {
-            parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
-          } else {
-            parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
-          }
-          
-          retweetHTML = `
-          <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
-              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(rt.mentions && rt.mentions.includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
-                <div style="margin-left:auto">
-                  <span class="menubtn" data-text="${rt.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
-                    <img loading='lazy' src="/image/three-dots.svg">
-                  </span>
-                </div>
+                <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">Suspended user</strong>
+                <span style="color:grey;font-size:12px;">${formatDate(rDate)}</span>
               </div>
               <div class="quoted-body" style="margin-bottom:22px;">
-                ${titleHTML1}
-                <p style="margin: 0;margin-bottom:15px;">${parsedText}</p> 
-                ${translateHTML2} 
-                ${baninfo}
-                ${pollHTML2}
-                ${info}
+                <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a suspended user</p>
               </div>
             </div>`;
+        } else {
+          if (hasImage && hasText) {
+            let parsedText;
+            if (t.retweettext) {
+              parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
+            } else {
+              parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
+            }
+
+            const rtsrc = base91ToImageSrc(rt.media);
+            const rtcontainsSpoiler = rt.sensitiveMedia === true;
+
+            retweetHTML = `
+              <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
+                  <div style="margin-left:auto">
+                    <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                      <img loading='lazy' src="/image/three-dots.svg">
+                    </span>
+                  </div>
+                </div>
+                <div class="quoted-body">
+                  ${titleHTML1}
+                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                  ${translateHTML2} 
+                  ${baninfo}
+                  ${pollHTML2}
+                  ${rtcontainsSpoiler ?
+                    `<div class="attachment spoiler-media" onclick="this.classList.add('revealed')" style="margin-bottom:20px;">
+                      <div class="spoiler-overlay">
+                        <div class="spoilertxt">sensitive</div>
+                      </div>
+                      <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                    </div>` :
+                    `<div class="attachment" style="margin-bottom:20px;">
+                      <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                    </div>`
+                  }
+                  ${info}
+                </div>
+              </div>` ;
+          } else if (hasVideo && hasText) {
+            let parsedText;
+            if (t.retweettext) {
+              parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
+            } else {
+              parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
+            }
+            vidRtId = rt.id ? `vid-${rt.id}` : `vid-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+            const rtcontainsSpoiler = rt.sensitiveMedia === true;
+
+            retweetHTML = `
+              <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
+                  <div style="margin-left:auto">
+                    <span class="menubtn" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${rt.text}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                      <img loading='lazy' src="/image/three-dots.svg">
+                    </span>
+                  </div>
+                </div>
+                <div class="quoted-body">
+                  ${titleHTML1}
+                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                  ${translateHTML2} 
+                  ${baninfo}
+                  ${pollHTML2}
+                  ${rtcontainsSpoiler ?
+                    `<div class="attachment spoiler-media" style="margin-bottom:15px" onclick="this.classList.add('revealed')">
+                      <div class="spoiler-overlay">
+                        <div class="spoilertxt">sensitive</div>
+                      </div>
+                      <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>` :
+                    `<div class="attachment" style="margin-bottom:15px">
+                      <video id="${vidRtId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>`
+                  }
+                  ${info}
+                </div>
+              </div>
+              `;
+            getSupabaseVideo(rt.media, vidRtId);
+          } else {
+            let parsedText;
+            if (t.retweettext) {
+              parsedText = await parseMentionsToLinks(t.retweettext, rt.mentions || []);
+            } else {
+              parsedText = await parseMentionsToLinks(rt.text, rt.mentions || []);
+            }
+            
+            retweetHTML = `
+            <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || t.communityId || null}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img loading='lazy' class="avatar" src="${escapeHTML(rtAvatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(rt.mentions && Object.values(rt.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${rt.uid}" style="cursor:pointer">${escapeHTML(rtDisplayName || 'Unknown')}</strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${rtUsername} •</span> ${formatDate(rDate)} ${editHTML1}</span>
+                  <div style="margin-left:auto">
+                    <span class="menubtn" data-text="${rt.text}" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${t.retweetOf || t.originalId}" data-author="${rt.uid}">
+                      <img loading='lazy' src="/image/three-dots.svg">
+                    </span>
+                  </div>
+                </div>
+                <div class="quoted-body" style="margin-bottom:22px;">
+                  ${titleHTML1}
+                  <p style="margin: 0;margin-bottom:15px;">${parsedText}</p> 
+                  ${translateHTML2} 
+                  ${baninfo}
+                  ${pollHTML2}
+                  ${info}
+                </div>
+              </div>`;
+          }
         }
       }
     } else {
@@ -986,13 +1002,14 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
     <div class="flex" style="gap:10px;margin:0;">
       <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
       ${x.suspended && x.suspendedUntil > Timestamp.now() ? "⚠️" :
-        `${(t.mentions && t.mentions.includes(auth.currentUser.uid)) ?
+        `${((t.mentions && Object.values(t.mentions).includes(auth.currentUser.uid))) ?
           `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
           ""
         }`
       }
       <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
       <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
+      ${t.archived ? `<img title="archived" src="/image/archive.svg">` : ""}
       <span style="cursor:pointer;margin-left:auto" data-community-id="${comid || t.sharedFromCommunity || t.communityId || null}" data-id=${tweetId} data-text="${t.text}" data-author="${t.uid}" ${isStored ? `data-stored="true"` : ""} class="menubtn"><img src="/image/three-dots.svg"></span>
     </div>
     ${communityHTML}
@@ -1141,7 +1158,7 @@ async function loadTweetRecursive(tweetId, container, comid) {
   if (!tweetDoc.exists()) {
     document.getElementById("commentList").innerHTML = "";
     container.innerHTML = `
-      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;padding:0 20px;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>
     `;
     return null;
   }
@@ -1263,7 +1280,7 @@ document.body.addEventListener("click", async (e) => {
   if (!tweetSnap.exists()) {
     document.getElementById("commentList").innerHTML = "";
     box.innerHTML = `
-      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;padding:0 20px;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this Wynt have been deleted or you don't have permission to view it.</p></div></div>
     `;
     return;
   }
@@ -1394,6 +1411,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
 
     let commentRef, quotedHTML, likeRef;
     let likeId = "";
+    let baninfo = "";
 
     if (window.communityID != null) {
       commentRef = doc(db, "communities", window.communityID, "posts", tweetId, "comments", parentId);
@@ -1565,7 +1583,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1639,7 +1657,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
             ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
               `${comment.likedByCreator === true ? 
                 `<img style="margin-right:-3px" src="/image/star.svg">` :
-                `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                   `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                   ""
                 }`
@@ -1700,7 +1718,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1759,7 +1777,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1815,7 +1833,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${comment.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(comment.mentions && comment.mentions.includes(auth.currentUser.uid)) ?
+                  `${(comment.mentions && Object.values(comment.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`

@@ -828,6 +828,7 @@ input[type="checkbox"] {
 #highlightOverlay,
 #comMenuOverlay,
 #blockOverlay,
+#archiveOverlay,
 #inviteOverlay {
   z-index: 7;
 }
@@ -2097,4 +2098,44 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 
 .unavailable button {
   margin-left: auto
+}
+
+#displayUsers .user-search-item {
+  padding-bottom: 0 !important;
+}
+
+@media (min-width: 700px) {
+  #displaySkeletons {
+    margin: -20px !important;
+    margin-bottom: 35px !important;
+    margin-top: -40px !important;
+  }
+  #openArchive {
+    border-bottom: var(--border);
+  }
+}
+
+#archiveList .skeleton-card,
+#communityArchiveList .skeleton-card {
+  margin: 0px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  #myCommunities .skeleton-skibidi,
+  #communityList .skeleton-skibidi {
+    margin: -33px;
+  }
+  #myCommunities .skeleton-skibidi:first-child .skeleton-card,
+  #communityList .skeleton-skibidi:first-child .skeleton-card{
+    margin-top: 7px !important;
+  }
+  
+  #displaySkeletons {
+    margin: -5px !important;
+    
+    .skeleton-card:first-child {
+      margin-top: 15px !important;
+    }
+  }
 }

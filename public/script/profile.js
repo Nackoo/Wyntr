@@ -412,13 +412,20 @@ document.querySelectorAll(".tab2").forEach(tab => {
 });
 
 async function loadUserMentionedTweets(uid) {
-  const mentionedRef = collection(db, "users", uid, "mentioned");
+  const ref = collection(db, "tweets");
   let q;
 
   if (!mentionedLastVisibleDoc) {
-    q = query(mentionedRef, orderBy("mentionedAt", "desc"), limit(MENTIONED_PAGE_SIZE));
+    q = query(ref, 
+      where("mentioned", "array-contains", uid),
+      orderBy("createdAt", "desc"), 
+      limit(MENTIONED_PAGE_SIZE));
   } else {
-    q = query(mentionedRef, orderBy("mentionedAt", "desc"), startAfter(mentionedLastVisibleDoc), limit(MENTIONED_PAGE_SIZE));
+    q = query(ref, 
+      where("mentioned", "array-contains", uid),
+      orderBy("createdAt", "desc"), 
+      startAfter(mentionedLastVisibleDoc), 
+      limit(MENTIONED_PAGE_SIZE));
   }
 
   const snap = await getDocs(q);

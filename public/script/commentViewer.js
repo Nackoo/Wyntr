@@ -1,8 +1,10 @@
 import { auth, db, doc, getDoc, setDoc, increment, updateDoc, Timestamp } from "./firebase.js";
 import { formatDate, escapeHTML, parseMentionsToLinks, formatNumber, formatTime, getDefaultLanguage, isTranslateEnabled, randomString } from "./texts.js";
-import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole } from "./index.js";
+import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole, waitForAuth } from "./index.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js";
+
+await waitForAuth();
  
 export async function renderCommentViewer(c, commentId, tweetId, container, communityId, isFromMain) {
   document.getElementById("replyList").classList.add("hidden");
@@ -308,7 +310,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -376,7 +378,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -443,7 +445,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -506,7 +508,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -558,7 +560,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               ${data.suspended && data.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -823,7 +825,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
                 <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
                 ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -863,7 +865,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
                 <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
                 ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -907,7 +909,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                 <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
                   onerror="this.src='/image/default-avatar.jpg'" width="30">
                 ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && quoted.mentions.includes(auth.currentUser.uid)) ?
+                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -971,7 +973,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
             `${c.likedByCreator === true ? 
               `<img style="margin-right:-3px" src="/image/star.svg">` :
-              `${(c.mentions && c.mentions.includes(auth.currentUser.uid)) ?
+              `${(c.mentions && Object.values(c.mentions).includes(auth.currentUser.uid)) ?
                 `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                 ""
               }`
@@ -1028,7 +1030,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
             <span 
               data-tweet="${tweetId}"
               data-comment="${commentId}"
-              ${c.communityId ? `data-community="${t.communityId}"` : ""}
+              ${c.communityId ? `data-community="${c.communityId}"` : ""}
               class="xviewQuotes"
               style="font-size:14px;margin-left:auto;margin-top:10px;color:grey">
                 View quotes
@@ -1119,8 +1121,10 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 }
 
 document.body.addEventListener("click", async (e) => {
-  const body = e.target.closest(".comment-item");
+  const body = e.target.closest(".comment-item") ||
+               e.target.closest(".comment-owner");
   if (!body) return;
+
   const comid = body.dataset.communityId;
   let hascom
   if (comid && comid != "null" && comid != null) {
@@ -1148,7 +1152,7 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest(".internal-link") || 
     e.target.closest(".translate-btn") ||
     e.target.closest("a") ||
-    e.target.closest(".ownerr") ||
+    e.target.closest(".ownerr") && !e.target.closest(".comment-owner") ||
     e.target.closest(".vote-btn1") ||
     e.target.closest(".vote-btn") ||
     e.target.closest(".xviewQuotes") ||
@@ -1188,7 +1192,7 @@ document.body.addEventListener("click", async (e) => {
     renderCommentViewer(commentData, commentId, tweetId, box, hascom);
   } else {
     box.innerHTML = `
-      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;padding:0 20px;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>
     `;
   }
   loadComments(tweetId, true, commentId, replyList, hascom);
@@ -1198,18 +1202,16 @@ document.getElementById("commentviewerclose").addEventListener("click", async ()
   const overlay = document.getElementById("commentViewer");
   overlay.classList.add("hidden");
 });
-async function waitForAuth() {
-  if (auth.currentUser) return auth.currentUser;
-  return new Promise(resolve => {
-    const unsub = auth.onAuthStateChanged(user => {
-      unsub();
-      resolve(user);
-    });
-  });
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
 }
-window.addEventListener("DOMContentLoaded", async () => {
+
+async function init() {
   const user = await waitForAuth();
-  if (!user) return;
+  if (!user) return info("x", "Unauthorized", "user is not logged in");
   const path = window.location.pathname;
   const communityReplyMatch = path.match(/^\/community\/([^/]+)\/wynt\/([^/]+)\/reply\/([^/]+)$/);
   const normalReplyMatch = path.match(/^\/wynt\/([^/]+)\/reply\/([^/]+)$/);
@@ -1267,11 +1269,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     loadComments(tweetId, true, commentId, replyList, communityId);
   } else {
     box.innerHTML = `
-    <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
+    <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;padding:0 20px;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
     replyList.innerHTML = "";
   }
   document.body.classList.add("no-scroll");
-});
+}
 
 document.body.addEventListener("click", async (e) => {
   const quoted = e.target.closest(".quoted-comment:not(.retweet)");
@@ -1279,7 +1281,10 @@ document.body.addEventListener("click", async (e) => {
 
   const tweetId = quoted.dataset.id;
   const commentId = quoted.dataset.commentId;
-  const comid = quoted.dataset.communityId;
+  const comid = quoted.dataset.communityId == "undefined"
+                  ? null
+                  : quoted.dataset.communityId
+  ;
 
   let hascom;
   if (comid && comid != "null" && comid != null) {
@@ -1347,7 +1352,7 @@ document.body.addEventListener("click", async (e) => {
       document.body.classList.add("no-scroll");
     } else {
       box.innerHTML = `
-      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
+      <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;padding:0 20px;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
       replyList.innerHTML = "";
     }
   } catch (err) {
@@ -1360,8 +1365,12 @@ document.addEventListener("mousedown", (e) => {
   e.preventDefault();
   if (e.target.closest(".user-link")) return;
 
-  const quoted = e.target.closest(".quoted-comment:not(.retweet), .comment-item");
+  const quoted = e.target.closest(".quoted-comment:not(.retweet)") ||
+                 e.target.closest(".comment-item") ||
+                 e.target.closest(".comment-owner");
   if (!quoted) return;
+
+  console.log(quoted);
 
   const tweetId = quoted.dataset.tweet;
   const commentId = quoted.dataset.id;
@@ -1545,7 +1554,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" : 
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1613,7 +1622,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1680,7 +1689,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1743,7 +1752,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`
@@ -1795,7 +1804,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               ${d.suspended && d.suspendedUntil > Timestamp.now() ? "⚠️" :
                 `${parent.likedByCreator === true ? 
                   `<img style="margin-right:-3px" src="/image/star.svg">` :
-                  `${(parent.mentions && parent.mentions.includes(auth.currentUser.uid)) ?
+                  `${(parent.mentions && Object.values(parent.mentions).includes(auth.currentUser.uid)) ?
                     `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                     ""
                   }`

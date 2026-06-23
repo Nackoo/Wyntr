@@ -138,7 +138,7 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you under a Wynt: <b>${escapeHTML(textClamp(notification.tweetTextt))}</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -166,7 +166,7 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on a reply in <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you under a Wynt: <b>${escapeHTML(textClamp(notification.tweetTextt))}</b><br>
     <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
     <span style="color:grey;font-size:12px;">
       ${formatTime(notification.createdAt.toDate())}
@@ -193,7 +193,7 @@ function createNotificationElement(notification) {
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
 
   <div>
-    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on their Wynt: <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you on their Wynt<br>
       <span style="color:grey;">${escapeHTML(tweetPreview)}</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -207,7 +207,7 @@ function createNotificationElement(notification) {
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
   ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : `<img style="min-height:24px;min-width:24px;margin-top:6px;" src="/image/notification-filled.svg">`}
   <div>
-    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you in a community: <b>${notification.communityName}</b> on post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
+    <span style="color:#04aa63;">@${notification.senderName}</span> mentioned you in a community: <b>${notification.communityName}</b><br>
       <span style="color:grey;">${escapeHTML(tweetPreview)}</span><br>
       <span style="color:grey;font-size:12px;">
         ${formatTime(notification.createdAt.toDate())}
@@ -1068,7 +1068,17 @@ function createDateDivider(dateText) {
 const notifications = document.getElementById("notifications");
 
 await waitForAuth();
-await loadNotifications(true);
+
+if (auth.currentUser) {
+  try {
+    const authentication = await getDoc(doc(db, "users", auth.currentUser.uid));
+    if (authentication.exists()) {
+      await loadNotifications(true);
+    }
+  } catch (error) {
+    console.warn("Profile not ready yet, skipping initial notifications load.");
+  }
+}
 
 document.getElementById('notifsvg1').addEventListener("click", async () => {
   document.getElementById("notificationOverlay").classList.remove("hidden");

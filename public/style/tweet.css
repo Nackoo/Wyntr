@@ -77,13 +77,6 @@
   margin-top: 15px;
 }
 
-#comment-status {
-  color: grey;
-  gap: 8px;
-  margin-bottom: 20px;
-  font-size: 13px;
-}
-
 #tweetViewer .tweet {
   border: var(--border);
   border-radius: 15px;
@@ -476,7 +469,7 @@
   border-radius: 8px;
 }
 
-#comment-status {
+#comment-status, #reply-status {
   color: grey;
   gap: 8px;
   margin-bottom: 20px;
@@ -1011,18 +1004,22 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 } 
 
 @media (min-width:700px) {
-  .useroverlay:not(#highlightTweetOverlay):not(#quoteViewer):not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
+  .useroverlay:not(#communityArchiveOverlay):not(#archiveOverlay):not(#highlightTweetOverlay):not(#quoteViewer):not(.communityo):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:hover {
     border-radius: 15px !important;
     margin: 15px -10px;
     padding: 10px 10px !important;
     margin-bottom: 0;
   }
   
-  .useroverlay:not(.communityo):not(#highlightTweetOverlay):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
+  .useroverlay:not(#communityArchiveOverlay):not(#archiveOverlay):not(.communityo):not(#highlightTweetOverlay):not(#bookmarkTweetOverlay):not(#userSubOverlay):not(#profileOverlay):not(#communitySearch):not(.communityo):not(#tweetViewer):not(#userOverlay):not(#tagSubOverlay) .tweet:not(:first-child):hover {
     margin-top:0 !important
   }
 }
 
+#communityArchiveOverlay .tweet,
+#communityArchiveOverlay .tweet:hover, 
+#archiveOverlay .tweet,
+#archiveOverlay .tweet:hover,
 #profileOverlay .tweet,
 #profileOverlay .tweet:hover,
 #userSubOverlay .tweet, 
@@ -1059,4 +1056,31 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 
 #quoteList .tweet:first-child {
   padding-top: 0 !important;
+}
+
+@media (max-width: 700px) {
+  #quoteViewer .tweet {
+    margin: 10px -15px;
+    padding: 0 15px !important;
+    padding-bottom: 15px !important;
+  }
+  #giftOverlay .comment-box {
+    min-height: 100vh;
+    padding-top: 55px !important;
+  }
+}
+
+#displayUsers .user-search-item {
+  padding-left: 15px !important;
+  @media (max-width: 700px) {
+    padding-left: 18px !important;
+  }
+}
+
+#communityArchiveOverlay .tweet:first-child,
+#archiveList .tweet:first-child {
+  margin-top: 0;
+  @media (min-width: 700px) {
+    margin-top: -20px;
+  }
 }

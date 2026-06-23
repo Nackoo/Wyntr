@@ -21,6 +21,8 @@ export const comsearch         = document.getElementById("communitySearch");
 export const block             = document.getElementById("blockOverlay");
 export const profilecom        = document.getElementById("profileCom");
 export const quote             = document.getElementById("quoteViewer");
+export const archive           = document.getElementById("archiveOverlay");
+export const carchive          = document.getElementById("communityArchiveOverlay");
 
 export const bookmarksvg       = document.getElementById("bookmarksvg");
 export const homesvg           = document.getElementById("homesvg");
@@ -99,7 +101,9 @@ const panelsToHide = () => [
   block,
   profilecom,
   quote,
-  highlightTweet
+  highlightTweet,
+  archive,
+  carchive
 ];
 
 const filledIcons = [
@@ -269,6 +273,8 @@ document.body.addEventListener("click", async (e) => {
       window.CURRENT_BOOKMARK_ID = null;
       highlightTweet.classList.add("hidden");
       quote.classList.add("hidden");
+      archive.classList.add("hidden");
+      carchive.classList.add("hidden");
       usersub.classList.remove("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
@@ -309,6 +315,8 @@ document.body.addEventListener("click", async (e) => {
   if (communityLink && communityLink.dataset.id) {
       community.classList.remove("hidden");
       quote.classList.add("hidden");
+      archive.classList.add("hidden");
+      carchive.classList.add("hidden");
       highlightTweet.classList.add("hidden");
       document.getElementById("myCommunities").classList.add("hidden");
       document.getElementById("communityList").classList.remove("hidden");
@@ -365,6 +373,8 @@ document.body.addEventListener("click", async (e) => {
       window.CURRENT_BOOKMARK_ID = null;
       highlightTweet.classList.add("hidden");
       quote.classList.add("hidden");
+      archive.classList.add("hidden");
+      carchive.classList.add("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
       premium.classList.remove("hidden");

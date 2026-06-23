@@ -1,14 +1,16 @@
-import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, setDoc, deleteDoc, startAfter, updateDoc, increment, deleteField, addDoc, serverTimestamp, runTransaction, Timestamp } from "./firebase.js";
-import { renderTweet, getUserData, loadComments, currentUserRole } from './index.js';
+import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, startAfter, increment, serverTimestamp, runTransaction, Timestamp } from "./firebase.js";
+import { renderTweet, getUserData, loadComments, currentUserRole, waitForAuth } from './index.js';
 import { sendFollowNotification } from "./notification.js";
-import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1, tweet } from "./nonsense.js";
-import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate } from "./texts.js";
+import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
+import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8 } from "./texts.js";
 import { sendToDiscord, reportToDiscord } from "./discord.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js"; 
 import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
+
+await waitForAuth();
 
 const loading            = document.getElementById("loadingOverlay");
 const searchBtn          = document.querySelector('.smallbar img[src="/image/search.svg"]');
@@ -17,14 +19,14 @@ const userSubOverlay     = document.getElementById("userSubOverlay");
 const searchInput        = userOverlay.querySelector("input[type='text']");
 const usersView          = document.getElementById("usersView");
 const tweetsView         = document.getElementById("tweetsView");
-const tagsView           = document.getElementById("tagsView");
 const tagName            = document.getElementById("tagId");
 const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
-const usersSearch        = document.getElementById("usersSearch");
 
-let tweetSearchResults   = [];
-let renderedTweetCount   = 0;
-let userAlreadyFetched   = false;
+const displayUsers       = document.getElementById("displayUsers");
+const displayTweets      = document.getElementById("displayTweets");
+const displayskeletons   = document.getElementById("displaySkeletons")
+let hasLoaded            = false;
+
 let isSearching          = false;
 let lastUserDoc          = null;
 let totalLoaded          = 0;
@@ -124,43 +126,19 @@ searchBtn.addEventListener("click", () => {
   tweetsView.classList.remove("hidden");
 });
 
-let a = false;
-let b = false;
-let skib = false;
+searchsvg.addEventListener("click", async () =>  {
+  if (hasLoaded) return;
+  displayskeletons.innerHTML = skeleton;
+      
+  const [a, b] = await Promise.all([
+    fetchUsers(null),
+    searchTweets("")
+  ]);
+  b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
 
-document.querySelectorAll(".tab1").forEach(tab1 => {
-  tab1.addEventListener("click", () => {
-    document.querySelectorAll(".tab1").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
-    tab1.classList.add("active");
-    document.getElementById(tab1.dataset.target).classList.remove("hidden");
-
-    searchInput.value = "";
-    const tabTarget = tab1.dataset.target;
-
-    if (tabTarget === "tagsView") {
-      if (skib === true) return;
-      previousTerm = "";
-      fetchTags("");
-      skib = true;
-    } else if (tabTarget === "usersView") {
-      if (!userAlreadyFetched) fetchUsers("");
-      usersView.classList.remove("hidden");
-      usersSearch.classList.add("hidden");
-    } else if (tabTarget === "tweetsView") {
-      resetTweetSearch();
-      tweetsView.innerHTML = `          
-      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-        <div style="max-width:400px;text-align:left;">
-          <h2 style="margin:0;display:flex;gap:10px;"><img loading='lazy' height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
-          <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
-        </div>
-      </div>`;
-    }
-  });
-});
-
-const MIN_LEN = 3;
+  displayskeletons.innerHTML = "";
+  hasLoaded = true;
+})
 
 searchInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter") {
@@ -351,102 +329,121 @@ searchInput.addEventListener("keydown", async (e) => {
     const activeTab = document.querySelector(".tab1.active")?.dataset.target;
 
     if (activeTab === "tweetsView") {
-      if (term.length >= MIN_LEN) {
-        tweetsView.innerHTML = `<div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div></div><div class="skeleton-dot"></div></div><div class="skeleton-body"><div class="skeleton-line long"></div><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div><div class="skeleton-footer"><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="skeleton-pill small"></div><div class="invisible skeleton-pill small"></div><div class="skeleton-pill small last"></div></div></div>`;
+      if (term == "" && hasLoaded) return;
 
-        const tweets = await searchTweets(term, true);
+      hasLoaded = false;
+      displayskeletons.innerHTML = skeleton;
+      
+      const [a, b] = await Promise.all([
+        fetchUsers(term),
+        searchTweets(term)
+      ])
+      b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
+      displayskeletons.innerHTML = "";
 
-        if (tweets.length === 0) {
-          tweetsView.innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No Wynts matched — yet</h2>
-                <p style="color:grey;margin:7px 0;">when someone posts topic you're looking for, it will appear here.</p>
+      if (term == "") hasLoaded = true;
+
+      if (b.length === 0 && !a) {
+        displayskeletons.innerHTML = `
+              <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:60px;">
+                <div style="max-width:400px;text-align:left;">
+                  <h2 style="margin:0;">No results</h2>
+                  <p style="color:grey;margin:7px 0;">Try again with a different keywords.</p>
+                </div>
               </div>
-            </div>`;
-          return;
-        }
-        
-        if (!tweetsView.querySelector(".tweet")) tweetsView.innerHTML = "";
-        tweets.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", tweetsView));
-      } else {
-        tweetsView.innerHTML = `
-          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-            <div style="max-width:400px;text-align:left;">
-              <h2 style="margin:0;display:flex;gap:10px;">
-                <img loading='lazy' height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts
-              </h2>
-              <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
-            </div>
-          </div>`;
+        `;
       }
-    } else if (activeTab === "usersView") {
-      if (term) {
-        usersView.classList.add("hidden");
-        usersSearch.classList.remove("hidden");
-        usersSearch.innerHTML = "";
-        fetchUsers(term);
-      } else {
-        if (!userAlreadyFetched) fetchUsers("");
-        usersView.classList.remove("hidden");
-        usersSearch.classList.add("hidden");
-      }
-    } else if (activeTab === "tagsView") {
-      tagsView.innerHTML = "";
-      fetchTags(term);
-      skib = false;
     }
   }
 });
 
-function resetTweetSearch() {
-  tweetSearchResults = [];
-  renderedTweetCount = 0;
-  tweetsView.innerHTML = "";
-}
+let loadingMoreTweets = false;
+
+document.querySelector("#userOverlay .user-box").addEventListener("scroll", async function () {
+  const term = searchInput.value.trim();
+
+  if (!term || loadingMoreTweets) return;
+
+  const nearBottom =
+    this.scrollTop + this.clientHeight >= this.scrollHeight - 50;
+
+  if (!nearBottom) return;
+
+  loadingMoreTweets = true;
+
+  try {
+    const tweets = await searchTweets(term, true);
+    tweets.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
+  } finally {
+    loadingMoreTweets = false;
+  }
+});
 
 const TWEETS_PAGE = 10;
 let lastTweetDoc = null;
 
-async function searchTweets(term, reset = true) {
-  const words = tokenize(term);
-  if (words.length === 0) return [];
+async function searchTweets(term = "", loadmore = false) {
+  if (!loadmore) displayTweets.innerHTML = "";
 
-  const searchList = words.slice(0, 10);
+  if (term == "") {
+    const q = query(collection(db, "tweets"), 
+      orderBy("createdAt", "desc"),
+      where("archived", "!=", true),
+      limit(3)
+    );
+    const snap = await getDocs(q);
 
-  if (reset) lastTweetDoc = null;
-
-  const base = [
-    where("searchTokens", "array-contains-any", searchList),
-    orderBy("createdAt", "desc"),
-    limit(TWEETS_PAGE),
-  ];
-
-  const q = lastTweetDoc ?
-    query(collection(db, "tweets"), ...base, startAfter(lastTweetDoc)) :
-    query(collection(db, "tweets"), ...base);
-
-  const snap = await getDocs(q);
-
-  const mustHaveAll = true;
-  const results = [];
-  snap.forEach(docSnap => {
-    const d = docSnap.data();
-    if (
-      !mustHaveAll ||
-      words.every(w => (d.searchTokens || []).includes(w))
-    ) {
+    let results = [];
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
       results.push({
         id: docSnap.id,
         ...d
-      });
-    }
-  });
+      })
+    })
+    return results;
 
-  if (!snap.empty) {
-    lastTweetDoc = snap.docs[snap.docs.length - 1];
+  } else {
+    const words = tokenize(term);
+    if (words.length === 0) return [];
+
+    const searchList = words.slice(0, 10);
+
+    if (!loadmore) lastTweetDoc = null;
+
+    const base = [
+      where("searchTokens", "array-contains-any", searchList),
+      where("archived", "!=", true),
+      orderBy("createdAt", "desc"),
+      limit(5),
+    ];
+
+    const q = lastTweetDoc ?
+      query(collection(db, "tweets"), ...base, startAfter(lastTweetDoc)) :
+      query(collection(db, "tweets"), ...base);
+
+    const snap = await getDocs(q);
+
+    const mustHaveAll = true;
+    const results = [];
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if (
+        !mustHaveAll ||
+        words.every(w => (d.searchTokens || []).includes(w))
+      ) {
+        results.push({
+          id: docSnap.id,
+          ...d
+        });
+      }
+    });
+
+    if (!snap.empty) {
+      lastTweetDoc = snap.docs[snap.docs.length - 1];
+    }
+    return results;
   }
-  return results;
 }
 
 const list = document.getElementById("userList");
@@ -471,6 +468,7 @@ async function loadTweets(uid) {
     q = query(
       tweetsRef,
       where("uid", "==", uid),
+      where("archived", "!=", true),
       orderBy("createdAt", "desc"),
       limit(USER_PAGE_SIZE)
     );
@@ -478,6 +476,7 @@ async function loadTweets(uid) {
     q = query(
       tweetsRef,
       where("uid", "==", uid),
+      where("archived", "!=", true),
       orderBy("createdAt", "desc"),
       startAfter(userLastVisibleDoc),
       limit(USER_PAGE_SIZE)
@@ -509,14 +508,10 @@ async function loadTweets(uid) {
 }
 
 async function fetchUsers(term = "") {
+  displayUsers.innerHTML = "";
   let snap;
 
-  if (!term) {
-    userAlreadyFetched = true;
-  }
-
   if (term) {
-    usersSearch.innerHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
     const lowerTerm = term.toLowerCase();
 
     const usernameQuery = query(
@@ -533,30 +528,22 @@ async function fetchUsers(term = "") {
         collection(db, "users"),
         where("name", ">=", lowerTerm),
         where("name", "<=", lowerTerm + "\uf8ff"),
-        limit(10)
+        limit(USER_PAGE_SIZE)
       );
       snap = await getDocs(nameQuery);
     }
-
   } else {
     const q = query(
       collection(db, "users"), 
-      orderBy("name"), 
-      limit(10)
+      orderBy("createdAt", "desc"), 
+      limit(3)
     );
 
     snap = await getDocs(q);
   }
 
   if (snap.empty) {
-    usersSearch.innerHTML = "";
-    usersSearch.innerHTML = `
-      <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-        <div style="max-width:400px;text-align:left;">
-          <h2 style="margin:0;">No Matched users — yet</h2>
-          <p style="color:grey;margin:7px 0;">there's no person that you're looking for.</p>
-        </div>
-      </div>`;
+    displayUsers.innerHTML = "";
     return;
   }
 
@@ -596,107 +583,17 @@ async function fetchUsers(term = "") {
       }
     });
     
-    if (!term) {
-      if (!usersView.querySelector(`#user-${docSnap.id}`)) {
-        if (!usersView.querySelector(".user-search-item")) usersView.innerHTML = "";
-        usersView.appendChild(item);
-      } 
-    } else {
-      if (!usersSearch.querySelector(`#user-${docSnap.id}`)) {
-        if (!usersSearch.querySelector(".user-search-item")) usersSearch.innerHTML = "";
-        usersSearch.appendChild(item);
-      }
-    }
+    if (!displayUsers.querySelector(`#user-${docSnap.id}`)) {
+      displayUsers.appendChild(item);
+    } 
+
     const btn = item.querySelector(".mini-follow-btn");
     setupMiniFollowBtn(btn, docSnap.id);
 
     totalLoaded++;
   }
-}
-
-export async function fetchTags(term) {
-  tagsView.innerHTML = `<div style="margin:0 -10px"><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card" style="margin:20px 0"><div class="skeleton-header"><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
-
-  const tagsRef = collection(db, "tags");
-
-  if (!term || term.length < 1) {
-    const q = query(tagsRef, 
-      orderBy("tweetCount", "desc"), 
-      limit(10)
-    );
-    const snap = await getDocs(q);
-
-    for (const tagDoc of snap.docs) {
-      const tagId = tagDoc.id;
-      const count = tagDoc.data().tweetCount || 0;
-      const data = tagDoc.data()
-
-      const item = document.createElement("div");
-      item.className = "tag-search-item";
-      item.id = `tag-${tagId}`;
-      item.innerHTML = `
-        <div style="display:flex;align-items:center;padding:13px 0">
-          <div style="width:100%">
-            <div style="display:flex;align-items:center;">
-              <h4 style="margin:0;font-size:18px;">${tagId}</h4>
-              <p style="color:grey;margin:0;margin-left:auto;font-size:14px;">${formatDate(data.createdAt)}</p>
-            </div>
-            <span style="color:grey;font-size:14px">used on ${count} Wynts</span>
-          </div>
-        </div>
-`;
-      item.style.cssText = "cursor:pointer;";
-      item.onclick = () => openTag(tagId);
-
-      if (!tagsView.querySelector(`tag-${tagId}`)) {
-        if (!tagsView.querySelector(".tag-search-item")) tagsView.innerHTML = "";
-        tagsView.appendChild(item);
-      }
-    }
-    return;
-  }
-
-  const termLower = term.toLowerCase();
-
-  const q = query(
-    tagsRef,
-    where("name", ">=", termLower),
-    where("name", "<=", termLower + "\uf8ff"),
-    limit(10)
-  );
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    tagsView.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No tags matched — yet</h2><p style="color:grey;margin:7px 0;">there's no tag that you're looking for.</p></div></div>`;
-    return;
-  }
-
-  for (const tagDoc of snap.docs) {
-    const tagId = tagDoc.id;
-    const count = tagDoc.data().tweetCount || 0;
-    const data = tagDoc.data();
-
-    const item = document.createElement("div");
-    item.className = "tag-search-item";
-    item.id = `tagi-${tagId}`;
-    item.innerHTML = `
-        <div style="display:flex;align-items:center;padding:10px 0">
-          <div style="width:100%;">
-            <div style="display:flex;align-items:center;">
-              <h4 style="margin:0;font-size:18px;">${tagId}</h4>
-              <p style="color:grey;margin:0;margin-left:auto;font-size:14px;">${formatDate(data.createdAt)}</p>
-            </div>
-            <span style="color:grey;font-size:14px">used on ${count} Wynts</span>
-          </div>
-        </div>
-    `;
-    item.style.cssText = "border-bottom:var(--border);cursor:pointer;";
-    item.onclick = () => openTag(tagId);
-    if (!tagsView.querySelector(`tagi-${tagId}`)) {
-      if (!tagsView.querySelector(".tag-search-item")) tagsView.innerHTML = "";
-      tagsView.appendChild(item);
-    }
-  }
+  
+  return true;
 }
 
 function escapeHTML(str) {
@@ -777,8 +674,11 @@ async function isBanned(uid) {
   const bannedSnap = await getDoc(bannedRef);
   if (bannedSnap.exists()) {
     document.getElementById("user-name").textContent = "user is suspended";
+    document.getElementById("followBtn").classList.add("hidden");
     blank();
     return;
+  } else {
+    document.getElementById("followBtn").classList.remove("hidden");
   }
 }
 
@@ -888,6 +788,7 @@ async function loadUserHighlights(uid, initial = false) {
 }
 
 export async function openUserSubProfile(uid) {
+  searchsvg.click();
   softblank();
   window.cannotSeeFollows = false;
   tweetviewactive1();
@@ -1266,7 +1167,6 @@ export async function openUserSubProfile(uid) {
           if (!reason) return log("red", "Please provide a reason");
 
           document.getElementById("suspendOptions").classList.remove("hidden");
-          console.log("SKIBIDI YANTO");
           const confirmSuspend = document.getElementById("confirmSuspend");
           
           confirmSuspend.onclick = async() => {
@@ -1556,7 +1456,7 @@ async function loadIfFollow(uid) {
               username: username,
               name: displayName?.toLowerCase(),
               photoURL: photoURL,
-              description: description
+              description: description || null
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
@@ -1565,7 +1465,7 @@ async function loadIfFollow(uid) {
               username: tUsername,
               name: tDisplayName?.toLowerCase(),
               photoURL: tPhotoURL,
-              description: tDescription
+              description: tDescription || null
             });
 
             batch.update(currentUserRef, {
@@ -1646,6 +1546,7 @@ window.openTag = async function (tagId) {
       q = query(
         tagTweetsRef,
         orderBy("taggedAt", "desc"),
+        where("archived", "!=", true),
         startAfter(lastDoc),
         limit(BATCH_SIZE)
       );
@@ -1653,6 +1554,7 @@ window.openTag = async function (tagId) {
       q = query(
         tagTweetsRef,
         orderBy("taggedAt", "desc"),
+        where("archived", "!=", true),
         limit(BATCH_SIZE)
       );
     }
@@ -2034,7 +1936,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
             { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
             { displayName, username, realavatar: photoURL, realdescription: description }
           ] = await Promise.all([
-            getUserData(uid),
+            getUserData(targetId),
             getUserData(auth.currentUser.uid)
           ])
 
@@ -2066,7 +1968,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
               username: username,
               name: displayName?.toLowerCase(),
               photoURL: photoURL,
-              description: description
+              description: description || null
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {
@@ -2075,7 +1977,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
               username: tUsername,
               name: tDisplayName?.toLowerCase(),
               photoURL: tPhotoURL,
-              description: tDescription
+              description: tDescription || null
             });
 
             batch.update(currentUserRef, {
@@ -2149,13 +2051,22 @@ const usermentionedList = document.getElementById("usermentionedList");
 const MENTIONED_PAGE_SIZE = 5;
 
 async function loadUserMentionedTweets(uid) {
-  const mentionedRef = collection(db, "users", uid, "mentioned");
+  const ref = collection(db, "tweets");
   let q;
 
   if (!mentionedLastVisibleDoc) {
-    q = query(mentionedRef, orderBy("mentionedAt", "desc"), limit(MENTIONED_PAGE_SIZE));
+    q = query(ref, 
+      where("mentioned", "array-contains", uid),
+      where("archived", "!=", true),
+      orderBy("createdAt", "desc"), 
+      limit(MENTIONED_PAGE_SIZE));
   } else {
-    q = query(mentionedRef, orderBy("mentionedAt", "desc"), startAfter(mentionedLastVisibleDoc), limit(MENTIONED_PAGE_SIZE));
+    q = query(ref, 
+      where("mentioned", "array-contains", uid),
+      where("archived", "!=", true),
+      orderBy("createdAt", "desc"), 
+      startAfter(mentionedLastVisibleDoc), 
+      limit(MENTIONED_PAGE_SIZE));
   }
 
   const snap = await getDocs(q);
@@ -2229,7 +2140,15 @@ document.body.addEventListener("click", e => {
   }
 });
 
-window.addEventListener("DOMContentLoaded", () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+
+async function init() {
+  const user = await waitForAuth();
+  if (!user) return info("x", "Unauthorized", "user is not logged in");
   const path = window.location.pathname;
   const userMatch = path.match(/^\/user\/([^/]+)$/);
   if (userMatch) {
@@ -2240,7 +2159,7 @@ window.addEventListener("DOMContentLoaded", () => {
     homefilled.classList.add('hidden');
     homesvg.classList.remove('hidden');
   }
-});
+}
 
 const profileScrollBox = document.querySelector("#userSubOverlay .user-box");
 

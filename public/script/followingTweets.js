@@ -1,6 +1,6 @@
 import { auth, db, collection, getDocs, query, orderBy, limit, where, startAfter, onSnapshot } from "./firebase.js";
 import { renderTweet, scoreTweet } from "./index.js"; 
-import { getFollowingIdsFromCache } from "./followingCache.js";
+// import { getFollowingIdsFromCache } from "./followingCache.js";
 import { log } from "./texts.js";
 
 const followingContainer = document.getElementById("following1");

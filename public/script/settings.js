@@ -215,22 +215,16 @@ saveButton.addEventListener("click", async () => {
     return;
   }
 
-  const mentionsRaw = await extractMentions(newDescription);
-
-  mentionsRaw.sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
-  const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  let processedDescription = newDescription;
+  const mentions = await extractMentions(newDescription);
 
   const uidMatches = newDescription.match(/@[A-Za-z0-9]{20,}/g) || [];
-  const validUidMentions = new Set();
 
   for (const raw of uidMatches) {
     const uid = raw.slice(1);
     try {
       const userSnap = await getDoc(doc(db, "users", uid));
       if (userSnap.exists()) {
-        validUidMentions.add(uid);
+        mentions[uid] = uid;
       }
     } catch (err) {
       console.warn("Invalid @uid mention:", uid, err);
@@ -238,18 +232,7 @@ saveButton.addEventListener("click", async () => {
     }
   }
 
-  for (const { username, uid } of mentionsRaw) {
-    if (!username || !uid) continue;
-    const regex = new RegExp(`@${escapeRegExp(username)}(?=\\s|$)`, "gi");
-    processedDescription = processedDescription.replace(regex, `@${uid}`);
-  }
-
-  const mentions = [
-    ...new Set([
-      ...mentionsRaw.map(m => m.uid).filter(Boolean),
-      ...Array.from(validUidMentions)
-    ])
-  ];
+  const processedDescription = newDescription;
 
   const newbanner = await compressImageTo480(newBanner);
   const newavatar = await compressImageTo480(newAvatar);
