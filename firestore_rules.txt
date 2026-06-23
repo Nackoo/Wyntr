@@ -6,7 +6,7 @@ service cloud.firestore {
       return request.auth != null && exists(
         /databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid)
       );
-    }
+    } 
 
 		function isBanned() {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);

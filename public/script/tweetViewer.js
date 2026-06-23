@@ -982,7 +982,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       `;
     }
 
-  if (x.banned === true && currentUserRole != "admin") {
+  if (t.archived && auth.currentUser.uid != t.uid) {
     tweetHTML = `         
     <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${t.communityId ? `data-community-id="${t.communityId}"` : ""}>
     ${quotedHTML}
@@ -992,67 +992,81 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">Suspended user</strong>
       <span style="color:#757779;font-size:12px">${dateStr}</span>
     </div>
-      <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 0;color:grey">This Wynt is from a suspended user</p>
-    </div>`;
+      <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 0;color:grey">This Wynt is archived</p>
+    </div>`
   } else {
-    tweetHTML = `         
-    <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${t.communityId ? `data-community-id="${t.communityId}"` : ""}>
-    ${quotedHTML}
-    ${retweetHTML}
-    <div class="flex" style="gap:10px;margin:0;">
-      <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
-      ${x.suspended && x.suspendedUntil > Timestamp.now() ? "⚠️" :
-        `${((t.mentions && Object.values(t.mentions).includes(auth.currentUser.uid))) ?
-          `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-          ""
-        }`
-      }
-      <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
-      <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
-      ${t.archived ? `<img title="archived" src="/image/archive.svg">` : ""}
-      <span style="cursor:pointer;margin-left:auto" data-community-id="${comid || t.sharedFromCommunity || t.communityId || null}" data-id=${tweetId} data-text="${t.text}" data-author="${t.uid}" ${isStored ? `data-stored="true"` : ""} class="menubtn"><img src="/image/three-dots.svg"></span>
-    </div>
-    ${communityHTML}
-    ${titleHTML}
-    <p>${parsedText}</p> 
-    ${translateHTML3} 
-    ${baninfo1}
-    <div class="tweet-media">
-      ${mediaHTML}
-    </div>
-    ${pollHTML}
-    ${t.isHidden ? "" : `
-        <div class="flex">
-          <span style="cursor:pointer;color:#757779" data-community-id="${window.communityId || null}" class="like-btn" id="likeBtn-${tweetId}">
-            <div id="${likeId}" class="likeicon" style="height:20px">
-              <img loading='lazy' src="/image/heart.svg">
+    if (x.banned === true && currentUserRole != "admin") {
+      tweetHTML = `         
+      <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${t.communityId ? `data-community-id="${t.communityId}"` : ""}>
+      ${quotedHTML}
+      ${retweetHTML}
+      <div class="flex" style="gap:10px;margin:0;">
+        <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+        <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">Suspended user</strong>
+        <span style="color:#757779;font-size:12px">${dateStr}</span>
+      </div>
+        <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 0;color:grey">This Wynt is from a suspended user</p>
+      </div>`;
+    } else {
+      tweetHTML = `         
+      <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${t.communityId ? `data-community-id="${t.communityId}"` : ""}>
+      ${quotedHTML}
+      ${retweetHTML}
+      <div class="flex" style="gap:10px;margin:0;">
+        <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+        ${x.suspended && x.suspendedUntil > Timestamp.now() ? "⚠️" :
+          `${((t.mentions && Object.values(t.mentions).includes(auth.currentUser.uid))) ?
+            `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+            ""
+          }`
+        }
+        <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">${escapeHTML(displayName)}</strong>
+        <span style="color:#757779;font-size:12px"><span class="usernamee">@${username} •</span> ${dateStr} ${editHTML}</span>
+        ${t.archived ? `<img title="archived" src="/image/archive.svg">` : ""}
+        <span style="cursor:pointer;margin-left:auto" data-community-id="${comid || t.sharedFromCommunity || t.communityId || null}" data-id=${tweetId} data-text="${t.text}" data-author="${t.uid}" ${isStored ? `data-stored="true"` : ""} class="menubtn"><img src="/image/three-dots.svg"></span>
+      </div>
+      ${communityHTML}
+      ${titleHTML}
+      <p>${parsedText}</p> 
+      ${translateHTML3} 
+      ${baninfo1}
+      <div class="tweet-media">
+        ${mediaHTML}
+      </div>
+      ${pollHTML}
+      ${t.isHidden ? "" : `
+          <div class="flex">
+            <span style="cursor:pointer;color:#757779" data-community-id="${window.communityId || null}" class="like-btn" id="likeBtn-${tweetId}">
+              <div id="${likeId}" class="likeicon" style="height:20px">
+                <img loading='lazy' src="/image/heart.svg">
+              </div>
+              ${likeCount > 0 ? `<span id="likeCount-${tweetId}">${likeCount}</span>` : ""}
+            </span>
+            <span style="cursor:pointer;color:#757779" class="comment-btn" data-id="${tweetId}">
+              <img src="/image/message.svg"> ${commentCount > 0 ? commentCount : ""}
+            </span>
+            <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}">
+              <img src="/image/rewint.svg"> ${retweetCount > 0 ? retweetCount : ""}
+            </span>
+            <div style="margin-left:auto;">
+              <span class="viewbtn" style="margin-left:10px;color:#757779"><img src="/image/chart.svg"> ${viewCount > 0 ? viewCount : ""}</span>
             </div>
-            ${likeCount > 0 ? `<span id="likeCount-${tweetId}">${likeCount}</span>` : ""}
-          </span>
-          <span style="cursor:pointer;color:#757779" class="comment-btn" data-id="${tweetId}">
-            <img src="/image/message.svg"> ${commentCount > 0 ? commentCount : ""}
-          </span>
-          <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}">
-            <img src="/image/rewint.svg"> ${retweetCount > 0 ? retweetCount : ""}
-          </span>
-          <div style="margin-left:auto;">
-            <span class="viewbtn" style="margin-left:10px;color:#757779"><img src="/image/chart.svg"> ${viewCount > 0 ? viewCount : ""}</span>
-          </div>
+          </div>  
+      `}
+      ${retweetCount > 0 ? `
+        <div style="width:100%;display:flex;align-items:center;cursor:pointer;">
+          <span 
+          data-tweet="${tweetId}"
+          ${((t.communityId && !t.postedInPublic) || (window.communityID)) ? `
+            data-community="${t.communityId && !t.postedInPublic ? t.communityId : window.communityID}"  
+          ` : ""}
+          class="viewQuotes"
+          style="font-size:14px;margin-left:auto;margin-top:10px;color:grey">View quotes</span>
         </div>  
-    `}
-    ${retweetCount > 0 ? `
-      <div style="width:100%;display:flex;align-items:center;cursor:pointer;">
-        <span 
-        data-tweet="${tweetId}"
-        ${((t.communityId && !t.postedInPublic) || (window.communityID)) ? `
-          data-community="${t.communityId && !t.postedInPublic ? t.communityId : window.communityID}"  
-        ` : ""}
-        class="viewQuotes"
-        style="font-size:14px;margin-left:auto;margin-top:10px;color:grey">View quotes</span>
-      </div>  
-    ` : ""}
-    </div>
-    `;
+      ` : ""}
+      </div>
+      `;
+    }
   }
 
   container.innerHTML = tweetHTML;
@@ -1855,7 +1869,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
                   <p style="margin:0;font-size:15px;">This reply ${parent.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${parent.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
                 </button>
                 <div class="hidden" id="commentItem-${random}">
-            ${content}
+                ${content}
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
                     <img src="/image/eye.svg">
                     <span style="color: grey; font-size: 13px;">
