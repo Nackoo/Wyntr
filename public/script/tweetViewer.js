@@ -988,8 +988,8 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
     ${quotedHTML}
     ${retweetHTML}
     <div class="flex" style="gap:10px;margin:0;">
-      <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
-      <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">Suspended user</strong>
+      <img class="avatar" src="/image/default-avatar.jpg" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+      <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer;font-size:17px;">System</strong>
       <span style="color:#757779;font-size:12px">${dateStr}</span>
     </div>
       <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 0;color:grey">This Wynt is archived</p>
@@ -1001,7 +1001,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       ${quotedHTML}
       ${retweetHTML}
       <div class="flex" style="gap:10px;margin:0;">
-        <img class="avatar" src="${escapeHTML(avatar)}" onerror="this.src='/image/default-avatar.jpg'" width="30" />
+        <img class="avatar" src="/image/default-avatar.jpg" onerror="this.src='/image/default-avatar.jpg'" width="30" />
         <strong class="user-link" data-uid="${t.uid}" style="cursor:pointer;font-size:17px;">Suspended user</strong>
         <span style="color:#757779;font-size:12px">${dateStr}</span>
       </div>
@@ -1191,10 +1191,12 @@ async function loadTweetRecursive(tweetId, container, comid) {
 
   container.appendChild(tweetDiv);
 
-  if (comid) {
-    loadComments(tweetId, tweetDiv, comid);
-  } else {
-    loadComments(tweetId, tweetDiv);
+  if (!(tweetData.archived && auth.currentUser.uid != tweetData.uid)) {
+    if (comid) {
+      loadComments(tweetId, tweetDiv, comid);
+    } else {
+      loadComments(tweetId, tweetDiv);
+    }
   }
 
   if (tweetData.originalTweetId) {
@@ -1301,6 +1303,7 @@ document.body.addEventListener("click", async (e) => {
 
   const tweetData = tweetSnap.data();
   renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, false, isStored);
+  if (tweetData.archived && auth.currentUser.uid != tweetData.uid) return;
   loadComments(tweetId, true, null, null, communityId);
 });
 
