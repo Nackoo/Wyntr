@@ -2610,7 +2610,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
     q = query(
       baseRef,
       orderBy("createdAt", "desc"),
-      where("archived", "!=", "true"),
+      where("archived", "!=", true),
       startAfter(lastVisibleCommunityTweet),
       limit(3)
     );
@@ -2618,7 +2618,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
     q = query(
       baseRef,
       orderBy("createdAt", "desc"),
-      where("archived", "!=", "true"),
+      where("archived", "!=", true),
       limit(3)
     );
   }
@@ -2775,7 +2775,7 @@ async function searchTweets(term, reset = true) {
 
   const base = [
     where("searchTokens", "array-contains-any", searchList),
-    where("archived", "!=", "true"),
+    where("archived", "!=", true),
     orderBy("createdAt", "desc"),
     limit(TWEETS_PAGE),
   ];
