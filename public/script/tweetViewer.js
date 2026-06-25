@@ -1334,12 +1334,11 @@ commentSearchInput.addEventListener("keydown", async (e) => {
   window.previousCommentTerm = term;
   appendCommentSearch.innerHTML = "";
 
-  if (term.length < 3) {
+  if (term.length < 1) {
     appendCommentSearch.innerHTML = `
       <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
         <div style="max-width:300px;text-align:left;">
           <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Replies</h2>
-          <p style="color:grey;margin:7px 0;">enter at least 3 characters to search replies.</p>
         </div>
       </div>`;
     return;
@@ -1373,10 +1372,15 @@ async function searchComments(term, reset = true) {
     limit(COMMENTS_PAGE)
   ];
 
-  const col = window.communityID ? collection(db, "communities", window.communityID, "posts", currentTweetId, "comments") : collection(db, "tweets", currentTweetId, "comments");
-  const q = lastCommentDoc ? query(col, ...base, startAfter(lastCommentDoc)) : query(col, ...base);
+  const col = window.communityID ? 
+    collection(db, "communities", window.communityID, "posts", currentTweetId, "comments") : 
+    collection(db, "tweets", currentTweetId, "comments");
+  const q = lastCommentDoc ? 
+    query(col, ...base, startAfter(lastCommentDoc)) : 
+    query(col, ...base);
 
   const snap = await getDocs(q);
+  console.log(snap)
   const mustHaveAll = true;
   const results = [];
 
@@ -1390,7 +1394,7 @@ async function searchComments(term, reset = true) {
     }
   });
 
-  if (!snap.empty) {
+  if (results.length === 0) {
     appendCommentSearch.innerHTML = `
       <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
         <div style="max-width:300px;text-align:left;">
@@ -1399,6 +1403,7 @@ async function searchComments(term, reset = true) {
         </div>
       </div>`;
     lastCommentDoc = snap.docs[snap.docs.length - 1];
+    return;
   }
   return results;
 }

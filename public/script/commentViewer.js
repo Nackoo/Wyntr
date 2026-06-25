@@ -232,7 +232,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
         }
 
       const infos = `
-<div class="flex" style="margin:0;gap:25px;">
+            <div class="flex" style="margin:0;gap:25px;">
               ${parent.isHidden ? "" : `
               <span class="comment-like-btn" data-id="${c.parentId}" data-tweet="${tweetId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
                 <div id="${likeId1}" class="clikeicon" style="height:20px">
@@ -243,13 +243,15 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
               <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${c.parentId}" data-tweet="${tweetId}">
                 <img loading='lazy' src="/image/message.svg"> ${(parent.replyCount ?? 0) > 0 ? parent.replyCount : ""}
               </span>
-              <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${c.parentId}">
-                <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
-              </span>
+              ${parent.isPrivateParent || parent.isPrivate ? "" :
+                `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${c.parentId}">
+                  <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
+                </span>`
+              }
               <span class="viewbtn" style="margin-left:auto;color:#757779"><img loading="lazy" src="/image/chart.svg"> ${parent.viewsCount > 0 ? parent.viewsCount : ""}</span>
               `
               }
-              </div>
+            </div>
       `
 
       const random = randomString(14);
@@ -804,134 +806,150 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
         `}
       `;
 
-        if (d1.banned === true && currentUserRole != "admin") {
-          parent1 = `
-          <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+      if (quoted.archived && quoted.uid != auth.currentUser.uid) {
+        parent1 = `
+          <div class="quoted-comment actuallyATweet quotedTweet">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-              <img class="avatar" src="/image/default-avatar.jpg" width="30">
-              <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">Suspended user</strong>
+            <img class="avatar" src="/image/default-avatar.jpg" width="30">
+            <strong class="user-link" data-uid="PG1BAWNBc57qK7MFWy0f" style="cursor:pointer">System</strong>
+              <span style="color:grey;font-size:12px;">
+                <img src="/image/icon.png" height="20" width="20" style="margin:0; margin-left:-5px;">
+              </span>
             </div>
             <div class="quoted-body">
-              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 6px;color:grey">This Wynt is from a suspended user</p>
+            <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;"><i>this Wynt is archived</i></p>
             </div>
           </div>`;
-        } else {
-          if (hasImage && hasText) {
-            const containsSpoiler = quoted.sensitiveMedia === true;
-            const src = base91ToImageSrc(quoted.media);
-
+      } else {
+          if (d1.banned === true && currentUserRole != "admin") {
             parent1 = `
             <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} ${editHTML67}</span>
-                <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
-                  <img src="/image/three-dots.svg">
-                </span>
-              </div>
-              <div class="quoted-body"> 
-                ${titleHTML2} 
-                <p style="margin:0;">${parsedQuoted}</p>
-                ${translateHTML2}
-                ${baninfo1}
-                ${containsSpoiler ?
-                    `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
-                      <div class="spoiler-overlay">
-                        <div class="spoilertxt">sensitive</div>
-                      </div>
-                      <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                    </div>` :
-                    `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
-                      <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
-                    </div>`
-                }
-                ${pollHTML}
-                ${info67}
-              </div>
-            </div>`;
-          } else if (hasVideo && hasText) {
-            const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            const containsSpoiler = quoted.sensitiveMedia === true;
-
-            parent1 = `
-            <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
-              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
-                <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} </span>
-                <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
-                  <img src="/image/three-dots.svg">
-                </span>
+                <img class="avatar" src="/image/default-avatar.jpg" width="30">
+                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">Suspended user</strong>
               </div>
               <div class="quoted-body">
-                ${titleHTML2}
-                <p style="margin:0;">${parsedQuoted}</p> 
-                ${translateHTML2}
-                ${baninfo1}
-                
-                ${containsSpoiler ?
-                    `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
-                      <div class="spoiler-overlay">
-                        <div class="spoilertxt">sensitive</div>
-                      </div>
-                      <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>` :
-                    `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
-                      <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>`
-                }
-                ${pollHTML}
-                ${info67}
+                <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 15px 0px 6px;color:grey">This Wynt is from a suspended user</p>
               </div>
             </div>`;
-            getSupabaseVideo(quoted.media, vidId);
           } else {
-            parent1 = `
-            <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
-              <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
-                <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
-                  onerror="this.src='/image/default-avatar.jpg'" width="30">
-                ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
-                  `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
-                    `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
-                    ""
-                  }`
-                }
-                <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">
-                  ${escapeHTML(displayName || 'Unknown')}
-                </strong>
-                <span style="color:grey;font-size:12px;">
-                  <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)}
-                </span>
-                ${editHTML67}
-                <span style="cursor:pointer;margin-left:auto" data-community-id="${quoted.communityId || null}" data-author="${quoted.uid}" data-text="${quoted.text}" class="menubtn"><img src="/image/three-dots.svg"></span>
-              </div>
-              <div class="quoted-body">
-                ${titleHTML2}
-                <p style="margin:6px 0 12px;">${parsedQuoted}</p> 
-                ${translateHTML2}
-                ${baninfo1}
-                ${pollHTML}
-                ${info67}
-              </div>
-            </div>`;
+            if (hasImage && hasText) {
+              const containsSpoiler = quoted.sensitiveMedia === true;
+              const src = base91ToImageSrc(quoted.media);
+
+              parent1 = `
+              <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} ${editHTML67}</span>
+                  <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
+                    <img src="/image/three-dots.svg">
+                  </span>
+                </div>
+                <div class="quoted-body"> 
+                  ${titleHTML2} 
+                  <p style="margin:0;">${parsedQuoted}</p>
+                  ${translateHTML2}
+                  ${baninfo1}
+                  ${containsSpoiler ?
+                      `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
+                        <div class="spoiler-overlay">
+                          <div class="spoilertxt">sensitive</div>
+                        </div>
+                        <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                      </div>` :
+                      `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
+                        <img loading='lazy' src="${src}" data-src="${src}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
+                      </div>`
+                  }
+                  ${pollHTML}
+                  ${info67}
+                </div>
+              </div>`;
+            } else if (hasVideo && hasText) {
+              const vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+              const containsSpoiler = quoted.sensitiveMedia === true;
+
+              parent1 = `
+              <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer"> ${escapeHTML(displayName || 'Unknown')} </strong>
+                  <span style="color:grey;font-size:12px;"> <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)} </span>
+                  <span style="cursor:pointer;margin-left:auto" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-text="${quoted.text}" data-author="${quoted.uid}" class="menubtn">
+                    <img src="/image/three-dots.svg">
+                  </span>
+                </div>
+                <div class="quoted-body">
+                  ${titleHTML2}
+                  <p style="margin:0;">${parsedQuoted}</p> 
+                  ${translateHTML2}
+                  ${baninfo1}
+                  
+                  ${containsSpoiler ?
+                      `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
+                        <div class="spoiler-overlay">
+                          <div class="spoilertxt">sensitive</div>
+                        </div>
+                        <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>` :
+                      `<div class="attachment" style="margin-bottom:5px;margin-top:15px;">
+                        <video id="${vidId}" controls style="max-width: 100%; border-radius: 10px; max-height: 300px;">
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>`
+                  }
+                  ${pollHTML}
+                  ${info67}
+                </div>
+              </div>`;
+              getSupabaseVideo(quoted.media, vidId);
+            } else {
+              parent1 = `
+              <div class="quoted-comment actuallyATweet quotedTweet" data-community-id="${quoted.communityId || null}" data-id="${tweetId}">
+                <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
+                  <img class="avatar" src="${escapeHTML(avatar) || '/image/default-avatar.jpg'}" 
+                    onerror="this.src='/image/default-avatar.jpg'" width="30">
+                  ${d1.suspended && d1.suspendedUntil > Timestamp.now() ? "⚠️" :
+                    `${(quoted.mentions && Object.values(quoted.mentions).includes(auth.currentUser.uid)) ?
+                      `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
+                      ""
+                    }`
+                  }
+                  <strong class="user-link" data-uid="${quoted.uid}" style="cursor:pointer">
+                    ${escapeHTML(displayName || 'Unknown')}
+                  </strong>
+                  <span style="color:grey;font-size:12px;">
+                    <span class="usernamee">@${username} •</span> ${formatDate(quoted.createdAt)}
+                  </span>
+                  ${editHTML67}
+                  <span style="cursor:pointer;margin-left:auto" data-community-id="${quoted.communityId || null}" data-author="${quoted.uid}" data-text="${quoted.text}" class="menubtn"><img src="/image/three-dots.svg"></span>
+                </div>
+                <div class="quoted-body">
+                  ${titleHTML2}
+                  <p style="margin:6px 0 12px;">${parsedQuoted}</p> 
+                  ${translateHTML2}
+                  ${baninfo1}
+                  ${pollHTML}
+                  ${info67}
+                </div>
+              </div>`;
+            }
           }
         }
       } else {
@@ -1487,9 +1505,11 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               <span style="cursor:pointer;color:#757779" class="reply-btn" data-id="${parentId}" data-tweet="${tweetId}">
                 <img loading='lazy' src="/image/message.svg"> ${(parent.replyCount ?? 0) > 0 ? parent.replyCount : ""}
               </span>
-              <span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${parentId}">
-                <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
-              </span>
+              ${parent.isPrivate || parent.isPrivateParent ? "" :
+                `<span style="cursor:pointer;color:#757779" class="retweet-btn" data-id="${tweetId}" data-comment-id="${parentId}">
+                  <img loading='lazy' src="/image/rewint.svg"> ${(parent.retweetCount ?? 0) > 0 ? parent.retweetCount : ""}
+                </span>`
+              }
               <span class="viewbtn" style="margin-left:auto;color:#757779"><img loading="lazy" src="/image/chart.svg"> ${parent.viewsCount > 0 ? parent.viewsCount : ""}</span>`
               }
               </div>

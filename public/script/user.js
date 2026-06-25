@@ -24,8 +24,12 @@ const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
 
 const displayUsers       = document.getElementById("displayUsers");
 const displayTweets      = document.getElementById("displayTweets");
-const displayskeletons   = document.getElementById("displaySkeletons")
+const displayskeletons   = document.getElementById("displaySkeletons");
+const searchbar          = document.getElementById("userSearchBar");
+
 let hasLoaded            = false;
+let aa                   = false;
+let bb                   = false;
 
 let isSearching          = false;
 let lastUserDoc          = null;
@@ -452,57 +456,51 @@ let userLastVisibleDoc = null;
 let userLoadedCount = 0;
 const USER_PAGE_SIZE = 5;
 
-async function loadTweets(uid) {
-  const userDoc = await getDoc(doc(db, "users", uid));
-  if (!userDoc.exists()) return;
-
-  const userData = {
-    ...userDoc.data(),
-    uid
-  };
-
-  const tweetsRef = collection(db, "tweets");
-  let q;
-
+async function loadTweets(uid, term = "") {
   if (!userLastVisibleDoc) {
-    q = query(
-      tweetsRef,
-      where("uid", "==", uid),
-      where("archived", "!=", true),
-      orderBy("createdAt", "desc"),
-      limit(USER_PAGE_SIZE)
-    );
-  } else {
-    q = query(
-      tweetsRef,
-      where("uid", "==", uid),
-      where("archived", "!=", true),
-      orderBy("createdAt", "desc"),
-      startAfter(userLastVisibleDoc),
-      limit(USER_PAGE_SIZE)
-    );
+    list.innerHTML = skeleton;
   }
 
+  const tweetsRef = collection(db, "tweets");
+  let constraints = [
+    where("uid", "==", uid),
+    where("archived", "!=", true),
+    orderBy("createdAt", "desc")
+  ];
+
+  if (term !== "") {
+    const words = tokenize(term);
+    constraints.push(where("searchTokens", "array-contains-any", words.slice(0, 10)));
+  }
+
+  if (userLastVisibleDoc) {
+    constraints.push(startAfter(userLastVisibleDoc));
+  }
+  constraints.push(limit(USER_PAGE_SIZE));
+
+  const q = query(tweetsRef, ...constraints);
   const snap = await getDocs(q);
 
   if (snap.empty && userLoadedCount === 0) {
     list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynts — yet</h2><p style="color:grey;margin:7px 0;">when this user posts something, it will appear here.</p></div></div>`;
+    aa = true;
     return;
-  } else {
-    const startEl = document.getElementById("start");
-    if (startEl) startEl.style.display = "none";
   }
 
-  snap.docs.forEach(async (docSnap) => {
+  aa = false;
+  if (!list.querySelector('.tweet')) list.innerHTML = "";
+
+  snap.docs.forEach((docSnap) => {
+    const d = docSnap.data();
+    
     if (uid === document.querySelector("#user-name").dataset.uid) {
-      renderTweet(docSnap.data(), docSnap.id, userData, "append", list);
+      renderTweet(d, docSnap.id, auth.currentUser, "append", list);
     }
   });
 
   userLoadedCount += snap.docs.length;
 
-  if (snap.docs.length < USER_PAGE_SIZE) {
-  } else {
+  if (!snap.empty) {
     userLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 }
@@ -677,8 +675,6 @@ async function isBanned(uid) {
     document.getElementById("followBtn").classList.add("hidden");
     blank();
     return;
-  } else {
-    document.getElementById("followBtn").classList.remove("hidden");
   }
 }
 
@@ -789,6 +785,8 @@ async function loadUserHighlights(uid, initial = false) {
 
 export async function openUserSubProfile(uid) {
   searchsvg.click();
+  searchbar.value = "";
+
   softblank();
   window.cannotSeeFollows = false;
   tweetviewactive1();
@@ -1601,7 +1599,7 @@ const followOverlay = document.createElement("div");
 followOverlay.id = "followOverlay";
 followOverlay.className = "useroverlay hidden";
 followOverlay.innerHTML = `
-  <div class="user-box">
+  <div class="user-box" style="height:100dvh !important;">
     <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
       <button onclick="document.getElementById('followOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -2036,6 +2034,7 @@ document.querySelectorAll(".tab3").forEach(tab => {
     document.getElementById(targetId).style.display = "block";
 
     const uid = document.getElementById("user-name").dataset.uid;
+    searchbar.value = "";
 
     if (targetId === "userList") {
       loadTweets(uid);
@@ -2045,63 +2044,97 @@ document.querySelectorAll(".tab3").forEach(tab => {
   });
 });
 
+searchbar.addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return; 
+
+  const term = searchbar.value.trim();
+  const uid = document.getElementById("user-name").dataset.uid;
+  if (!uid) return;
+
+  userLastVisibleDoc = null;
+  userLoadedCount = 0;
+  mentionedLastVisibleDoc = null;
+  mentionedLoadedCount = 0;
+  aa = false;
+  bb = false;
+
+  list.innerHTML = "";
+  usermentionedList.innerHTML = "";
+
+  document.querySelectorAll(".tab3").forEach(tab => {
+    const targetId = tab.dataset.target;
+    if (targetId === "userList") {
+      loadTweets(uid, term);
+    } else if (targetId === "usermentionedList") {
+      loadUserMentionedTweets(uid, term);
+    }
+  });
+});
+
 let mentionedLastVisibleDoc = null;
 let mentionedLoadedCount = 0;
 const usermentionedList = document.getElementById("usermentionedList");
 const MENTIONED_PAGE_SIZE = 5;
 
-async function loadUserMentionedTweets(uid) {
-  const ref = collection(db, "tweets");
-  let q;
-
+async function loadUserMentionedTweets(uid, term = "") {
   if (!mentionedLastVisibleDoc) {
-    q = query(ref, 
-      where("mentioned", "array-contains", uid),
-      where("archived", "!=", true),
-      orderBy("createdAt", "desc"), 
-      limit(MENTIONED_PAGE_SIZE));
-  } else {
-    q = query(ref, 
-      where("mentioned", "array-contains", uid),
-      where("archived", "!=", true),
-      orderBy("createdAt", "desc"), 
-      startAfter(mentionedLastVisibleDoc), 
-      limit(MENTIONED_PAGE_SIZE));
+    usermentionedList.innerHTML = skeleton;
   }
 
+  const mentionsRef = collection(db, "tweets");
+
+  let constraints = [
+    where("archived", "!=", true),
+    orderBy("createdAt", "desc"),
+    limit(7)
+  ];
+
+  if (term !== "") {
+    const searchList = tokenize(term)
+      .slice(0, 10)
+      .map(word => `${uid}_${word}`);
+
+    constraints.unshift(
+      where("mentionedSearchTokens", "array-contains-any", searchList)
+    );
+  } else {
+    constraints.unshift(
+      where("mentioned", "array-contains", uid)
+    );
+  }
+
+  if (mentionedLastVisibleDoc) {
+    constraints.push(startAfter(mentionedLastVisibleDoc));
+  }
+
+  const q = query(mentionsRef, ...constraints);
   const snap = await getDocs(q);
 
   if (snap.empty && mentionedLoadedCount === 0) {
-    usermentionedList.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No mentions — yet</h2><p style="color:grey;margin:7px 0;">when this user gets mentioned, it will appear here. Be the first to mention them.</p></div></div>`;
+    bb = true;
+    usermentionedList.innerHTML =
+      `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+        <div style="max-width:400px;text-align:left;">
+          <h2 style="margin:0;">No mentions — yet</h2><p style="color:grey;margin:7px 0;">when this user gets mentioned, it will appear here. Be the first to mention them.</p>
+        </div>
+      </div>`;
     return;
   }
 
-  if (snap.docs.length >= MENTIONED_PAGE_SIZE) {
+  bb = false;
+  if (!usermentionedList.querySelector(".tweet")) usermentionedList.innerHTML = "";
+
+  if (!snap.empty) {
     mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
   }
 
-  snap.docs.forEach(async (mentionDoc) => {
-    const tweetId = mentionDoc.id;
-    const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
-    if (!tweetDoc.exists()) return;
-
-    const tweetData = tweetDoc.data();
-    const userDoc = await getDoc(doc(db, "users", uid));
-    const userData = {
-      ...userDoc.data(),
-      uid
-    };
-
+  for (const mentionDoc of snap.docs) {
     if (uid === document.querySelector("#user-name").dataset.uid) {
-      await renderTweet(tweetData, tweetId, userData, "append", usermentionedList);
+      await renderTweet(mentionDoc.data(), mentionDoc.id, auth.currentUser, "append",usermentionedList);
     }
-  });
+  }
 
   mentionedLoadedCount += snap.docs.length;
-
-  if (snap.docs.length >= MENTIONED_PAGE_SIZE) {
-    mentionedLastVisibleDoc = snap.docs[snap.docs.length - 1];
-  }
 }
 
 document.body.addEventListener("click", e => {
@@ -2175,18 +2208,19 @@ profileScrollBox.addEventListener("scroll", async () => {
 
   const activeTab = document.querySelector(".tab3.active")?.dataset.target;
   const uid = document.getElementById("user-name").dataset.uid;
+  const term = searchbar.value.trim();
 
   if (activeTab === "userList") {
-    if (tweetLoading) return;
+    if (tweetLoading || aa) return;
     tweetLoading = true;
-    await loadTweets(uid);
+    await loadTweets(uid, term);
     tweetLoading = false;
   }
   
   if (activeTab === "usermentionedList") {
-    if (mentionLoading) return;
+    if (mentionLoading || bb) return;
     mentionLoading = true;
-    await loadUserMentionedTweets(uid);
+    await loadUserMentionedTweets(uid, term);
     mentionLoading = false;
   }
 });

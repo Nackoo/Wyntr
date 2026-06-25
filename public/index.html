@@ -37,7 +37,7 @@
 
 <body>
   <div id="bookmarkOverlay" class="useroverlay hidden">
-    <div class="user-box">
+    <div class="user-box" style="height:100dvh !important;">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
         <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
@@ -53,7 +53,7 @@
   </div>
 
   <div id="profileCom" class="useroverlay hidden">
-    <div class="user-box">
+    <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border)">
         <button onclick="document.getElementById('profileCom').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
@@ -70,7 +70,7 @@
   </div>
 
   <div id="blockOverlay" class="useroverlay hidden">
-    <div class="user-box">
+    <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
         <button onclick="document.getElementById('blockOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
         <input style="margin-right:20px;" type="text" placeholder="search mutes">
@@ -82,7 +82,7 @@
   </div>
 
   <div id="archiveOverlay" class="useroverlay hidden">
-    <div class="user-box">
+    <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
         <button onclick="document.getElementById('archiveOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
         <input style="margin-right:20px;" type="text" placeholder="search archives">
@@ -312,12 +312,13 @@
 
     <div style="flex-grow:1;max-width:580px;">
       <div id="profileOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -21px;padding:0 20px;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border)">
             <button onclick="history.pushState({}, '', '/'); closeuser(); document.getElementById('notifications').classList.remove('hidden');" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" class="user-link" id="skuter">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+              <input style="margin-left:20px;margin-right:-10px;background:rgba(0,0,0,0.3);" id="profileSearchBar" type="text" placeholder="search anything">
+              <div style="padding:15px;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" class="user-link" id="skuter">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
             </div>
           </header>
           <div id="user-profile-effect">
@@ -459,7 +460,7 @@
       </div>
 
       <div id="meOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important">
           <header id="sub-user-header" class="flex">
             <button onclick="hidesettings()" class="close-btn">
               <img src="/image/x.svg" alt="Close">
@@ -510,7 +511,7 @@
       </div>
 
       <div id="profileSubOverlay" class="useroverlay hidden">
-      <div class="user-box">
+      <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;margin-bottom:14px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="hideProfile">
@@ -708,7 +709,6 @@
             `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
               <div style="max-width:400px;text-align:left;">
                 <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
-                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
               </div>
             </div>`; 
           document.querySelector('#communitySearch input').value = '';
@@ -719,7 +719,6 @@
             `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
               <div style="max-width:400px;text-align:left;">
                 <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Replies</h2>
-                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search replies.</p>
               </div>
             </div>`; 
           document.querySelector('#commentSearch input').value = '';    
@@ -738,7 +737,6 @@
             <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
               <div style="max-width:400px;text-align:left;">
                 <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Wynts</h2>
-                <p style="color:grey;margin:7px 0;">enter at least 3 characters to search Wynts.</p>
               </div>
             </div>
           </div>
@@ -748,7 +746,7 @@
 
 
       <div id="userOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:15px;">
             <button onclick="hideuser()" style="background:none;"><img src="/image/leftArrow.svg"></button>
             <input style="margin-right:20px;" type="text" placeholder="search anything">
@@ -777,7 +775,7 @@
       </div>
 
       <div id="notificationOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <br>
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:25px;margin-top:-30px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
@@ -788,6 +786,9 @@
             </div>
           </header>
           <div id="notifications" class="tab-content"></div>
+          <div id="notifplaceholder">
+            <div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div><div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div><div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div><div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div><div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div><div class="skeleton-skibidi"><div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div></div>
+          </div>
           <br><br><br><br><br><br>
         </div>
       </div>
@@ -809,11 +810,12 @@
       </div>
 
       <div id="userSubOverlay" class="useroverlay hidden suboverlay">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -21px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border)">
             <button onclick="history.pushState({}, '', '/'); closeUser(); document.getElementById('notifications').classList.remove('hidden');" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="padding:15px;margin-left:auto;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" id="stardenburdenhardenbart" class="user-link">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
+              <input style="margin-left:20px;margin-right:-10px;background:rgba(0,0,0,0.3);" id="userSearchBar" type="text" placeholder="search anything">
+              <div style="padding:15px;display:flex;align-items:center;gap:10px;margin-right:-20px;"><h2 style="margin:0" id="stardenburdenhardenbart" class="user-link">user</h2><img src="/image/user-filled.svg" style="height:30px;"></div>
             </div>
           </header>
           <div id="profile-effect">
@@ -921,7 +923,7 @@
       </div>
 
       <div class="useroverlay hidden" id="communityArchiveOverlay" style="z-index:7">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
             <div style="display:flex;align-items:center;gap:10px;">
               <button onclick="document.getElementById('communityArchiveOverlay').classList.add('hidden')" class="close-btn" style="padding:0 !important;"><img src="/image/leftArrow.svg"></button>
@@ -935,7 +937,7 @@
       </div>
 
       <div class="useroverlay hidden" id="banOverlay" style="z-index:7">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
             <div style="display:flex;align-items:center;gap:10px;">
               <button onclick="document.getElementById('banOverlay').classList.add('hidden')" class="close-btn" style="padding:0 !important;"><img src="/image/leftArrow.svg"></button>
@@ -949,7 +951,7 @@
       </div>
 
       <div class="useroverlay hidden" id="memberOverlay" style="z-index:7">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
             <div style="display:flex;align-items:center;gap:10px;">
               <button onclick="document.getElementById('memberOverlay').classList.add('hidden')" class="close-btn" style="padding:0 !important;"><img src="/image/leftArrow.svg"></button>
@@ -1152,7 +1154,7 @@
           </div>
 
           <div id="quoteViewer" class="useroverlay hidden">
-            <div class="user-box">
+            <div class="user-box" style="height:100dvh !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
                   <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;"> 
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('quoteViewer').classList.add('hidden')">
@@ -1167,16 +1169,15 @@
           </div>
 
           <div id="tweetViewer" class="useroverlay hidden">
-            <div class="user-box">
+            <div class="user-box" style="height:100dvh !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;"> 
+                <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="tweetviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>
+                  <input style="margin-right:5px;background:rgba(0,0,0,0.3);" id="tweetSearchBar" type="text" placeholder="search replies under this Wynt">
+
                   <h2 title="takes screenshot of the posts" id="tweetSS" style="margin:0;margin-left:auto;">post</h2>
-                  <button style="background:none;border:none;padding:0;margin:0;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
-                    <img height="24" src="/image/search.svg">
-                  </button>
                 </div>
               </header>
               <div id="appendTweet"></div>
@@ -1186,17 +1187,19 @@
           </div>
 
           <div id="commentSearch" style="z-index:7;" class="useroverlay hidden">
-            <div class="user-box">
+            <div class="user-box" style="height:100dvh !important;">
               <br>
-              <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:0;margin-top:-12px;">
-                <button onclick="resetCommentSearch()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
-                <input style="margin-right:20px;" type="text" placeholder="search anything">
+              <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;margin-top:-24px;">
+                <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <button onclick="resetCommentSearch()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
+                  <input style="margin-left:-10px;" type="text" placeholder="search replies under this post">
+                </div>
               </header>
+
               <div id="appendCommentSearch">
                 <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
                   <div style="max-width:400px;text-align:left;">
                     <h2 style="margin:0;display:flex;gap:10px;"><img height="33" style="transform:rotate(90deg)" src="/image/search.svg"> Search for Replies</h2>
-                    <p style="color:grey;margin:7px 0;">enter at least 3 characters to search replies.</p>
                   </div>
                 </div>
               </div>
@@ -1205,16 +1208,15 @@
           </div>
 
           <div id="commentViewer" class="useroverlay hidden">
-            <div class="user-box">
+            <div class="user-box" style="height:100dvh !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
                   <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="commentviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>
+                  <input style="margin-right:5px;background:rgba(0,0,0,0.3);" id="commentSearchBar" type="text" placeholder="search anything">
+
                   <h2 title="takes screenshot of the posts" id="commentSS" style="margin:0;margin-left:auto;">post</h2>
-                  <button style="background:none;border:none;padding:0;margin:0;" onclick="document.getElementById('commentSearch').classList.remove('hidden')">
-                    <img height="24" src="/image/search.svg">
-                  </button>
                 </div>
               </header>
               <div id="appendComment" style="margin-top:20px"></div>
@@ -1328,7 +1330,7 @@
           </div>          
 
           <div id="tweetOverlay" class="overlay hidden">
-            <div class="comment-box" style="padding-top:0 !important">
+            <div class="comment-box" style="padding-top:0 !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
                   <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="canceltweet">
@@ -1645,7 +1647,7 @@
       </div>
 
       <div id="premiumOverlay1" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="closePremium">
@@ -1713,7 +1715,7 @@
       </div>
 
       <div id="bookmarkFolderOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('bookmarkFolderOverlay').classList.add('hidden')">
@@ -1730,7 +1732,7 @@
       </div>
 
       <div id="highlightFolderOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('highlightFolderOverlay').classList.add('hidden')">
@@ -1747,7 +1749,7 @@
       </div>
 
       <div id="communityOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
               <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com">
@@ -1789,7 +1791,7 @@
       </div>
 
       <div id="bookmarkTweetOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
           <h2 style="display:flex;align-items:center;margin:12px 0;">
             <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('bookmarkTweetOverlay').classList.add('hidden');window.CURRENT_BOOKMARK_ID = null;" class="close-btn">
@@ -1807,7 +1809,7 @@
       </div>
 
       <div id="highlightTweetOverlay" class="useroverlay hidden">
-        <div class="user-box">
+        <div class="user-box" style="height:100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
           <h2 style="display:flex;align-items:center;margin:12px 0;">
             <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="document.getElementById('highlightTweetOverlay').classList.add('hidden');window.CURRENT_HIGHLIGHT_ID = null" class="close-btn">
@@ -1849,7 +1851,7 @@
     </div>
 
     <div id="skibidicome" style="z-index:7" class="useroverlay hidden">
-    <div class="user-box">
+    <div class="user-box" style="height:100dvh !important">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
         <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
           <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com-rule">

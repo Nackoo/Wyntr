@@ -166,7 +166,7 @@ body {
     box-sizing: border-box
   }
   #premiumbox {
-    height: 100vh !important;
+    height: 100dvh !important;
     padding: 10px 20px !important;
   }
   #getpremium {
@@ -884,7 +884,7 @@ p.clamp-text {
   #commentOverlay .comment-box,
   #replyOverlay .comment-box,
   #editOverlay .comment-box{
-    min-height: 100vh;
+    min-height: 100dvh !important;
     padding-top: 70px !important;
   }
 }

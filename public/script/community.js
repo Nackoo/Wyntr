@@ -293,7 +293,7 @@ async function showCreateCommunityOverlay(communityId = null) {
   overlay.style.pointerEvents = "none"                       ;
 
   overlay.innerHTML = `
-    <div class="user-box" style="width:100%;max-width:539px;pointer-events:auto;">
+    <div class="user-box" style="height:100dvh !important;width:100%;max-width:539px;pointer-events:auto;">
       <header class="flex" style="position:absolute;top:20px;left:0;right:0;margin:0">
         <button onclick="document.getElementById('createCommunity').classList.add('hidden')" class="close-btn">
           <img src="/image/x.svg" alt="Close">
@@ -967,7 +967,7 @@ export async function openCommunity(communityId) {
   }
 
   overlay.innerHTML = `
-    <div class="user-box" style="width:100%;max-width:539px;pointer-events:auto">
+    <div class="user-box" style="height:100dvh !important;width:100%;max-width:539px;pointer-events:auto">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border);
         margin:0 -20px;padding:0 20px;margin-bottom:20px;align-items:center;justify-content:space-between;">
@@ -2721,8 +2721,7 @@ communityScrollBox?.addEventListener("scroll", async () => {
 
 const searchInput = document.querySelector("#communitySearch input");
 const tweetsView = document.getElementById("wyntsView");
-const MIN_LEN = 3;
-const TWEETS_PAGE = 10;
+const TWEETS_PAGE = 7;
 
 let previousTerm = "";
 let lastTweetDoc = null;
@@ -2732,7 +2731,7 @@ searchInput.addEventListener("keydown", async (e) => {
     const term = searchInput.value.trim();   
     if (term === previousTerm) return;
     previousTerm = term;
-    if (term.length >= MIN_LEN) {
+    if (term) {
       if (window.isOnPrivate && !window.isJoined) {
         info("x", "insufficient permission", "This is a private community and you're not joined.");
         return;

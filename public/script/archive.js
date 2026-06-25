@@ -68,6 +68,7 @@ export function initArchiveViewer({
                     baseCollection,
                     where("archived", "==", true),
                     where("searchTokens", "array-contains-any", searchList),
+                    where("uid", "==", auth.currentUser.uid),
                     orderBy("createdAt", "desc"),
                     ...(lastDoc ? [startAfter(lastDoc)] : []),
                     limit(7)
@@ -76,6 +77,7 @@ export function initArchiveViewer({
                 q = query(
                     baseCollection,
                     where("archived", "==", true),
+                    where("uid", "==", auth.currentUser.uid),
                     orderBy("createdAt", "desc"),
                     ...(lastDoc ? [startAfter(lastDoc)] : []),
                     limit(7)

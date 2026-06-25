@@ -575,9 +575,22 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     let processedText = text;
 
     const mentions = await extractMentions(text);
+
     let mentioned = null;
     if (!window.communityID) {
       mentioned = Object.values(mentions).filter(Boolean);
+    }
+
+    const searchTokens = tokenize(text);
+
+    const mentionedSearchTokens = [];
+
+    if (mentioned) {
+      for (const uid of mentioned) {
+        for (const token of searchTokens) {
+          mentionedSearchTokens.push(`${uid}_${token}`);
+        }
+      }
     }
 
     const tagMatches = text.match(/#(\w+)/g) || [];
@@ -623,8 +636,9 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         commentCount: 0,
         viewsCount: 0,
         editUntil,
-        searchTokens: tokenize(text),
+        searchTokens,
         noPrivateReply,
+        mentionedSearchTokens,
         muteNotif,
         sensitiveMedia
       };
@@ -2545,9 +2559,10 @@ document.body.addEventListener("click", async (e) => {
           <img loading='lazy' src="/image/copy.svg"> copy user ID
         </div>
 
-        <div class="menu-item archive" data-archived="${data.archived}" data-id="${tweetId}" ${window.communityID ? `data-community="${window.communityID}"` : ""}>
+        ${isOwner ?
+        `<div class="menu-item archive" data-archived="${data.archived}" data-id="${tweetId}" ${window.communityID ? `data-community="${window.communityID}"` : ""}>
           <img loading='lazy' src="/image/archive.svg"> ${data.archived ? "unarchive" : "archive"} Wynt
-        </div>
+        </div>` : ""}
     `;
 
     overlay.classList.remove("hidden");
@@ -2717,6 +2732,7 @@ document.body.addEventListener("click", async (e) => {
         } catch {
           return;
         }
+        loading.classList.add("show");
 
         if (isAuthority) {
           await updateDoc(commentRef, {
@@ -2750,7 +2766,6 @@ document.body.addEventListener("click", async (e) => {
             } catch (err) { console.error("comment screenshot failed:", err); }
           }
 
-          loading.classList.remove("show");
           try {
             const {username: posterName, displayName} = await getUserData(data.uid);
             const {username: offenderName, displayName: d1} = await getUserData(auth.currentUser.uid);
@@ -2808,6 +2823,7 @@ document.body.addEventListener("click", async (e) => {
             hiddenReason: reason,
           });
         }
+        loading.classList.remove("show");
         log("green", "Reply hidden");
         return;
       }
@@ -4717,6 +4733,7 @@ document.body.addEventListener("click", async (e) => {
         }
       } catch (err) {
         console.error("Error sending comment:", err);
+        console.log(err.code, err.message);
         log("red", "error sending reply");
       } finally {
         replyingToId = null;
@@ -5698,7 +5715,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       ownerHTML = `
         <div id="${id}" class="ownerr">
           <button style="display:none;" id="expandComment-${id}" onclick="
-            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID || communityId}', '${id}', '${d.communityId}', ${d.isPrivateParent}, ${tweetData.postedInPublic});
+            renderOwner('${tweetId}', '${d.ownerReplied}', '${window.communityID || communityId}', '${id}', '${d.communityId}', ${d.isPrivate}, ${tweetData.postedInPublic});
             document.getElementById('${commentBodyId}').style.cssText = 'margin-left: -28px; border-left: 2px solid rgba(255, 255, 255, 0.3); padding-left: 26px; margin-bottom: -30px; padding-bottom: 30px;';
           ">
           </button>
@@ -6896,6 +6913,18 @@ sendRetweet.onclick = async () => {
       mentioned = Object.values(mentions).filter(Boolean);
     }
 
+    const searchTokens = tokenize(text);
+
+    const mentionedSearchTokens = [];
+
+    if (mentioned) {
+      for (const uid of mentioned) {
+        for (const token of searchTokens) {
+          mentionedSearchTokens.push(`${uid}_${token}`);
+        }
+      }
+    }
+
     let processedText = text;
 
     const isCommentRetweet = !!selectedCommentRetweet;
@@ -6929,8 +6958,9 @@ sendRetweet.onclick = async () => {
       likeCount: 0,
       language: detectedLanguage,
       editUntil,
-      searchTokens: tokenize(text),
+      searchTokens,
       commentCount: 0,
+      mentionedSearchTokens,
       viewsCount: 0,
       retweetCount: 0,
       createdAt: new Date(),

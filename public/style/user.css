@@ -844,7 +844,6 @@ input[type="checkbox"] {
 #tweetViewer,
 #commentViewer,
 #hfolderActionOverlay,
-#deleteReasonOverlay,
 #commentOverlay,
 #viewOverlay,
 #gifttOverlay,
@@ -1399,6 +1398,10 @@ input[type="checkbox"] {
   cursor: nwse-resize;
 }
 
+#deleteReasonOverlay {
+  z-index: 10000;
+}
+
 #mediaUpload {
   z-index: 100;
   display: flex;
@@ -1886,8 +1889,12 @@ h3, .translated-text {
   #tweetOption .comment-box,
   #retweetOption .comment-box,
   #commentOption .comment-box, 
-  #replyOption .comment-box {
-    min-height: 100vh !important
+  #replyOption .comment-box,
+  #originalEdited .comment-box {
+    min-height: 100dvh !important
+  }
+  #originalEdited .comment-box {
+    padding-top: 70px !important;
   }
 }
 
@@ -2113,15 +2120,30 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
   #openArchive {
     border-bottom: var(--border);
   }
+  #notifplaceholder {
+    margin-top: 35px;
+  }
 }
 
 #archiveList .skeleton-card,
-#communityArchiveList .skeleton-card {
+#communityArchiveList .skeleton-card,
+#userSubOverlay .skeleton-card,
+#profileOverlay .skeleton-card {
   margin: 0px;
   margin-bottom: 20px;
 }
 
+#userList .skeleton-card:first-child,
+#usermentionedList .skeleton-card:first-child,
+#youList .skeleton-card:first-child, 
+#mentionedList .skeleton-card:first-child {
+  margin-top: 25px !important;
+}
+
 @media (max-width: 700px) {
+  #notifplaceholder {
+    margin-top: -20px;
+  }
   #myCommunities .skeleton-skibidi,
   #communityList .skeleton-skibidi {
     margin: -33px;

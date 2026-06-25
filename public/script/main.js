@@ -830,3 +830,29 @@ export async function showOriginal(text, mentions, title) {
   document.getElementById("originalText").innerHTML = parsedText;
   if (title && title != "") document.getElementById("originalTitle").textContent = title;
 }
+
+[
+  "tweetSearchBar",
+  "commentSearchBar"
+].forEach(id => {
+  document.getElementById(id).addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+
+    const term = e.currentTarget.value.trim();
+    if (!term) return;
+
+    const input = document.querySelector("#commentSearch input");
+
+    input.value = term;
+    document.getElementById("commentSearch").classList.remove("hidden");
+
+    e.currentTarget.value = "";
+
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true
+      })
+    );
+  });
+});

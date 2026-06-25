@@ -6,6 +6,7 @@ import { renderCommentViewer } from "./commentViewer.js";
 import { openCommunity } from "./community.js";
 import { base91ToImageSrc } from "./attachments.js";
 import { retweet } from "./nonsense.js";
+import { skeleton } from "./user.js";
 
 const messagesvg = `
 <svg style="min-height:24px;min-width:24px;margin-top:6px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4 3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1v2a1 1 0 0 0 1.707.707L9.414 13H15a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H4Z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M8.023 17.215c.033-.03.066-.062.098-.094L10.243 15H15a3 3 0 0 0 3-3V8h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1v2a1 1 0 0 1-1.707.707L14.586 18H9a1 1 0 0 1-.977-.785Z" clip-rule="evenodd"/></svg>
@@ -589,6 +590,7 @@ if (menu) {
             console.error("Failed to mute user:", err);
             log("red", "Failed to mute user");
           }
+          document.getElementById("notifMenuOverlay").classList.add("hidden");
           document.getElementById("blockOptions").classList.add("hidden");
           document.getElementById("confirmBlock").disabled = false;
           document.getElementById("confirmBlock").classList.remove("disabled");
@@ -1051,6 +1053,10 @@ export async function loadNotifications(initial = false) {
         );
       }
 
+      if (!notificationsContainer.querySelector(".notification")) {
+        document.getElementById("notifplaceholder").innerHTML = "";
+        document.getElementById("notifications").classList.remove("hidden");
+      }
       notificationsContainer.appendChild(createNotificationElement(data));
     }
   }

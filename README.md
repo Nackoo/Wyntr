@@ -27,7 +27,7 @@ read [Firestore rules](/firestore_rules.txt)
 | communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                                 | Collection   |
 | posts         | `searchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`              | Collection   |
 | posts         | `createdAt ↓`, `archived ↓`, `__name__ ↓`                                 | Collection   |
-| posts         | `archived ↑`, `createdAt ↓`, `__name__ ↓`                                 | Collection   |
+| posts         | `archived ↑`, `uid ↑`, `createdAt ↓`, `__name__ ↓`                        | Collection   |
 | posts         | `retweetOf ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓`                  | Collection   |
 | posts         | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
 | posts         | `retweetOfComment.commentId ↑`, `likeCount ↓`, `archived ↓`, `__name__ ↓` | Collection   |
@@ -42,6 +42,7 @@ read [Firestore rules](/firestore_rules.txt)
 | tweets        | `uid ↑`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                        | Collection   |
 | tweets        | `mentioned []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                 | Collection   |
 | tweets        | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
+| tweets        | `mentionedSearchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`     | Collection   |
 
 ## supabase policies
 
