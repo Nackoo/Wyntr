@@ -1150,7 +1150,7 @@ document.body.addEventListener("click", async (e) => {
   }
 
   const actionEl = body.querySelector(".reply-btn");
-  if (!actionEl) return;
+  if (!actionEl && !(body.dataset.id && body.dataset.tweet)) return;
 
   if (
     e.target.closest(".attachment") || 
@@ -1183,8 +1183,8 @@ document.body.addEventListener("click", async (e) => {
 
   document.getElementById("commentSearch").classList.add("hidden");
 
-  const commentId = actionEl.dataset.id;
-  const tweetId = actionEl.dataset.tweet;
+  const commentId = actionEl ? actionEl.dataset.id : body.dataset.id;
+  const tweetId = actionEl ? actionEl.dataset.tweet : body.dataset.tweet;
 
   const overlay = document.getElementById("commentViewer");
   const box = overlay.querySelector("#appendComment");

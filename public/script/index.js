@@ -5472,6 +5472,8 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
     ${mediaHTML1}
   `;
 
+  const random = randomString(14);
+
     if (d.banned === true && currentUserRole != "admin") {
       ownerHTML1 = `
         <div data-id="${ownerReplied}" data-community-id="${dcomid || null}" data-tweet="${tweetId}" class="comment-item" style="display:flex;gap:10px;border-bottom:none;padding:20px ${isCommentSearch ? "" : "0"} !important;padding-bottom:0 !important;background:none;">
@@ -5523,11 +5525,11 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
               ${data.isHidden ? `
                 <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentSubHidden-${ownerReplied}" onclick="
                   this.classList.add('hidden');
-                  document.getElementById('commentOwner-${ownerReplied}').classList.remove('hidden');
-                  document.getElementById('commentSubItem-${ownerReplied}').classList.remove('hidden');">
+                  document.getElementById('commentOwner-${ownerReplied}-${random}').classList.remove('hidden');
+                  document.getElementById('commentSubItem-${ownerReplied}-${random}').classList.remove('hidden');">
                   <p style="margin:0;font-size:15px;">This reply ${data.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${data.hiddenByAdmin ? "community admin" : "Wynt author"}.`}  click to view content</p>
                 </button>
-                <div class="hidden" id="commentSubItem-${ownerReplied}">
+                <div class="hidden" id="commentSubItem-${ownerReplied}-${random}">
                   ${content}
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
                     <img src="/image/eye.svg">
@@ -5560,7 +5562,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
           </div>
         </div>
         ${data.isHidden ? `
-          <div id="commentOwner-${commentId}" class="hidden">
+          <div id="commentOwner-${commentId}-${random}" class="hidden">
             ${ownerHTML}       
           </div>` 
         : `${ownerHTML}`}
@@ -5847,6 +5849,8 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
       ${privateHTML}
     `;
 
+    const random = randomString(14);
+
     if (data.banned === true && currentUserRole != "admin") {
       commentHTML.innerHTML = `
         <div style="display:flex;gap:10px;">
@@ -5886,11 +5890,11 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
               ${d.isHidden ? `
                 <button class="hiddenCon" style="line-height:1.5;background:var(--light);padding:10px;border-radius:10px;border:var(--border);color:grey;margin:10px 0;text-align:left;" id="commentHidden-${commentId}" onclick="
                   this.classList.add('hidden');
-                  document.getElementById('commentOwner-${commentId}').classList.remove('hidden');
-                  document.getElementById('commentItem-${commentId}').classList.remove('hidden');">
+                  document.getElementById('commentOwner-${commentId}-${random}').classList.remove('hidden');
+                  document.getElementById('commentItem-${commentId}-${random}').classList.remove('hidden');">
                   <p style="margin:0;font-size:15px;">This reply ${d.hiddenByAuthority ? "may violate Wyntr guidelines" : `is hidden by the ${comment.hiddenByAdmin ? "community admin" : "Wynt author"}.`} click to view content</p>
                 </button>
-                <div class="hidden" id="commentItem-${commentId}">
+                <div class="hidden" id="commentItem-${commentId}-${random}">
                   ${content}
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
                     <img src="/image/eye.svg">
@@ -5925,7 +5929,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
           </div>
         </div>
         ${d.isHidden ? `
-          <div id="commentOwner-${commentId}" class="hidden">
+          <div id="commentOwner-${commentId}-${random}" class="hidden">
             ${ownerHTML}
           </div>` 
         : `${ownerHTML}`}
