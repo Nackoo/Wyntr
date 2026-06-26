@@ -297,6 +297,16 @@ onAuthStateChanged(auth, async (user) => {
     }
     
     if (!snap.exists()) {
+      const overlayContainer = document.createElement('div');
+      overlayContainer.innerHTML = `
+        <div id="loadingO" class="overlay" style="background:var(--dark);z-index:100">
+          <div style="display:flex;flex-direction:column;gap:35px;">
+            <img height="60" src="/image/loader.svg">Setting up your account
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlayContainer);
+
       const rawName = user.displayName || "user";
       let finalDisplayName = rawName.slice(0, 15);
       let finalName = finalDisplayName.toLowerCase();
