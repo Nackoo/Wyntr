@@ -1393,6 +1393,7 @@ async function loadIfFollow(uid) {
 
       try {
         const currentlyFollowing = snap.exists();
+        const theirAccount = await getDoc(doc(db, "users", uid));
 
         if (currentlyFollowing) {
           if (localStorage.getItem("disableConfirmation") != "true") {
@@ -1412,9 +1413,12 @@ async function loadIfFollow(uid) {
           batch.update(doc(db, "users", auth.currentUser.uid), {
             following: increment(-1)
           });
-          batch.update(doc(db, "users", uid), {
-            followers: increment(-1)
-          });
+
+          if (theirAccount.exists()) {
+            batch.update(doc(db, "users", uid), {
+              followers: increment(-1)
+            });
+          }
 
           await batch.commit();
 
@@ -1426,6 +1430,7 @@ async function loadIfFollow(uid) {
           log("green", `user unfollowed`);
           loading.classList.remove("show");
           await loadIfFollow(uid);
+          document.querySelector(`#followList .user-search-item[data-uid="${id}"]`)?.remove();
         } else {
           const [
             { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
@@ -2037,7 +2042,11 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
     const myFollowingRef = doc(db, "users", currentUid, "following", targetId);
     const theirFollowersRef = doc(db, "users", targetId, "followers", currentUid);
 
-    const isFollowingSnap = await getDoc(myFollowingRef);
+    const [isFollowingSnap, theirAccount] = await Promise.all([
+      getDoc(myFollowingRef),
+      getDoc(doc(db, "users", targetId))
+    ]);
+
     btn.textContent = isFollowingSnap.exists() ? "UnFoll" : "Follow";
 
     if (skibidi === true) {
@@ -2077,9 +2086,12 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
           batch.update(doc(db, "users", currentUid), {
             following: increment(-1)
           });
-          batch.update(doc(db, "users", targetId), {
-            followers: increment(-1)
-          });
+          
+          if (theirAccount.exists()) {
+            batch.update(doc(db, "users", targetId), {
+              followers: increment(-1)
+            });
+          }
 
           await batch.commit();
 
@@ -2089,6 +2101,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
           log("green", `user unfollowed`);
           loading.classList.remove("show");
           setupMiniFollowBtn(btn, targetId);
+          document.querySelector(`#followList .user-search-item[data-uid="${targetId}"]`)?.remove();
         } else {
           const [
             { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
