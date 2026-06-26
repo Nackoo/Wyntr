@@ -14,6 +14,7 @@ import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
 import { openCommunity } from "./community.js";
 // import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
 import { openHighlightOverlay } from "./highlight.js";
+import { viewLikes } from "./viewLikes.js";
 
 //2541
 
@@ -232,6 +233,8 @@ onAuthStateChanged(auth, async (user) => {
     const avatarEl = document.querySelector(".account-avatar");
     const nameEl = document.querySelector(".account-name");
     const usernameEl = document.querySelector(".account-username");
+
+    const random = randomString(12);
 
     let displayName = user.displayName || "Anonymous";
     let photoURL = "/image/default-avatar.jpg";
@@ -2500,7 +2503,7 @@ document.body.addEventListener("click", async (e) => {
 
         <div class="menu-item share-btn" data-share="${yes}" ${!data.postedInPublic ? `data-community-id="${hascom || null}"` : ""} data-id="${tweetId}"><img loading='lazy' src="/image/share.svg">Share this Wynt</div>
 
-        <div class="menu-item bookmark-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from bookmark folder</div>
+        <div class="menu-item bookmark-btn" ${hascom ? `data-community="${communityId}"` : ""} id="bookmarkBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from bookmark folder</div>
 
         ${window.CURRENT_BOOKMARK_ID ? `
           <div class="menu-item unbookmark-btn" data-tweet="${tweetId}">
@@ -2509,7 +2512,7 @@ document.body.addEventListener("click", async (e) => {
         ` : ""}
 
         ${(window.communityID && window.isOnPrivate) || isPrivate ? "" : 
-          `<div class="menu-item highlight-btn" ${window.communityID ? `data-community="${window.communityID}"` : ""} id="highlightBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from highlight folder</div>`
+          `<div class="menu-item highlight-btn" ${hascom ? `data-community="${communityId}"` : ""} id="highlightBtn-${tweetId}"><img loading='lazy' src="/image/bookmark.svg"> add/remove from highlight folder</div>`
         }
 
         ${window.CURRENT_HIGHLIGHT_ID ? `
@@ -2547,6 +2550,15 @@ document.body.addEventListener("click", async (e) => {
           </div>`
         : ""}
 
+        <div class="menu-item viewLikes" data-owner="${isOwner}" data-id="${tweetId}" ${hascom ? `data-community="${communityId}"` : ""}>
+            <img loading="lazy" src="/image/heart.svg"> view likes
+        </div>
+
+        ${isOwner ?
+        `<div class="menu-item archive" data-archived="${data.archived}" data-id="${tweetId}" ${hascom ? `data-community="${communityId}"` : ""}>
+          <img loading='lazy' src="/image/archive.svg"> ${data.archived ? "unarchive" : "archive"} Wynt
+        </div>` : ""}
+
         <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
 
         ${isOwner ? "" : `<div class="menu-item report-btn" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/report.svg"> Report this Wynt</div>` }
@@ -2558,11 +2570,6 @@ document.body.addEventListener("click", async (e) => {
         <div class="menu-item author-share" data-author="${author}">
           <img loading='lazy' src="/image/copy.svg"> copy user ID
         </div>
-
-        ${isOwner ?
-        `<div class="menu-item archive" data-archived="${data.archived}" data-id="${tweetId}" ${window.communityID ? `data-community="${window.communityID}"` : ""}>
-          <img loading='lazy' src="/image/archive.svg"> ${data.archived ? "unarchive" : "archive"} Wynt
-        </div>` : ""}
     `;
 
     overlay.classList.remove("hidden");
@@ -2580,6 +2587,22 @@ document.body.addEventListener("click", async (e) => {
   }
 
   if (e.target.id === "tweetMenuOverlay" || e.target.closest(".close-menu")) {
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+  }
+
+  const viewlikes = e.target.closest(".viewLikes");
+  if (viewlikes) {
+    const tweetId = viewlikes.dataset.id;
+    const communityId = viewlikes.dataset.community || null;
+    const isOwner = viewlikes.dataset.owner;
+
+    window.view_mode = "wynts";
+    window.view_tweetId = tweetId;
+    window.view_communityId = communityId;
+    window.view_replyId = null;
+    window.view_isOwner = isOwner;
+
+    viewLikes();
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
   }
 
@@ -3424,6 +3447,10 @@ document.body.addEventListener("click", async (e) => {
         : ""
       }
 
+      <div class="menu-item viewLikes1" data-tweet="${tweetId}" ${hascom ? `data-community="${hascom}"` : ""} data-comment="${commentId}" data-owner="${isOwner}">
+          <img loading="lazy" src="/image/heart.svg"> view likes
+      </div>
+
       <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
 
       ${isOwner ? "" : `
@@ -3453,6 +3480,23 @@ document.body.addEventListener("click", async (e) => {
     }
 
     if (commentData.text) box.querySelector(".text-copy").dataset.text = commentData.text;
+  }
+
+  const viewlikes1 = e.target.closest(".viewLikes1");
+  if (viewlikes1) {
+    const tweetId = viewlikes1.dataset.tweet;
+    const commentId = viewlikes1.dataset.comment;
+    const communityId = viewlikes1.dataset.community || null;
+    const isOwner = viewlikes1.dataset.owner;
+
+    window.view_mode = "wynts";
+    window.view_tweetId = tweetId;
+    window.view_communityId = communityId;
+    window.view_replyId = commentId;
+    window.view_isOwner = isOwner;
+
+    viewLikes();
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
   }
 
   const deleteBtn = e.target.closest(".delete-btn");
@@ -6067,12 +6111,6 @@ document.body.addEventListener("click", async (e) => {
       ]);
       const userData = userSnap.data();
 
-      if (userData.privateLikes) {
-        userData.photoURL = "/image/default-avatar.jpg";
-        userData.username = "Anonymous";
-        userData.displayName = "Anonymous";
-      }
-
       if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
         info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
         return;
@@ -6118,11 +6156,19 @@ document.body.addEventListener("click", async (e) => {
           `;
           if (countSpan) countSpan.textContent = currentCount - 1 > 0 ? currentCount - 1 : "";
         } else {
+          const name = userData.displayName ?
+            userData.displayName.toLowerCase() :
+            "Unknown";
+          const status = userData.privateLikes && commentSnap.data().uid != auth.currentUser.uid ?
+            "private" : "public";
+
           transaction.set(likeDocRef, {
             likedAt: new Date(),
             photoURL: userData.photoURL || "/image/default-avatar.jpg",
-            displayName: userData.displayName || "anonymous",
-            username: userData.username || "anonymous",
+            displayName: userData.displayName || "Unknown",
+            username: userData.username || "Unknown",
+            name, 
+            status
           });
           transaction.update(commentRef, {
             likeCount: currentCount + 1,
@@ -6169,18 +6215,12 @@ document.body.addEventListener("click", async (e) => {
     const userRef = doc(db, "users", auth.currentUser.uid);
     btn.style.pointerEvents = "none";
 
-    const [ userSnap, postSnap, likeSnap] = await Promise.all([
+    const [userSnap, postSnap, likeSnap] = await Promise.all([
       getDoc(userRef),
       getDoc(postRef),
       getDoc(likeRef)
     ]);
     const userData = userSnap.data();
-
-    if (userData.privateLikes) {
-      userData.photoURL = "/image/default-avatar.jpg";
-      userData.username = "Anonymous";
-      userData.displayName = "Anonymous";
-    }
 
     if (userData.suspended === true && userData.suspendedUntil > Timestamp.now()) {
       info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
@@ -6232,11 +6272,19 @@ document.body.addEventListener("click", async (e) => {
             ${newCount - 1 > 0 ? `<span id="likeCount-${tweetId}">${newCount - 1}</span>` : ""}
           `;
         } else {
+          const name = userData.displayName ?
+            userData.displayName.toLowerCase() :
+            "Unknown";
+          const status = userData.privateLikes && postSnap.data().uid != auth.currentUser.uid ?
+            "private" : "public";
+
           transaction.set(likeRef, {
             likedAt: new Date(),
             photoURL: userData.photoURL || "/image/default-avatar.jpg",
-            username: userData.username || "Anonymous",
-            displayName: userData.displayName || "Anonymous"
+            username: userData.username || "Unknown",
+            displayName: userData.displayName || "Unknown",
+            name,
+            status
           });
           transaction.update(postRef, {
             likeCount: newCount + 1

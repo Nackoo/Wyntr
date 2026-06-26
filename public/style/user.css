@@ -884,7 +884,8 @@ input[type="checkbox"] {
 #retweetOption,
 #tweetOption,
 #replyOption, 
-#commentOption {
+#commentOption,
+#viewlikesOverlay {
   z-index: 12 !important;
 }
 
@@ -1775,7 +1776,6 @@ h3, .translated-text {
 
 #were .ruleDesc {
   font-size: 16px;
-  color: var(--color)
 }
 
 #were .ruleTitle, 
@@ -2160,4 +2160,21 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
       margin-top: 15px !important;
     }
   }
+}
+
+#viewlikesList .user-search-item,
+#blockList .user-search-item,
+#memberList .user-search-item,
+#banList .user-search-item {
+  padding-top: 10px !important;
+}
+
+#memberOverlay .skeleton-card:first-child,
+#viewlikesOverlay .skeleton-card:first-child {
+  margin-top: 7px !important;
+}
+
+#banOverlay .skeleton-card:first-child,
+#followOverlay .skeleton-card:first-child {
+  margin-top: 13px !important;
 }

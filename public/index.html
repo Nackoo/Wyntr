@@ -58,13 +58,25 @@
         backdrop-filter:blur(10px);border-bottom:var(--border)">
         <button onclick="document.getElementById('profileCom').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:100%;padding:15px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
+          <div style="width:100%;padding:12px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
             <input style="margin-left:10px;" type="text" placeholder="search anything">
           </div>
         </div>
       </header>
       <br>
       <div id="profileComList"></div>
+      <br><br><br><br><br><br>
+    </div>
+  </div>
+
+  <div id="viewlikesOverlay" class="useroverlay hidden">
+    <div class="user-box" style="height:100dvh !important;">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
+        <button onclick="document.getElementById('viewlikesOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
+        <input style="margin-right:20px;" type="text" placeholder="search user">
+      </header>
+      <br>
+      <div id="viewlikesList"></div>
       <br><br><br><br><br><br>
     </div>
   </div>
@@ -102,7 +114,7 @@
 
   <div id="inviteOverlay" class="useroverlay hidden">
     <div class="user-box">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
         <button onclick="
           document.getElementById('inviteOverlay').classList.add('hidden');
           resetInviteList();
@@ -583,6 +595,30 @@
               </div>
 
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span style="color:grey">Allow people to see your followers</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="seeFollowers" type="checkbox">
+                  <label for="seeFollowers" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span style="color:grey">Allow people to see posts you like</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="privateLikes" type="checkbox">
+                  <label for="privateLikes" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
                 <span style="color:grey">Allow people to see communities you're joined in</span>
                 <div class="switch-row" style="margin-left:auto">
                   <input id="seeCom" type="checkbox">
@@ -747,7 +783,7 @@
 
       <div id="userOverlay" class="useroverlay hidden">
         <div class="user-box" style="height:100dvh !important;">
-          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;padding-top:15px;">
+          <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px 0;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:12px;padding-top:12px;">
             <button onclick="hideuser()" style="background:none;"><img src="/image/leftArrow.svg"></button>
             <input style="margin-right:20px;" type="text" placeholder="search anything">
           </header>
@@ -927,7 +963,7 @@
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
             <div style="display:flex;align-items:center;gap:10px;">
               <button onclick="document.getElementById('communityArchiveOverlay').classList.add('hidden')" class="close-btn" style="padding:0 !important;"><img src="/image/leftArrow.svg"></button>
-              <input style="padding:10px 10px;margin:15px 0;" id="banSearch" type="text" placeholder="search archives in this community">
+              <input style="padding:10px 10px;margin:15px 0;" type="text" placeholder="search archives in this community">
             </div>
           </header>
           <br>
@@ -1171,7 +1207,7 @@
           <div id="tweetViewer" class="useroverlay hidden">
             <div class="user-box" style="height:100dvh !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="tweetviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1210,7 +1246,7 @@
           <div id="commentViewer" class="useroverlay hidden">
             <div class="user-box" style="height:100dvh !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="commentviewerclose">
                     <img src="/image/leftArrow.svg">
                   </button>

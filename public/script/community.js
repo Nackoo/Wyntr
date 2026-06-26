@@ -23,14 +23,6 @@ let tagBoxes                  = [];
 let rules                     = []; 
 let loadingComList            = false;
 let loadingMyCom              = false;
-let memberLastDoc             = null;
-let memberLoading             = false;
-let memberDone                = false;
-let currentMemberCommunity    = null;
-let banLastDoc                = null;
-let banLoading                = false;
-let banDone                   = false;
-let currentBanCommunity       = null;
 let memberQuery               = "";
 let banQuery                  = "";
 
@@ -581,6 +573,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
         photoURL: userData.photoURL,
         username: userData.username,
         displayName: userData.displayName,
+        name: userData.displayName.toLowerCase(),
         role: 3
       });
 
@@ -732,11 +725,13 @@ export async function loadCommunities(reset = false) {
   let q = lastCommunityDoc
     ? query(queryRef, 
         orderBy("membersCount", "desc"), 
+        where("private", "!=", true),
         startAfter(lastCommunityDoc), 
         limit(10)
       )
     : query(queryRef, 
         orderBy("membersCount", "desc"),
+        where("private", "!=", true),
         limit(10)
       );
 
@@ -752,7 +747,6 @@ export async function loadCommunities(reset = false) {
 
   for (const comm of snapshot.docs) {
     const cData  = comm.data();
-    if (cData.private === true) continue;
 
     const comMembers = cData?.members || [];
     const joined = comMembers.includes(user.uid);
@@ -841,6 +835,9 @@ async function joinCommunity(communityId) {
   const memberRef = doc(db, "communities", communityId, "members", user.uid);
   const userRef1 = doc(db, "users", user.uid);
 
+  const status = userData.cannotSeeCom ? 
+    "private" : "public";
+
   await runTransaction(db, async (transaction) => {
     transaction.update(comRef, {
       membersCount: increment(1),
@@ -852,8 +849,10 @@ async function joinCommunity(communityId) {
       photoURL: userData.photoURL,
       username: userData.username,
       displayName: userData.displayName,
+      name: userData.displayName.toLowerCase(),
       description: userData.description || null,
-      role: 1
+      role: 1,
+      status
     });
     transaction.update(userRef1, {
       communitiesCount: increment(1)
@@ -1229,10 +1228,17 @@ function renderCommunityRequirements(cData) {
   `;
 }
 
+let banLastDoc = null;
+let banDone = false;
+let banLoading = false;
+let currentBanCommunity = "";
+const skeletonHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+
 async function openBansOverlay(communityId, cData) {
   const overlay = document.getElementById("banOverlay");
   const list = document.getElementById("banList");
   const box = overlay.querySelector(".user-box");
+  document.getElementById("banSearch").value = ""; 
 
   overlay.classList.remove("hidden");
   list.innerHTML = "";
@@ -1240,17 +1246,33 @@ async function openBansOverlay(communityId, cData) {
   banDone = false;
   banLoading = false;
   currentBanCommunity = communityId;
+  
   await loadMoreBans(10);
 
   box.onscroll = () => {
-    if (
-      box.scrollTop + box.clientHeight >= box.scrollHeight - 10 &&
-      !banLoading &&
-      !banDone
-    ) {
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 10 && !banLoading && !banDone) {
       loadMoreBans(10);
     }
   };
+}
+
+function getBanQuery(term, fieldName, limitCount) {
+  const constraints = [];
+  
+  if (term) {
+    constraints.push(
+      where(fieldName, ">=", term),
+      where(fieldName, "<=", term + "\uf8ff"),
+      orderBy(fieldName)
+    );
+  } else {
+    constraints.push(orderBy("bannedAt", "desc"));
+  }
+
+  if (banLastDoc) constraints.push(startAfter(banLastDoc));
+  constraints.push(limit(limitCount));
+
+  return query(collection(db, "communities", currentBanCommunity, "bans"), ...constraints);
 }
 
 async function loadMoreBans(limitCount) {
@@ -1258,44 +1280,42 @@ async function loadMoreBans(limitCount) {
   banLoading = true;
 
   const list = document.getElementById("banList");
+  const term = document.getElementById("banSearch").value.trim().toLowerCase();
 
-  if (!banLastDoc) {
-    list.innerHTML = `
-    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-    `;
+  if (!banLastDoc) list.innerHTML = skeletonHTML;
+
+  const uniqueDocs = new Map();
+
+  if (term) {
+    const [nameSnap, usernameSnap] = await Promise.all([
+      getDocs(getBanQuery(term, "name", limitCount)),
+      getDocs(getBanQuery(term, "username", limitCount))
+    ]);
+
+    nameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+    usernameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+  } else {
+    const defaultSnap = await getDocs(getBanQuery(null, null, limitCount));
+    defaultSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
   }
 
-  let q = query(
-    collection(db, "communities", currentBanCommunity, "bans"),
-    orderBy("bannedAt", "desc"),
-    limit(limitCount)
-  );
-
-  if (banLastDoc) {
-    q = query(
-      collection(db, "communities", currentBanCommunity, "bans"),
-      orderBy("bannedAt", "desc"),
-      startAfter(banLastDoc),
-      limit(limitCount)
-    );
-  }
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
+  if (uniqueDocs.size === 0) {
     banDone = true;
     banLoading = false;
-    list.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No banned user</h2><p style="color:grey;margin:7px 0;">Pretty sure members of this community are well-behaved</p></div></div>`;
+    if (!banLastDoc) {
+      list.innerHTML = term 
+        ? `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No banned user found</h2><p style="color:grey;margin:7px 0;">No name or username starts with "${escapeHTML(term)}"</p></div></div>`
+        : `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No banned user</h2><p style="color:grey;margin:7px 0;">Pretty sure members of this community are well-behaved</p></div></div>`;
+    }
     return;
   }
 
-  banLastDoc = snap.docs[snap.docs.length - 1];
+  const docArray = Array.from(uniqueDocs.values());
+  banLastDoc = docArray[docArray.length - 1];
 
-  if (!list.querySelector(".bans-row")) {
-    list.innerHTML = "";
-  }
+  if (!list.querySelector(".bans-row")) list.innerHTML = "";
 
-  snap.forEach(docSnap => {
+  docArray.forEach(docSnap => {
     const uid = docSnap.id;
     const d = docSnap.data();
 
@@ -1304,30 +1324,23 @@ async function loadMoreBans(limitCount) {
     const row = document.createElement("div");
     row.className = "bans-row member-row";
     row.dataset.id = uid;
-
     row.innerHTML = `
       <div style="display:flex; gap:12px; width:100%">
         <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-          
         <div style="display:flex;flex-direction:column;gap:6px;width:100%">
           <div style="display:flex;width:100%">
             <div style="display:flex; flex-direction:column; gap:6px">
               <div style="display:flex;align-items:center;gap:6px;">
-                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
-                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
-                </strong>
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">${d.displayName ? escapeHTML(d.displayName) : "user"}</strong>
                 <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
               </div>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(d.username)}
-              </span>
+              <span style="font-size:14px; color:grey;">@${escapeHTML(d.username)}</span>
             </div>
             <button class="unban-btn">unban</button>
           </div>
           <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-      </div>
-    `;
+      </div>`;
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
@@ -1338,9 +1351,8 @@ async function loadMoreBans(limitCount) {
       document.getElementById("banOverlay").classList.add("hidden");
     });
 
-    const dots = row.querySelector(".unban-btn");
-    dots.addEventListener("click", (e) => {
-    e.stopPropagation(); 
+    row.querySelector(".unban-btn").addEventListener("click", (e) => {
+      e.stopPropagation(); 
       unbanMember(currentBanCommunity, uid);
     });
 
@@ -1350,222 +1362,153 @@ async function loadMoreBans(limitCount) {
   banLoading = false;
 }
 
+let lastBanQuery = "";
 document.getElementById("banSearch").addEventListener("keydown", async (e) => {
   if (e.key !== "Enter") return;
 
   const queryUid = e.target.value.trim();
-  const list = document.getElementById("banList");
-  
-  if (queryUid === banQuery) return;
-  banQuery = queryUid;
+  if (queryUid === lastBanQuery) return;
+  lastBanQuery = queryUid;
 
-  list.innerHTML = `
-    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-  `;
-
-  if (!queryUid) {
-    list.innerHTML = "";
-
-    banLastDoc = null;
-    banDone = false;
-    banLoading = false;
-
-    await loadMoreBans(10);
-    return;
-  }
-  banDone = true;
-  banLoading = true;
-
-  const ref = collection(
-    db,
-    "communities",
-    currentBanCommunity,
-    "bans"
-  );
-
-  const q = query(
-    ref,
-    where("username", ">=", queryUid.toLowerCase()),
-    where("username", "<=", queryUid.toLowerCase() + "\uf8ff"),
-    orderBy("username"),
-    limit(10)
-  );
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    list.innerHTML = `
-    <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
-      <div style="max-width:400px;text-align:left;">
-        <h2 style="margin:0;">No banned user found</h2>
-        <p style="color:grey;margin:7px 0;">No username starts with "${escapeHTML(queryUid)}"</p>
-      </div>
-    </div>`;
-    banLoading = false;
-    return;
-  }
-
-  if (!list.querySelector(".bans-row")) {
-    list.innerHTML = "";
-  }
-
-  snap.forEach(docSnap => {
-    const d = docSnap.data();
-    const uid = docSnap.id;
-
-    const row = document.createElement("div");
-    row.className = "bans-row member-row";
-    row.dataset.id = uid;
-
-    row.innerHTML = `
-      <div style="display:flex; gap:12px; width:100%">
-        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-          
-        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
-          <div style="display:flex;width:100%">
-            <div style="display:flex; flex-direction:column; gap:6px">
-              <div style="display:flex;align-items:center;gap:6px;">
-                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
-                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
-                </strong>
-                <span style="color:grey;font-size:14px">${formatDate(d.bannedAt)}</span>
-              </div>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(d.username)}
-              </span>
-            </div>
-            <button class="unban-btn">unban</button>
-          </div>
-          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
-        </div>
-      </div>
-    `;
-
-    row.addEventListener("click", () => {
-      openUserSubProfile(uid);
-      closecom();
-      window.communityID = null;
-      document.getElementById("communityOverlay").classList.add("hidden");
-      document.querySelector(".communityo")?.remove();
-      document.getElementById("banOverlay").classList.add("hidden");
-    });
-
-    row.querySelector(".unban-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      unbanMember(currentBanCommunity, uid);
-    });
-
-    list.appendChild(row);
-  });
+  document.getElementById("banList").innerHTML = skeletonHTML;
+  banLastDoc = null;
+  banDone = false;
   banLoading = false;
+
+  await loadMoreBans(10);
 });
+
+let memberLastDoc = null;
+let memberDone = false;
+let memberLoading = false;
+let currentMemberCommunity = "";
+let currentCanModerate = false;
+let currentCData = null;
+let lastMemberQuery = "";
 
 async function openMembersOverlay(communityId, cData, canModerate) {
   const overlay = document.getElementById("memberOverlay");
   const list = document.getElementById("memberList");
   const box = overlay.querySelector(".user-box");
+  document.getElementById("memberSearch").value = "";
 
   overlay.classList.remove("hidden");
   list.innerHTML = "";
   memberLastDoc = null;
   memberDone = false;
   memberLoading = false;
+  
   currentMemberCommunity = communityId;
+  currentCanModerate = canModerate;
+  currentCData = cData;
+  lastMemberQuery = "";
 
-  await loadMoreMembers(10, cData, canModerate);
+  await loadMoreMembers(10);
 
   box.onscroll = () => {
-    if (
-      box.scrollTop + box.clientHeight >= box.scrollHeight - 10 &&
-      !memberLoading &&
-      !memberDone
-    ) {
-      loadMoreMembers(10, cData, canModerate);
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 10 && !memberLoading && !memberDone) {
+      loadMoreMembers(10);
     }
   };
 }
 
-async function loadMoreMembers(limitCount, cData, canModerate) {
+function getMemberQuery(term, fieldName, limitCount) {
+  const constraints = [];
+
+  if (!currentCanModerate) {
+    constraints.push(where("status", "!=", "private"));
+  }
+
+  if (term) {
+    constraints.push(
+      where(fieldName, ">=", term),
+      where(fieldName, "<=", term + "\uf8ff"),
+      orderBy(fieldName)
+    );
+  } else {
+    constraints.push(orderBy("role", "desc"));
+  }
+
+  if (memberLastDoc) constraints.push(startAfter(memberLastDoc));
+  constraints.push(limit(limitCount));
+
+  return query(collection(db, "communities", currentMemberCommunity, "members"), ...constraints);
+}
+
+async function loadMoreMembers(limitCount) {
   if (memberLoading || memberDone) return;
   memberLoading = true;
 
   const list = document.getElementById("memberList");
+  const term = document.getElementById("memberSearch").value.trim().toLowerCase();
 
-  if (!memberLastDoc) {
-    list.innerHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+  if (!memberLastDoc) list.innerHTML = skeletonHTML;
+
+  const uniqueDocs = new Map();
+
+  if (term) {
+    const [nameSnap, usernameSnap] = await Promise.all([
+      getDocs(getMemberQuery(term, "name", limitCount)),
+      getDocs(getMemberQuery(term, "username", limitCount))
+    ]);
+
+    nameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+    usernameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+  } else {
+    const defaultSnap = await getDocs(getMemberQuery(null, null, limitCount));
+    defaultSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
   }
 
-  let q = query(
-    collection(db, "communities", currentMemberCommunity, "members"),
-    orderBy("role", "desc"),        
-    limit(limitCount)
-  );
-
-  if (memberLastDoc) {
-    q = query(
-      collection(db, "communities", currentMemberCommunity, "members"),
-      orderBy("role", "desc"),
-      startAfter(memberLastDoc),
-      limit(limitCount)
-    );
-  }
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
+  if (uniqueDocs.size === 0) {
     memberDone = true;
     memberLoading = false;
+    if (!memberLastDoc) {
+      list.innerHTML = term
+        ? `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No member found</h2><p style="color:grey;margin:7px 0;">No name or username starts with "${escapeHTML(term)}"</p></div></div>`
+        : "";
+    }
     return;
   }
 
-  memberLastDoc = snap.docs[snap.docs.length - 1];
+  const docArray = Array.from(uniqueDocs.values());
+  memberLastDoc = docArray[docArray.length - 1];
 
-  if (!list.querySelector(".user-search-item")) {
-    list.innerHTML = "";
-  }
+  if (!list.querySelector(".user-search-item")) list.innerHTML = "";
 
-  snap.forEach(docSnap => {
+  docArray.forEach(docSnap => {
     const d = docSnap.data();
     const uid = docSnap.id;
 
     if (list.querySelector(`[data-id="${uid}"]`)) return;
 
+    let roleBadge = "";
+    if (d.role === 3) roleBadge = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
+    else if (d.role === 2) roleBadge = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px" class="comRole">admin</span>`;
+
     const row = document.createElement("div");
     row.className = "user-search-item member-row";
     row.dataset.id = uid;
-
-    let roleBadge = "";
-
-    if (d.role === 3) {
-      roleBadge = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
-    } else if (d.role === 2) {
-      roleBadge = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px" class="comRole">admin</span>`;
-    }
-
     row.innerHTML = `
       <div style="display:flex; gap:12px; width:100%">
         <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-          
         <div style="display:flex;flex-direction:column;gap:6px;width:100%">
           <div style="display:flex;width:100%">
             <div style="display:flex; flex-direction:column; gap:6px">
               <div style="display:flex;align-items:center;gap:6px;">
                 ${roleBadge}
-                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
-                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
-                </strong>
+                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">${d.displayName ? escapeHTML(d.displayName) : "user"}</strong>
                 <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
               </div>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(d.username)}
-              </span>
+              <span style="font-size:14px; color:grey;">@${escapeHTML(d.username)}</span>
             </div>
-            ${canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+            ${currentCanModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
+            ${uid == auth.currentUser.uid && !currentCanModerate ? `
+            <img class="hide-btn" src="/image/eye.svg" style="margin-left:auto; cursor:pointer;height:22px;">`
+            : "" }
           </div>
           <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
         </div>
-      </div>
-    `
+      </div>`;
 
     row.addEventListener("click", () => {
       openUserSubProfile(uid);
@@ -1576,14 +1519,44 @@ async function loadMoreMembers(limitCount, cData, canModerate) {
       document.getElementById("memberOverlay").classList.add("hidden");
     });
 
-    if (canModerate) {
-      const dots = row.querySelector(".member-dots");
-      dots.addEventListener("click", (e) => {
-        e.stopPropagation(); 
+    const hideBtn = row.querySelector(".hide-btn");
+    if (hideBtn) {
+      hideBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+
+        const confirmed = await confirmDialog(
+          "hide your presence from this community?", 
+          "people browsing the member list won't see that you are part of this community. This action is irreversible", 
+          "red"
+        );
+        if (!confirmed) return;
+
+        try {
+          const memberDocRef = doc(db, "communities", currentMemberCommunity, "members", auth.currentUser.uid);
+          
+          loading.classList.add("show");
+          await updateDoc(memberDocRef, {
+            status: "private"
+          });
+          loading.classList.remove("show");
+          row.remove();
+          
+          if (!list.querySelector(".user-search-item")) {
+            list.innerHTML = ""; 
+          }
+        } catch (err) {
+          console.error("Failed to update community member privacy setting:", err);
+        }
+      });
+    }
+
+    if (currentCanModerate) {
+      row.querySelector(".member-dots").addEventListener("click", (e) => {
+        e.stopPropagation();
         openMemberMenu({
           communityId: currentMemberCommunity,
           targetUid: uid,
-          cData
+          cData: currentCData
         });
       });
     }
@@ -1598,125 +1571,15 @@ document.getElementById("memberSearch").addEventListener("keydown", async (e) =>
   if (e.key !== "Enter") return;
 
   const queryUid = e.target.value.trim();
+  if (queryUid === lastMemberQuery) return;
+  lastMemberQuery = queryUid;
 
-  if (queryUid === memberQuery) return;
-  memberQuery = queryUid;
-
-  const list = document.getElementById("memberList");
-
-  list.innerHTML = `
-    <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-  `;
-
-  if (!queryUid) {
-    list.innerHTML = "";
-    memberLastDoc = null;
-    memberDone = false;
-    memberLoading = false;
-
-    await loadMoreMembers(10, window.cData, true);
-    return;
-  }
-  memberDone = true;
-  memberLoading = true;
-
-  const ref = collection(
-    db,
-    "communities",
-    currentMemberCommunity,
-    "members"
-  );
-
-  const term = queryUid.toLowerCase();
-
-  const q = query(
-    ref,
-    where("username", ">=", term),
-    where("username", "<=", term + "\uf8ff"),
-    orderBy("username"),
-    limit(10)
-  );
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    list.innerHTML = `
-    <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
-      <div style="max-width:400px;text-align:left;">
-        <h2 style="margin:0;">No member found</h2>
-        <p style="color:grey;margin:7px 0;">No username starts with "${escapeHTML(queryUid)}"</p>
-      </div>
-    </div>`;
-    memberLoading = false;
-    return;
-  }
-
-  list.innerHTML = "";
-
-  snap.forEach(docSnap => {
-    const d = docSnap.data();
-    const uid = docSnap.id;
-
-    let roleLabel = "";
-    if (d.role === 3) {
-      roleLabel = `<span style="color:#ff7a18;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px">creator</span>`;
-    } else if (d.role === 2) {
-      roleLabel = `<span style="color:#f5c451;background:#15181c;padding:2px 6px;border-radius:5px;font-size:13px" class="comRole">admin</span>`;
-    }
-
-    const row = document.createElement("div");
-    row.className = "user-search-item member-row";
-    row.dataset.id = uid;
-
-    row.innerHTML = `
-      <div style="display:flex; gap:12px; width:100%">
-        <img loading="lazy" src="${base91ToImageSrc(d.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-          
-        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
-          <div style="display:flex;width:100%">
-            <div style="display:flex; flex-direction:column; gap:6px">
-              <div style="display:flex;align-items:center;gap:6px;">
-                ${roleLabel}
-                <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
-                  ${d.displayName ? escapeHTML(d.displayName) : "user"}
-                </strong>
-                <span style="color:grey;font-size:14px">${formatDate(d.joinedAt)}</span>
-              </div>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(d.username)}
-              </span>
-            </div>
-            ${window.canModerate ? `<button class="member-dots" style="font-size:20px !important;">⋮</button>` : ""}
-          </div>
-          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${d.description ? escapeHTML(d.description.slice(0, 100)) : ""}</span>
-        </div>
-      </div>
-    `
-
-    row.addEventListener("click", () => {
-      openUserSubProfile(uid);
-      closecom();
-      window.communityID = null;
-      document.getElementById("communityOverlay").classList.add("hidden");
-      document.querySelector(".communityo")?.remove();
-      document.getElementById("memberOverlay").classList.add("hidden");
-    });
-
-    if (window.canModerate) {
-      row.querySelector(".member-dots")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openMemberMenu({
-          communityId: currentMemberCommunity,
-          targetUid: uid,
-          cData: window.cData
-        });
-      });
-    }
-
-    list.appendChild(row);
-  });
-
+  document.getElementById("memberList").innerHTML = skeletonHTML;
+  memberLastDoc = null;
+  memberDone = false;
   memberLoading = false;
+
+  await loadMoreMembers(10);
 });
 
 async function openMemberMenu({communityId, targetUid, cData}) {
@@ -1932,6 +1795,7 @@ async function banMember(uid) {
       photoURL: data.photoURL,
       username: data.username,
       displayName: data.displayName,
+      name: data.displayName.toLowerCase(),
       description: data.description || null
     });
     tx.update(userRef3, {
@@ -2026,151 +1890,190 @@ window.openComMenu = async function (communityId) {
     const o = document.getElementById("inviteOverlay");
     const list = document.getElementById("inviteList");
     const input = document.querySelector("#inviteOverlay input");
+    input.value = "";
+  
+    const scrollContainer = document.querySelector("#inviteOverlay .user-box") || list;
 
     o.classList.remove("hidden");
 
+    let lastUsernameDoc = null;
+    let lastNameDoc = null;
+    let isFetching = false;
+    let hasMore = true;
+    const LIMIT_PER_PAGE = 10;
+
     input.addEventListener("keydown", async (e) => {
       if (e.key !== "Enter") return;
-      inviteUsers(input.value);
+      
+      lastUsernameDoc = null;
+      lastNameDoc = null;
+      hasMore = true;
+      list.innerHTML = ""; 
+      
+      await inviteUsers(input.value);
+    });
+
+    scrollContainer.addEventListener("scroll", async () => {
+      if (isFetching || !hasMore) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      if (scrollHeight - scrollTop - clientHeight < 20) {
+        await inviteUsers(input.value);
+      }
     });
 
     async function inviteUsers(term) {
-      if (!term);
+      if (!term || isFetching || !hasMore) return;
+      isFetching = true;
 
-      let snap;
-
-      list.innerHTML = `<div style="margin:0 -20px;margin-top:-15px !important"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
       const lowerTerm = term.toLowerCase();
 
-      const usernameQuery = query(
+      const skeleton = document.createElement("div");
+      skeleton.className = "scroll-skeleton";
+      skeleton.innerHTML = `<div style="margin:0 -20px;margin-top:-15px !important"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+      list.appendChild(skeleton);
+
+      let uQueryConstraints = [
         collection(db, "users"),
         where("username", ">=", lowerTerm),
         where("username", "<=", lowerTerm + "\uf8ff"),
-        limit(10)
-      );
+        limit(LIMIT_PER_PAGE)
+      ];
 
-      snap = await getDocs(usernameQuery);
+      let nQueryConstraints = [
+        collection(db, "users"),
+        where("name", ">=", lowerTerm),
+        where("name", "<=", lowerTerm + "\uf8ff"),
+        limit(LIMIT_PER_PAGE)
+      ];
 
-      if (snap.empty) {
-        const nameQuery = query(
-          collection(db, "users"),
-          where("name", ">=", lowerTerm),
-          where("name", "<=", lowerTerm + "\uf8ff"),
-          limit(10)
-        );
-        snap = await getDocs(nameQuery);
-      }
+      if (lastUsernameDoc) uQueryConstraints.push(startAfter(lastUsernameDoc));
+      if (lastNameDoc) nQueryConstraints.push(startAfter(lastNameDoc));
 
-      if (snap.empty) {
-        list.innerHTML = `
-          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-            <div style="max-width:400px;text-align:left;">
-              <h2 style="margin:0;">No Matched users — yet</h2>
-              <p style="color:grey;margin:7px 0;">there's no person that you're looking for.</p>
-            </div>
-          </div>`;
-        return;
-      }
+      try {
+        const [usernameSnap, nameSnap] = await Promise.all([
+          getDocs(query(...uQueryConstraints)),
+          getDocs(query(...nQueryConstraints))
+        ]);
 
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data();
+        skeleton.remove();
 
-        const item = document.createElement("div");
-        item.className = "user-search-item";
-        item.id = `user-${docSnap.id}`;
-        item.style.cssText =
-          "display:flex;gap:10px;padding:15px 0 10px 0;align-items:center";
+        if (!usernameSnap.empty) {
+          lastUsernameDoc = usernameSnap.docs[usernameSnap.docs.length - 1];
+        }
+        if (!nameSnap.empty) {
+          lastNameDoc = nameSnap.docs[nameSnap.docs.length - 1];
+        }
 
-        item.innerHTML = `
-          <div style="display:flex; gap:12px; width:100%">
-            <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-            
-            <div style="display:flex; flex-direction:column; gap:7px">
-              <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
-                ${escapeHTML(data.displayName)}
-              </strong>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(data.username)}
-              </span>
-            </div>
-            
-            ${docSnap.id === auth.currentUser.uid ? "" : `
-              <button class="mini-invite-btn" style="padding:0 10px; border-radius:10px; background:white; cursor:pointer; border:1px solid var(--border); margin-left:auto;height:35px;">Invite</button>  
-            `}
-          </div>
-        `;
-
-        item.addEventListener("click", (e) => {
-          if (!e.target.classList.contains("mini-invite-btn")) {
-            openUserSubProfile(docSnap.id);
+        if (usernameSnap.empty && nameSnap.empty) {
+          hasMore = false;
+          
+          if (list.children.length === 0) {
+            list.innerHTML = `
+              <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+                <div style="max-width:400px;text-align:left;">
+                  <h2 style="margin:0;">No Matched users — yet</h2>
+                  <p style="color:grey;margin:7px 0;">there's no person that you're looking for.</p>
+                </div>
+              </div>`;
           }
-        });
-        
-        if (!list.querySelector(`#user-${docSnap.id}`)) {
-          if (!list.querySelector(".user-search-item")) list.innerHTML = "";
-          list.appendChild(item);
-        } 
+          isFetching = false;
+          return;
+        }
 
-        const btn = item.querySelector(".mini-invite-btn");
-        btn.onclick = async (e) => {
-          e.stopPropagation();
+        const userMap = new Map();
+        usernameSnap.docs.forEach(doc => userMap.set(doc.id, doc));
+        nameSnap.docs.forEach(doc => userMap.set(doc.id, doc));
 
-          btn.disabled = true;
-          btn.classList.add("disabled");
+        for (const docSnap of userMap.values()) {
+          if (list.querySelector(`#user-${docSnap.id}`)) continue;
 
-          const followingRef = doc(db, "users", docSnap.id, "following", auth.currentUser.uid);
-          const memberRef = doc(db, "communities", window.communityID, "members", docSnap.id);
-          const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
-          const userRef = doc(db, "users", docSnap.id)
-          const blockRef = doc(db, "users", docSnap.id, "blocks", auth.currentUser.uid);
-          const comRef = doc(db, "communities", window.communityID);
+          const data = docSnap.data();
+          const item = document.createElement("div");
+          item.className = "user-search-item";
+          item.id = `user-${docSnap.id}`;
+          item.style.cssText = "display:flex;gap:10px;padding:15px 0 10px 0;align-items:center";
 
-          const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, comSnap] = await Promise.all([
-            getDoc(memberRef),
-            getDoc(banRef),
-            getDoc(followingRef),
-            getDoc(userRef),
-            getDoc(blockRef),
-            getDoc(comRef)
-          ]);
+          item.innerHTML = `
+            <div style="display:flex; gap:12px; width:100%">
+              <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="width:40px; height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+                  ${escapeHTML(data.displayName)}
+                </strong>
+                <span style="font-size:14px; color:grey;">@${escapeHTML(data.username)}</span>
+              </div>
+              ${docSnap.id === auth.currentUser.uid ? "" : `
+                <button class="mini-invite-btn" style="padding:0 10px; border-radius:10px; background:white; cursor:pointer; border:1px solid var(--border); margin-left:auto;height:35px;">Invite</button>  
+              `}
+            </div>
+          `;
 
-          let blockData;
-          if (blockSnap.exists()) {
-            blockData = blockSnap.data();
-          }
-
-          const userData = userSnap.data();
-          const comData = comSnap.data();
-
-          if (memberSnap.exists()) {
-            log("red", "this user is already joined");
-          } else if (blockSnap.exists() && ((blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) || blockData.permanent === true)) {
-            log("red", "user grants no permission");
-          } else if (banSnap.exists()) {
-            log("red", "this user is banned from the community")
-          } else {
-            if (!userData.invitePermission || userData.invitePermission === "everyone") {
-              await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
-              log("green", "user invited");
-            } else if (userData.invitePermission === "follow") {
-              if (!followingSnap.exists()) {
-                log("red", "user grants no permission");
-              } else {
-                await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
-                log("green", "user invited");
-              }
-            } else if (userData.invitePermission === "no") {
-              log("red", "user grants no permission");
+          item.addEventListener("click", (e) => {
+            if (!e.target.classList.contains("mini-invite-btn")) {
+              openUserSubProfile(docSnap.id);
             }
-          }
+          });
 
-          btn.disabled = false;
-          btn.classList.remove("disabled");
-        };
+          list.appendChild(item);
+
+          const btn = item.querySelector(".mini-invite-btn");
+          if (btn) {
+            btn.onclick = async (e) => {
+              e.stopPropagation();
+              btn.disabled = true;
+              btn.classList.add("disabled");
+
+              const followingRef = doc(db, "users", docSnap.id, "following", auth.currentUser.uid);
+              const memberRef = doc(db, "communities", window.communityID, "members", docSnap.id);
+              const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
+              const userRef = doc(db, "users", docSnap.id);
+              const blockRef = doc(db, "users", docSnap.id, "blocks", auth.currentUser.uid);
+              const comRef = doc(db, "communities", window.communityID);
+
+              const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, comSnap] = await Promise.all([
+                getDoc(memberRef), getDoc(banRef), getDoc(followingRef), getDoc(userRef), getDoc(blockRef), getDoc(comRef)
+              ]);
+
+              let blockData = blockSnap.exists() ? blockSnap.data() : null;
+              const userData = userSnap.data();
+              const comData = comSnap.data();
+
+              if (memberSnap.exists()) {
+                log("red", "this user is already joined");
+              } else if (blockSnap.exists() && ((blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) || blockData.permanent === true)) {
+                log("red", "user grants no permission");
+              } else if (banSnap.exists()) {
+                log("red", "this user is banned from the community");
+              } else {
+                if (!userData.invitePermission || userData.invitePermission === "everyone") {
+                  await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
+                  log("green", "user invited");
+                } else if (userData.invitePermission === "follow") {
+                  if (!followingSnap.exists()) {
+                    log("red", "user grants no permission");
+                  } else {
+                    await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
+                    log("green", "user invited");
+                  }
+                } else if (userData.invitePermission === "no") {
+                  log("red", "user grants no permission");
+                }
+              }
+
+              btn.disabled = false;
+              btn.classList.remove("disabled");
+            };
+          }
+        }
+      } catch (err) {
+        console.error("Pagination error: ", err);
+      } finally {
+        isFetching = false;
       }
     }
 
-    overlay.classList.add("hidden")
+    overlay.classList.add("hidden");
   };
 
   editBtn.onclick = async () => {
@@ -2429,6 +2332,7 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
 
     const q = query(
       collection(db, "communities"),
+      where("private", "!=", true),
       where("lowerCase", ">=", term),
       where("lowerCase", "<=", term + "\uf8ff"),
       orderBy("lowerCase"),
@@ -2454,8 +2358,6 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
 
     for (const docSnap of snap.docs) {
       const c = docSnap.data();
-
-      if (c.private === true) continue;``
 
       const wrapper = document.createElement("div");
       wrapper.className = "com-item";
@@ -2852,12 +2754,14 @@ async function openCommunityOverlay(uid, reset) {
   if (!comLastDoc) {
     q = query(
       collection(db, "communities"),
+      where("private", "!=", true),
       where("members", "array-contains", uid),
       limit(10)
     );
   } else {
     q = query(
       collection(db, "communities"),
+      where("private", "!=", true),
       where("members", "array-contains", uid),
       startAfter(comLastDoc),
       limit(10)
@@ -2878,7 +2782,6 @@ async function openCommunityOverlay(uid, reset) {
   for (const docSnap of snap.docs) {
     const id = docSnap.id;
     const cData = docSnap.data();
-    if (cData.private === true) continue;
 
     const div = document.createElement("div");
     div.className = "com-item communityLink";
@@ -2975,6 +2878,7 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
 
     const q = query(
       collection(db, "communities"),
+      where("private", "!=", true),
       where("lowerCase", ">=", term),
       where("lowerCase", "<=", term + "\uf8ff"),
       where("members", "array-contains", window.currentComID),
@@ -3001,7 +2905,6 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
 
     for (const docSnap of snap.docs) {
       const cData = docSnap.data();
-      if (cData.private === true) continue;
 
       const wrapper = document.createElement("div");
       wrapper.className = "com-item communityLink";

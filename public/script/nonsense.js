@@ -19,6 +19,7 @@ export const premiumsvg        = document.getElementById("premiumOverlay1");
 export const community         = document.getElementById("communityOverlay");
 export const comsearch         = document.getElementById("communitySearch");
 export const block             = document.getElementById("blockOverlay");
+export const view              = document.getElementById("viewlikesOverlay");
 export const profilecom        = document.getElementById("profileCom");
 export const quote             = document.getElementById("quoteViewer");
 export const archive           = document.getElementById("archiveOverlay");
@@ -103,7 +104,8 @@ const panelsToHide = () => [
   quote,
   highlightTweet,
   archive,
-  carchive
+  carchive,
+  view
 ];
 
 const filledIcons = [
@@ -275,6 +277,7 @@ document.body.addEventListener("click", async (e) => {
       quote.classList.add("hidden");
       archive.classList.add("hidden");
       carchive.classList.add("hidden");
+      view.classList.add("hidden");
       usersub.classList.remove("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");

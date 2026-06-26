@@ -25,6 +25,10 @@ read [Firestore rules](/firestore_rules.txt)
 | communities   | `lowerCase ↑`, `createdAt ↓`, `__name__ ↓`                                | Collection   |
 | communities   | `members []`, `lastActivity ↓`, `__name__ ↓`                              | Collection   |
 | communities   | `members []`, `lowerCase ↑`, `__name__ ↑`                                 | Collection   |
+| communities   | `membersCount ↓`, `private ↓`, `__name__ ↓`                               | Collection   |
+| communities   | `lowerCase ↑`, `private ↑`, `__name__ ↑`                                  | Collection   |
+| communities   | `members []`, `private ↑`, `__name__ ↑`                                   | Collection   |
+| communities   | `members []`, `lowerCase ↑`, `private ↑`, `__name__ ↑`                    | Collection   |
 | posts         | `searchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`              | Collection   |
 | posts         | `createdAt ↓`, `archived ↓`, `__name__ ↓`                                 | Collection   |
 | posts         | `archived ↑`, `uid ↑`, `createdAt ↓`, `__name__ ↓`                        | Collection   |
@@ -43,6 +47,20 @@ read [Firestore rules](/firestore_rules.txt)
 | tweets        | `mentioned []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                 | Collection   |
 | tweets        | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection   |
 | tweets        | `mentionedSearchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`     | Collection   |
+| likes         | `likedAt ↓`, `name ↓`, `__name__ ↓`                                       | Collection   |
+| likes         | `likedAt ↓`, `username ↓`, `__name__ ↓`                                   | Collection   |
+| likes         | `likedAt ↓`, `status ↓`, `__name__ ↓`                                     | Collection   |
+| likes         | `likedAt ↓`, `name ↓`, `status ↓`, `__name__ ↓`                           | Collection   |
+| likes         | `likedAt ↓`, `status ↓`, `username ↓`, `__name__ ↓`                       | Collection   |
+| members       | `role ↓`, `status ↓`, `__name__ ↓`                                        | Collection   |
+| members       | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection   |
+| members       | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection   |
+| followers     | `followedAt ↓`, `status ↓`, `__name__ ↓`                                  | Collection   |
+| followers     | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection   |
+| followers     | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection   |
+| following     | `followedAt ↓`, `status ↓`, `__name__ ↓`                                  | Collection   |
+| following     | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection   |
+| following     | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection   |
 
 ## supabase policies
 

@@ -295,6 +295,7 @@ document.getElementById("banner-delete").addEventListener("click", async () => {
 const inviteeveryone = document.getElementById("inviteEveryone");
 const invitefollow = document.getElementById("inviteFollow");
 const inviteno = document.getElementById("inviteNo"); 
+const privateLike = document.getElementById("privateLikes");
 
 document.getElementById("settingssvg").addEventListener("click", async () => { 
   const userRef = doc(db, "users", auth.currentUser.uid);
@@ -365,11 +366,19 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
 
   const checkbox = document.getElementById("seeFollows");
   const checkbox1 = document.getElementById("seeCom");
+  const checkbox2 = document.getElementById("seeFollowers");
 
   checkbox.checked = userData?.cannotSeeFollows !== true;
   checkbox.onchange = async () => {
     await updateDoc(userRef, {
       cannotSeeFollows: !checkbox.checked
+    });
+  };
+
+  checkbox2.checked = userData?.cannotSeeFollowers !== true;
+  checkbox2.onchange = async () => {
+    await updateDoc(userRef, {
+      cannotSeeFollowers: !checkbox2.checked
     });
   };
 
@@ -379,4 +388,11 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
       cannotSeeCom: !checkbox1.checked
     });
   };
+
+  privateLike.checked = userData?.privateLikes !== true;
+  privateLike.onchange = async() => {
+    await updateDoc(userRef, {
+      privateLikes: !privateLike.checked
+    });
+  }
 });

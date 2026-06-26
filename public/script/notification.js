@@ -564,14 +564,15 @@ if (menu) {
             document.getElementById("confirmBlock").disabled = true;
             document.getElementById("confirmBlock").classList.add("disabled");
 
-            const { realavatar, realusername } = await getUserData(el.dataset.sender);
+            const { realavatar, realusername, realdisplayName } = await getUserData(el.dataset.sender);
 
             if (options.value === "permanent") {
               await setDoc(blockRef, { 
                 permanent: true,
                 blockedAt: new Date(),
                 avatar: realavatar,
-                name: realusername
+                name: realusername,
+                displayName: realdisplayName
               });
             } else {
               const days = durations[options.value];
@@ -582,7 +583,8 @@ if (menu) {
                 blockUntil: expireAt,
                 blockedAt: new Date(),
                 avatar: realavatar,
-                name: realusername
+                name: realusername,
+                displayName: realdisplayName
               });
             }
             log("green", "User muted");
@@ -630,8 +632,10 @@ if (notification.type === "communityJoinRequest") {
         const creatorRef = doc(db, "users", ownerId);
         const comRef = doc(db, "communities", notification.communityId);
 
-        const userSnap = await tx.get(userRef);
-        const comSnap = await tx.get(comRef);
+        const [userSnap, comSnap] = await Promise.all([
+          tx.get(userRef),
+          tx.get(comRef)
+        ])
 
         if (!comSnap.exists()) return log("red", "Community not found");
         if (!userSnap.exists()) return log("red", "User doesn't exist");
@@ -645,6 +649,10 @@ if (notification.type === "communityJoinRequest") {
           membersCount: increment(1),
           members: arrayUnion(notification.senderId)
         });
+
+        const status = userData.cannotSeeCom ? 
+          "private" : "public"
+
         tx.set(memberRef, {
           uid: notification.senderId,
           joinedAt: new Date(),
@@ -652,7 +660,9 @@ if (notification.type === "communityJoinRequest") {
           photoURL: userData.photoURL,
           displayName: userData.displayName,
           description: userData.description,
-          role: 1
+          name: userData.displayName.toLowerCase(),
+          role: 1,
+          status
         });
         tx.update(userRef, {
           communitiesCount: increment(1)
@@ -916,7 +926,7 @@ navigator.serviceWorker.addEventListener("message", event => {
   }
 });
 
-function showSystemNotification(data) {
+async function showSystemNotification(data) {
   const title = `@${data.senderName}`;
   const body =
     data.type === "comment"
@@ -934,22 +944,38 @@ function showSystemNotification(data) {
     icon: "/image/icon.png",
     tag: data.id,
     data,
+    vibrate: [200, 100, 200],
+    renotify: true, 
+    requireInteraction: true
   };
 
-  if (typeof window !== "undefined" && "Notification" in window) {
-    if (Notification.permission === "granted") {
-      const notif = new Notification(title, options);
-
-      notif.onclick = () => {
-        window.focus();
-        handleNotificationClick(data);
-      };
-    }
+  if (typeof self !== "undefined" && "registration" in self) {
+    self.registration.showNotification(title, options);
     return;
   }
 
-  if (typeof self !== "undefined" && self.registration) {
-    self.registration.showNotification(title, options);
+  if (typeof window !== "undefined" && "Notification" in window) {
+    if (Notification.permission === "granted") {
+      try {
+        const notif = new Notification(title, options);
+
+        notif.onclick = () => {
+          window.focus();
+          handleNotificationClick(data);
+        };
+      } catch (error) {
+        if ("serviceWorker" in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification(title, options);
+          } catch (swError) {
+            console.error("Service worker notification failed:", swError);
+          }
+        } else {
+          console.error("Notification constructor failed and Service Worker is unavailable:", error);
+        }
+      }
+    }
   }
 }
 
@@ -1142,17 +1168,19 @@ function initSharedNotificationListener() {
       snap.docChanges().forEach((change) => {
         if (change.type === "added") {
           const data = { id: change.doc.id, ...change.doc.data() };
-          
-          const isBrandNew = data.createdAt && (Date.now() - data.createdAt.toDate().getTime() < 120000);
-          if (!isBrandNew) return;
+          if (!data.createdAt) return; 
 
           if (enableSystemNotifs && supportsSystemNotifs && data.read === false) {
-            showSystemNotification(data);
+            try {
+              showSystemNotification(data); 
+            } catch (err) {
+              console.error("Failed to trigger system notification", err);
+            }
           }
 
           if (enableUIUpdates) {
             if (document.querySelector(`.notification[data-id="${data.id}"]`)) return;
-
+            
             const date = data.createdAt.toDate();
             const dateText = formatDateHeader(date);
             const firstChild = notificationsContainer.firstElementChild;

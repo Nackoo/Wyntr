@@ -1,4 +1,4 @@
-import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, startAfter, increment, serverTimestamp, runTransaction, Timestamp } from "./firebase.js";
+import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, startAfter, increment, serverTimestamp, runTransaction, Timestamp, updateDoc } from "./firebase.js";
 import { renderTweet, getUserData, loadComments, currentUserRole, waitForAuth } from './index.js';
 import { sendFollowNotification } from "./notification.js";
 import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
@@ -11,6 +11,15 @@ import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
 
 await waitForAuth();
+
+const noaccess = `
+  <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+    <div style="max-width:400px;text-align:left;">
+      <h2 style="margin:0;">No permission</h2>
+      <p style="color:grey;margin:7px 0;">This user chose to not show this list publicly.</p>
+    </div>
+  </div>
+`;
 
 const loading            = document.getElementById("loadingOverlay");
 const searchBtn          = document.querySelector('.smallbar img[src="/image/search.svg"]');
@@ -507,10 +516,18 @@ async function loadTweets(uid, term = "") {
 
 async function fetchUsers(term = "") {
   displayUsers.innerHTML = "";
-  let snap;
+  
+  const uniqueDocs = new Map();
 
   if (term) {
     const lowerTerm = term.toLowerCase();
+
+    const nameQuery = query(
+      collection(db, "users"),
+      where("name", ">=", lowerTerm),
+      where("name", "<=", lowerTerm + "\uf8ff"),
+      limit(10)
+    );
 
     const usernameQuery = query(
       collection(db, "users"),
@@ -519,61 +536,52 @@ async function fetchUsers(term = "") {
       limit(10)
     );
 
-    snap = await getDocs(usernameQuery);
+    const [nameSnap, usernameSnap] = await Promise.all([
+      getDocs(nameQuery),
+      getDocs(usernameQuery)
+    ]);
 
-    if (snap.empty) {
-      const nameQuery = query(
-        collection(db, "users"),
-        where("name", ">=", lowerTerm),
-        where("name", "<=", lowerTerm + "\uf8ff"),
-        limit(USER_PAGE_SIZE)
-      );
-      snap = await getDocs(nameQuery);
-    }
+    nameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+    usernameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
   } else {
-    const q = query(
+    const defaultQuery = query(
       collection(db, "users"), 
       orderBy("createdAt", "desc"), 
       limit(3)
     );
-
-    snap = await getDocs(q);
+    const defaultSnap = await getDocs(defaultQuery);
+    defaultSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
   }
 
-  if (snap.empty) {
+  if (uniqueDocs.size === 0) {
     displayUsers.innerHTML = "";
     return;
   }
 
-  for (const docSnap of snap.docs) {
+  const docArray = Array.from(uniqueDocs.values());
+
+  for (const docSnap of docArray) {
     const data = docSnap.data();
 
     const item = document.createElement("div");
     item.className = "user-search-item";
     item.id = `user-${docSnap.id}`;
-    item.style.cssText =
-      "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
+    item.style.cssText = "display:flex;gap:10px;padding:15px 0 10px 0;border-bottom:var(--border);align-items:center";
 
     item.innerHTML = `
       <div style="display:flex; gap:12px; width:100%">
         <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-        
         <div style="display:flex;flex-direction:column;gap:6px;width:100%">
           <div style="display:flex;width:100%">
             <div style="display:flex; flex-direction:column; gap:6px">
-              <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
-                ${escapeHTML(data.displayName)}
-              </strong>
-              <span style="font-size:14px; color:grey;">
-                @${escapeHTML(data.username)}
-              </span>
+              <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">${escapeHTML(data.displayName)}</strong>
+              <span style="font-size:14px; color:grey;">@${escapeHTML(data.username)}</span>
             </div>
             <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
           </div>
           <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
         </div>
-      </div>
-    `;
+      </div>`;
 
     item.addEventListener("click", (e) => {
       if (!e.target.classList.contains("mini-follow-btn")) {
@@ -789,6 +797,7 @@ export async function openUserSubProfile(uid) {
 
   softblank();
   window.cannotSeeFollows = false;
+  window.cannotSeeFollowers = false;
   tweetviewactive1();
 
   document.getElementById("comRule").style.display = "none";
@@ -1430,7 +1439,11 @@ async function loadIfFollow(uid) {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
             const targetUserRef = doc(db, "users", uid);
 
-            const currentUserSnap = await batch.get(currentUserRef);
+            const [currentUserSnap, targetUserSnap] = await Promise.all([
+              batch.get(currentUserRef),
+              batch.get(targetUserRef)
+            ]);
+            const targetUserData = targetUserSnap.data();
             const currentUserData = currentUserSnap.data();
 
             if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
@@ -1439,14 +1452,14 @@ async function loadIfFollow(uid) {
               return;
             }
 
-            const targetUserSnap = await batch.get(targetUserRef);
-            const targetUserData = targetUserSnap.data();
-
             if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
               info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
               reset();
               return;
             }
+
+            const status = currentUserData.cannotSeeFollows ?
+              "private" : "public"
 
             batch.set(doc(db, "users", uid, "followers", auth.currentUser.uid), {
               followedAt: serverTimestamp(),
@@ -1454,7 +1467,8 @@ async function loadIfFollow(uid) {
               username: username,
               name: displayName?.toLowerCase(),
               photoURL: photoURL,
-              description: description || null
+              description: description || null,
+              status
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
@@ -1603,7 +1617,7 @@ followOverlay.innerHTML = `
     <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
       <button onclick="document.getElementById('followOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
       <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:100%;padding:15px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
+        <div style="width:100%;padding:12px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
           <input style="margin-left:10px;" type="text" placeholder="search anything">
         </div>
       </div>
@@ -1615,6 +1629,8 @@ followOverlay.innerHTML = `
 document.body.appendChild(followOverlay);
 window.followOverlay = followOverlay;
 
+const skeleton1 = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
+
 async function openFollowOverlay(type, userId, isMe) {
   const overlay = document.getElementById("followOverlay");
   const listEl = document.getElementById("followList");
@@ -1625,6 +1641,9 @@ async function openFollowOverlay(type, userId, isMe) {
 
   followList = [];
   followLastDoc = null;
+  let hasMore = true; 
+  window.cannotSeeFollowers = false;
+  window.cannotSeeFollows = false;
 
   await loadFollowUsers(type, userId);
 
@@ -1639,235 +1658,376 @@ async function openFollowOverlay(type, userId, isMe) {
       followLastDoc = null;
       followList = [];
       isSearching = false;
+      hasMore = true; // 💡 Reset when clearing search
       await loadFollowUsers(type, userId);
+      return;
     }
-    if (!value || value.trim().toLowerCase() === previousValue) return;
+    if (value.trim().toLowerCase() === previousValue) return;
 
     previousValue = value.trim().toLowerCase();
     isSearching = true;
+    listEl.innerHTML = "";
+    hasMore = true; // 💡 Reset for new search term
     await searchFollowUsers(previousValue);
   });
 
-  async function searchFollowUsers(term) {
-    followList = [];
-    followLastDoc = null;
+  async function searchFollowUsers(term, isNextPage = false) {
+    if (!isNextPage) {
+      followList = [];
+      followLastDoc = null;
+    }
 
-    if (window.cannotSeeFollows === true) {
-      listEl.innerHTML = `
-        <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-          <div style="max-width:400px;text-align:left;">
-            <h2 style="margin:0;">No permission</h2>
-            <p style="color:grey;margin:7px 0;">This user chose to not show their followings publicly.</p>
-          </div>
-        </div>
-      `;
+    if (window.cannotSeeFollows === true && window.type == "following") {
+      listEl.innerHTML = noaccess;
+      return;
+    }
+    if (window.cannotSeeFollowers === true && window.type == "followers") {
+      listEl.innerHTML = noaccess;
       return;
     }
 
-    listEl.innerHTML = `
-      <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-    `;
+    if (!isNextPage && !listEl.querySelector(".user-search-item")) {
+      listEl.innerHTML = skeleton1;
+    }
 
-    const q = query(
-      collection(db, "users", userId, type),
-      where("name", ">=", term),
-      where("name", "<=", term + "\uf8ff"),
-      orderBy("name"),
-      limit(10)
-    );
+    function buildFollowSearchQuery(field, searchVal) {
+      const constraints = [];
+      if (auth.currentUser.uid !== userId) {
+        constraints.push(where("status", "!=", "private"));
+      }
+      constraints.push(
+        where(field, ">=", searchVal),
+        where(field, "<=", searchVal + "\uf8ff"),
+        orderBy(field)
+      );
+      
+      if (isNextPage && followLastDoc) {
+        constraints.push(startAfter(followLastDoc));
+      }
+      
+      constraints.push(limit(10));
+      return query(collection(db, "users", userId, type), ...constraints);
+    }
 
-    const snap = await getDocs(q);
+    const [nameSnap, usernameSnap] = await Promise.all([
+      getDocs(buildFollowSearchQuery("name", term)),
+      getDocs(buildFollowSearchQuery("username", term))
+    ]);
 
-    if (snap.empty && !(listEl.querySelector(".user-search-item"))) {
-      listEl.innerHTML = `
-        <div style="width:100%;display:flex;justify-content:center;margin-top:30px;">
-          <div style="max-width:400px;">
-            <h2 style="margin:0;">No matched users</h2>
-            <p style="color:grey;margin:7px 0;">There's no person you're looking for.</p>
-          </div>
-        </div>`;
+    const uniqueDocs = new Map();
+    nameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+    usernameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
+
+    // 💡 CHANGED HERE: Handle empty search response elegantly
+    if (uniqueDocs.size === 0) {
+      hasMore = false; 
+      if (!isNextPage && !(listEl.querySelector(".user-search-item"))) {
+        listEl.innerHTML = `
+          <div style="width:100%;display:flex;justify-content:center;margin-top:30px;">
+            <div style="max-width:400px;">
+              <h2 style="margin:0;">No matched users</h2>
+              <p style="color:grey;margin:7px 0;">There's no person you're looking for.</p>
+            </div>
+          </div>`;
+      }
       return;
     }
 
-    if (!listEl.querySelector(".user-search-item")) {
+    if (!isNextPage && !listEl.querySelector(".user-search-item")) {
       listEl.innerHTML = "";
     }
 
-    for (const docSnap of snap.docs) {
+    const docArray = Array.from(uniqueDocs.values());
+    
+    if (docArray.length > 0) {
+      followLastDoc = docArray[docArray.length - 1];
+    }
+
+    for (const docSnap of docArray) {
       const data = docSnap.data();
+      const theirId = docSnap.id;
+
+      if (document.getElementById(`itemm-${theirId}`)) continue;
 
       const item = document.createElement("div");
       item.className = "user-search-item";
-      item.id = `itemm-${docSnap.id}`;
-      item.style.cssText =
-        "display:flex;gap:10px;padding:15px 0;border-bottom:var(--border);align-items:center";
+      item.id = `itemm-${theirId}`;
+      item.style.cssText = "display:flex;gap:10px;padding:15px 0;border-bottom:var(--border);align-items:center";
 
       item.innerHTML = `
         <div style="display:flex; gap:12px; width:100%">
           <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-            
           <div style="display:flex;flex-direction:column;gap:6px;width:100%">
             <div style="display:flex;width:100%">
               <div style="display:flex; flex-direction:column; gap:6px">
-                <strong style="cursor:pointer;" class="user-link" data-uid="${docSnap.id}">
+                <strong style="cursor:pointer;" class="user-link" data-uid="${theirId}">
                   ${escapeHTML(data.displayName)}
                 </strong>
                 <span style="font-size:14px; color:grey;">
                   @${escapeHTML(data.username)}
                 </span>
               </div>
-              <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
+              <div style="margin-left:auto;display:flex;align-items:center;">
+                ${(theirId === auth.currentUser.uid || userId === auth.currentUser.uid) && data.status != "private" ? `
+                <img class="hide-btn" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-left:15px;display:none;">`
+                : ""}
+                <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); opacity:0;">...</button>
+              </div>
             </div>
             <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
           </div>
         </div>
       `;
 
-      if (!document.getElementById(`itemm-${docSnap.id}`)) {
-        listEl.appendChild(item);
+      listEl.appendChild(item);
+
+      const hideBtn = item.querySelector(".hide-btn");
+
+      if (hideBtn) {
+        item.addEventListener("contextmenu", (e) => e.preventDefault());
+        item.addEventListener("mousedown", (e) => {
+          if (e.button !== 2) return; 
+          e.preventDefault();
+          
+          document.querySelectorAll(".hide-btn").forEach(btn => btn.style.display = "none");
+          
+          hideBtn.style.display = "block";
+        });
+
+        hideBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const confirmed = await confirmDialog(
+            "hide this user connection?", 
+            "people browsing this list won't see this entry. This action is irreversible", 
+            "red"
+          );
+          if (!confirmed) return;
+
+          try {
+            const followDocRef = doc(db, "users", userId, type, theirId);
+            await updateDoc(followDocRef, { status: "private" });
+            loading.classList.remove("show");
+            log("green", "user hidden from public");
+          } catch(err) {
+            console.error("Privacy update dropped:", err);
+          }
+        });
       }
+
       item.addEventListener("click", (e) => {
-        if (!e.target.classList.contains("mini-follow-btn")) {
+        if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn")) {
           document.getElementById("followOverlay").classList.add("hidden");
-          openUserSubProfile(docSnap.id);
+          openUserSubProfile(theirId);
         }
       });
+
       const btn = item.querySelector(".mini-follow-btn");
       if (type === "following" && userId === auth.currentUser.uid) {
-        setupMiniFollowBtn(btn, docSnap.id, true);
+        setupMiniFollowBtn(btn, theirId, true);
       } else {
-        setupMiniFollowBtn(btn, docSnap.id);
+        setupMiniFollowBtn(btn, theirId);
       }
     }
   }
-}
 
-async function loadFollowUsers(type, userId) {
-  const ref = collection(db, "users", userId, type);
+  async function loadFollowUsers(type, userId) {
+    let ref;
+    if (userId !== auth.currentUser.uid) {
+      ref = query(collection(db, "users", userId, type), where("status", "!=", "private"));
+    } else {
+      ref = collection(db, "users", userId, type);
+    }
 
-  if (!followLastDoc) {
-    document.getElementById("followList").innerHTML = `
-      <div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-    `;
-  }
+    if (!followLastDoc) {
+      document.getElementById("followList").innerHTML = skeleton1;
+    }
 
-  if (type === "following" && !followLastDoc) {
-    const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.data();
+    if (!followLastDoc) {
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
 
-    if (userData.cannotSeeFollows === true && userId != auth.currentUser.uid) {
-      document.getElementById("followList").innerHTML = `
-            <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-              <div style="max-width:400px;text-align:left;">
-                <h2 style="margin:0;">No permission</h2>
-                <p style="color:grey;margin:7px 0;">This user chose to not show their followings publicly.</p>
-              </div>
+      if (userData.cannotSeeFollows === true && type == "following" && userId !== auth.currentUser.uid) {
+        document.getElementById("followList").innerHTML = noaccess;
+        if (userData.cannotSeeFollows) window.cannotSeeFollows = true;
+        window.type = "following";
+        return;
+      }
+      if (userData.cannotSeeFollowers && type == "followers" && userId !== auth.currentUser.uid) {
+        document.getElementById("followList").innerHTML = noaccess;
+        if (userData.cannotSeeFollowers) window.cannotSeeFollowers = true;
+        window.type = "followers"
+        return;
+      }
+    }
+
+    window.cannotSeeFollows = false;
+    window.cannotSeeFollowers = false;
+    window.type = type;
+    window.userId = userId;
+
+    const q = followLastDoc
+      ? query(ref, orderBy("followedAt", "desc"), startAfter(followLastDoc), limit(10))
+      : query(ref, orderBy("followedAt", "desc"), limit(10));
+
+    const snap = await getDocs(q);
+
+    // 💡 CHANGED HERE: Halts execution safely if Firestore collection is exhausted
+    if (snap.empty) {
+      hasMore = false; 
+      if (!followLastDoc) {
+        document.getElementById("followList").innerHTML = `
+          <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
+            <div style="max-width:400px;text-align:left;">
+              <h2 style="margin:0;">No results — yet</h2>
+              <p style="color:grey;margin:7px 0;">${type == "following" ? "seems like nobody is followed by this user." : "seems like nobody follows them. Be the first one.s"}</p>
             </div>
-      `;
-      window.cannotSeeFollows = true;
+          </div>`; // Fixed missing closing div tag from original code
+      }
       return;
     }
-  }
 
-  window.cannotSeeFollows = false;
-  window.type = type;
-  window.userId = userId;
+    followLastDoc = snap.docs[snap.docs.length - 1];
 
-  const q = followLastDoc
-    ? query(ref, orderBy("followedAt", "desc"), startAfter(followLastDoc), limit(FOLLOW_PAGE_SIZE))
-    : query(ref, orderBy("followedAt", "desc"), limit(FOLLOW_PAGE_SIZE));
-
-  const snap = await getDocs(q);
-  if (snap.empty) return;
-
-  followLastDoc = snap.docs[snap.docs.length - 1];
-
-  if (!document.querySelector("#followList .user-search-item")) {
-    document.getElementById("followList").innerHTML = "";
-  }
-
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data();
-    const theirId = data.uid ?? docSnap.id;
-
-    if (followList.some(u => u.dataset?.uid === theirId)) continue;
-
-    if (!document.getElementById("userSubOverlay").classList.contains("hidden")) {
-      if (document.getElementById("user-name").dataset.uid != userId) return;
-    } else {
-      if (document.getElementById("my-name").dataset.uid != userId) return;
+    if (!document.querySelector("#followList .user-search-item")) {
+      document.getElementById("followList").innerHTML = "";
     }
 
-    const item = await renderFollowUserItem(theirId, data, type);
-    item.dataset.uid = theirId;
-    item.id = `skibidi-${theirId}`;
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      const theirId = data.uid ?? docSnap.id;
 
-    followList.push(item);
-    if (!document.getElementById(`skibidi-${theirId}`)) {
-      document.getElementById("followList").appendChild(item);
+      if (followList.some(u => u.dataset?.uid === theirId)) continue;
+
+      if (!document.getElementById("userSubOverlay").classList.contains("hidden")) {
+        if (document.getElementById("user-name").dataset.uid !== userId) return;
+      } else {
+        if (document.getElementById("my-name").dataset.uid !== userId) return;
+      }
+
+      const item = await renderFollowUserItem(theirId, data, type, userId);
+      item.dataset.uid = theirId;
+      item.id = `skibidi-${theirId}`;
+
+      followList.push(item);
+      if (!document.getElementById(`skibidi-${theirId}`)) {
+        document.getElementById("followList").appendChild(item);
+      }
     }
   }
-}
 
-async function renderFollowUserItem(uid, data, type) {
-  const item = document.createElement("div");
-  item.className = "user-search-item";
-  item.style.cssText = "display:flex;gap:10px;padding:10px 0;border-bottom:var(--border);align-items:center";
+  async function renderFollowUserItem(uid, data, type, targetListUserId) {
+    const item = document.createElement("div");
+    item.className = "user-search-item";
+    item.style.cssText = "display:flex;gap:10px;padding:10px 0;border-bottom:var(--border);align-items:center";
 
-  item.innerHTML = `
-    <div style="display:flex; gap:12px; width:100%">
-      <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
-        
-      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
-        <div style="display:flex;width:100%">
-          <div style="display:flex; flex-direction:column; gap:6px">
-            <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
-              ${escapeHTML(data.displayName)}
-            </strong>
-            <span style="font-size:14px; color:grey;">
-              @${escapeHTML(data.username)}
-            </span>
+    item.innerHTML = `
+      <div style="display:flex; gap:12px; width:100%">
+        <img loading="lazy" src="${base91ToImageSrc(data.photoURL)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;">
+        <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+          <div style="display:flex;width:100%">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <strong style="cursor:pointer;" class="user-link" data-uid="${uid}">
+                ${escapeHTML(data.displayName)}
+              </strong>
+              <span style="font-size:14px; color:grey;">
+                @${escapeHTML(data.username)}
+              </span>
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;">
+              ${(targetListUserId === auth.currentUser.uid || uid === auth.currentUser.uid) && data.status != "private" ? `
+              <img class="hide-btn" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-right:15px;display:none;">`
+              : ""}
+              <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border);opacity:0;">...</button>
+            </div>
           </div>
-          <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); margin-left:auto; opacity:0;">...</button>
+          <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
         </div>
-        <span style="font-size:14px;overflow-wrap:break-word;overflow-wrap:anywhere;">${data.description ? escapeHTML(data.description.slice(0, 100)) : ""}</span>
       </div>
-    </div>
-  `;
+    `;
 
-  item.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("mini-follow-btn")) {
-      openUserSubProfile(uid);
-      document.getElementById("followOverlay").classList.add("hidden");
+    const hideBtn = item.querySelector(".hide-btn");
+    if (hideBtn) {
+      item.addEventListener("contextmenu", (e) => e.preventDefault());
+      item.addEventListener("mousedown", (e) => {
+        if (e.button !== 2) return; 
+        e.preventDefault();
+          
+        document.querySelectorAll(".hide-btn").forEach(btn => btn.style.display = "none");
+          
+        hideBtn.style.display = "block";
+      });
+
+      hideBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const confirmed = await confirmDialog(
+          "hide this user connection?", 
+          "people browsing this list won't see this entry. This action is irreversible", 
+          "red"
+        );
+        if (!confirmed) return;
+
+        try {
+          const followDocRef = doc(db, "users", targetListUserId, type, uid);
+          await updateDoc(followDocRef, { status: "private" });
+          loading.classList.remove("show");
+          log("green", "user hidden from public");
+        } catch(err) {
+          console.error("Privacy update dropped:", err);
+        }
+      });
+    }
+
+    item.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn")) {
+        openUserSubProfile(uid);
+        document.getElementById("followOverlay").classList.add("hidden");
+      }
+    });
+
+    const btn = item.querySelector(".mini-follow-btn");
+    if (type === "following" && window.userId === auth.currentUser.uid) {
+      setupMiniFollowBtn(btn, uid, true);
+    } else {
+      setupMiniFollowBtn(btn, uid);
+    }
+
+    return item;
+  }
+
+  const followListContainer = document.querySelector("#followOverlay .user-box");
+  let isLoading = false;
+
+  followListContainer.addEventListener("scroll", async () => {
+    // 💡 CHANGED HERE: Instantly returns if hasMore is false to prevent redundant queries
+    if (isLoading || !hasMore) return; 
+
+    const scrollBottom = followListContainer.scrollTop + followListContainer.clientHeight;
+    const scrollHeight = followListContainer.scrollHeight;
+
+    if (scrollBottom >= scrollHeight - 100) {
+      isLoading = true;
+      
+      const overlay = document.getElementById("followOverlay");
+      const input = overlay.querySelector("input");
+      const activeSearchTerm = input.value.trim().toLowerCase();
+      
+      if (activeSearchTerm) {
+        await searchFollowUsers(activeSearchTerm, true); 
+      } else {
+        await loadFollowUsers(window.type, window.userId);
+      }
+      
+      isLoading = false;
     }
   });
-  const btn = item.querySelector(".mini-follow-btn");
-  if (type === "following" && window.userId == auth.currentUser.uid) {
-    setupMiniFollowBtn(btn, uid, true);
-  } else {
-    setupMiniFollowBtn(btn, uid);
-  }
-
-  return item;
 }
 
-const followListContainer = document.querySelector("#followOverlay .user-box");
-
-let isLoading = false;
-
-followListContainer.addEventListener("scroll", async () => {
-  if (isLoading) return;
-  if (isSearching) return;
-
-  const scrollBottom =
-    followListContainer.scrollTop + followListContainer.clientHeight;
-  const scrollHeight = followListContainer.scrollHeight;
-
-  if (scrollBottom >= scrollHeight - 100) {
-    isLoading = true;
-    await loadFollowUsers(window.type, window.userId);
-    isLoading = false;
+document.addEventListener("mousedown", (e) => {
+  if (e.button === 0 && !e.target.closest(".hide-btn")) {
+    document.querySelectorAll(".hide-btn").forEach(btn => {
+      btn.style.display = "none";
+    });
   }
 });
 
@@ -1942,8 +2102,12 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
             const targetUserRef = doc(db, "users", targetId);
 
-            const currentUserSnap = await batch.get(currentUserRef);
+            const [currentUserSnap, targetUserSnap] = await Promise.all([
+              batch.get(currentUserRef),
+              batch.get(targetUserRef)
+            ])
             const currentUserData = currentUserSnap.data();
+            const targetUserData = targetUserSnap.data();
 
             if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
               info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
@@ -1951,14 +2115,14 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
               return;
             }
 
-            const targetUserSnap = await batch.get(targetUserRef);
-            const targetUserData = targetUserSnap.data();
-
             if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
               info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
               reset();
               return;
             }
+
+            const status = currentUserData.cannotSeeFollows ?
+              "private" : "public"
 
             batch.set(doc(db, "users", targetId, "followers", auth.currentUser.uid), {
               followedAt: serverTimestamp(),
@@ -1966,7 +2130,8 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
               username: username,
               name: displayName?.toLowerCase(),
               photoURL: photoURL,
-              description: description || null
+              description: description || null,
+              status
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {

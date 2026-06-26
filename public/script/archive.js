@@ -132,15 +132,15 @@ export function initArchiveViewer({
         if (e.key === "Enter") {
             currentTerm = searchInput.value.trim().toLowerCase();
             resetPagination();
-            loadArchive();
+            loadArchive(currentTerm);
         }
     });
 
     scrollBox.addEventListener("scroll", () => {
         const distanceFromBottom = scrollBox.scrollHeight - scrollBox.scrollTop - scrollBox.clientHeight;
         if (distanceFromBottom <= 200) {
-            console.log("yes");
-            loadArchive();
+            currentTerm = searchInput.value.trim().toLowerCase();
+            loadArchive(currentTerm);
         }
     });
 }
