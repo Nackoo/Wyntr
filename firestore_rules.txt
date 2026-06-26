@@ -361,7 +361,7 @@ service cloud.firestore {
           (request.auth.uid == targetId || request.auth.uid == userId) && request.resource.data.status == "private"
         );
 
-        allow delete: if request.auth != null && request.auth.uid == targetId && !isBanned() && !isSuspended();
+        allow delete: if request.auth != null && request.auth.uid == userId && !isBanned() && !isSuspended();
       }
 
       match /followers/{followerId} {
