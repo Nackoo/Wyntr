@@ -286,7 +286,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const src = base91ToImageSrc(parent.media.url);
           const path = `${tweetId}-${commentId}`;
           const content = `
-              <p style="margin:0;">${parsedparent}</p>
+              <div class=post-body style="margin:0;">${parsedparent}</div>
               ${translateHTML}
               ${baninfo}
               ${containsSpoiler ?
@@ -350,7 +350,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const containsSpoiler = parent.sensitiveMedia === true;
           const path = `${tweetId}-${commentId}`;
           const content = `
-              <p style="margin:0;">${parsedparent}</p> 
+              <div class=post-body style="margin:0;">${parsedparent}</div> 
               ${translateHTML}
               ${baninfo}
               ${containsSpoiler ?
@@ -546,7 +546,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
         } else {
           const path = `${tweetId}-${commentId}`;
           const content = `
-            <p style="margin:6px 0 12px;">${parsedparent}</p> 
+            <div class=post-body style="margin:6px 0 12px;">${parsedparent}</div> 
             ${translateHTML}
             ${baninfo}
             ${pollHTML}
@@ -675,7 +675,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 
   const content1 = `
     ${communityHTML}
-    <p>${parsedText}</p> 
+    <div class=post-body>${parsedText}</div> 
     ${translateHTML1} 
     ${bannedinfo}
     ${mediaHTML}
@@ -855,7 +855,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                 </div>
                 <div class="quoted-body"> 
                   ${titleHTML2} 
-                  <p style="margin:0;">${parsedQuoted}</p>
+                  <div class=post-body style="margin:0;">${parsedQuoted}</div>
                   ${translateHTML2}
                   ${baninfo1}
                   ${containsSpoiler ?
@@ -895,7 +895,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                 </div>
                 <div class="quoted-body">
                   ${titleHTML2}
-                  <p style="margin:0;">${parsedQuoted}</p> 
+                  <div class=post-body style="margin:0;">${parsedQuoted}</div> 
                   ${translateHTML2}
                   ${baninfo1}
                   
@@ -942,7 +942,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                 </div>
                 <div class="quoted-body">
                   ${titleHTML2}
-                  <p style="margin:6px 0 12px;">${parsedQuoted}</p> 
+                  <div class=post-body style="margin:6px 0 12px;">${parsedQuoted}</div> 
                   ${translateHTML2}
                   ${baninfo1}
                   ${pollHTML}
@@ -1139,8 +1139,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 }
 
 document.body.addEventListener("click", async (e) => {
-  const body = e.target.closest(".comment-item") ||
-               e.target.closest(".comment-owner");
+  const body = e.target.closest(".comment-item, .comment-owner, .card-reply");
   if (!body) return;
 
   const comid = body.dataset.communityId;
@@ -1175,7 +1174,11 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest(".vote-btn") ||
     e.target.closest(".xviewQuotes") ||
     e.target.closest(".xviewQuotes") ||
-    e.target.closest(".editedatt")
+    e.target.closest(".editedatt") ||
+    (
+      e.target.closest(".body-quote") &&
+      !e.target.closest(".card-reply")
+    )
   ) {
     return;
   }
@@ -1294,15 +1297,14 @@ async function init() {
 }
 
 document.body.addEventListener("click", async (e) => {
-  const quoted = e.target.closest(".quoted-comment:not(.retweet)");
+  const quoted = e.target.closest(".quoted-comment");
   if (!quoted) return;
 
   const tweetId = quoted.dataset.id;
   const commentId = quoted.dataset.commentId;
   const comid = quoted.dataset.communityId == "undefined"
                   ? null
-                  : quoted.dataset.communityId
-  ;
+                  : quoted.dataset.communityId;
 
   let hascom;
   if (comid && comid != "null" && comid != null) {
@@ -1335,7 +1337,8 @@ document.body.addEventListener("click", async (e) => {
     e.target.closest(".translate-btn") ||
     e.target.closest("a") ||
     e.target.closest(".viewQuotes") ||
-    e.target.closest(".editedatt") 
+    e.target.closest(".editedatt") ||
+    e.target.closest(".body-quote")
   ) {
     return;
   }
@@ -1548,7 +1551,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const src = base91ToImageSrc(parent.media.url);
           const path = `${tweetId}-${parentId}`;
           const content = `
-              <p style="margin:0;">${parsedparent}</p>
+              <div class=post-body style="margin:0;">${parsedparent}</div>
               ${translateHTML}
               ${baninfo}
               ${containsSpoiler ?
@@ -1612,7 +1615,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const containsSpoiler = parent.sensitiveMedia === true;
           const path = `${tweetId}-${parentId}`;
           const content = `
-              <p style="margin:0;">${parsedparent}</p> 
+              <div class=post-body style="margin:0;">${parsedparent}</div> 
               ${translateHTML}
               ${baninfo}
               ${containsSpoiler ?
@@ -1808,7 +1811,7 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
         } else {
           const path = `${tweetId}-${parentId}`;
           const content = `
-            <p style="margin:6px 0 12px;">${parsedparent}</p> 
+            <div class=post-body style="margin:6px 0 12px;">${parsedparent}</div> 
             ${translateHTML}
             ${baninfo}
             ${pollHTML}

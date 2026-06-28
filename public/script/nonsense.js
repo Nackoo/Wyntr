@@ -455,7 +455,15 @@ document.body.addEventListener("click", (e) => {
   const closeCMenu     = e.target.closest(".close-cmenu");
   const closecomrule   = e.target.closest("#close-com-rule");
   const closenotif     = e.target.closest(".close-notif-menu");
+  const carduser       = e.target.closest(".card-user");
+  const cardreply      = e.target.closest(".card-reply");
+  const cardtweet      = e.target.closest(".card-tweet");
+  const cardcom        = e.target.closest(".card-community")
 
+  if (cardcom) {commentViewer.classList.add("hidden");usersub.classList.add("hidden");viewer.classList.add("hidden")}
+  if (cardtweet) {commentViewer.classList.add("hidden");usersub.classList.add("hidden")}
+  if (cardreply) {viewer.classList.add("hidden");usersub.classList.add("hidden")}
+  if (carduser) {viewer.classList.add("hidden");commentViewer.classList.add("hidden")}
   if (closenotif) {document.getElementById("notifMenuOverlay").classList.add("hidden");}
   if (closecomrule) { document.getElementById("skibidicome").classList.add("hidden") }
   if (closecom) {community.classList.add('hidden'); communitysvg.classList.remove("hidden"); communityfilled.classList.add("hidden"); homesvg.classList.add("hidden"); homefilled.classList.remove("hidden"); comRule.style.display = "none";}

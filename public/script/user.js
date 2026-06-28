@@ -501,6 +501,7 @@ async function loadTweets(uid, term = "") {
 
   snap.docs.forEach((docSnap) => {
     const d = docSnap.data();
+    if (docSnap.id === window.currentPinnedId) return;
     
     if (uid === document.querySelector("#user-name").dataset.uid) {
       renderTweet(d, docSnap.id, auth.currentUser, "append", list);
@@ -1358,11 +1359,13 @@ export async function openUserSubProfile(uid) {
   list.innerHTML = "";
   if (document.getElementById("pinnedyo")) document.getElementById("pinnedyo").remove();
 
-  if (d.pinned) {
-    renderPinned(d, uid);
-  }
+  window.currentPinnedId = d.pinned || null;
 
-  loadTweets(uid);
+  await loadTweets(uid); 
+  
+  if (d.pinned) {
+    await renderPinned(d, uid);
+  }
   loadIfFollow(uid);
   isBanned(uid);
 
@@ -1518,19 +1521,21 @@ async function renderPinned(d, uid) {
   if (pinnedSnap.exists()) {
     const pinnedData = pinnedSnap.data();
 
-    const userData = {
-      ...d,
-      uid
-    };
-
     const pinnedLabel = document.createElement("div");
     pinnedLabel.id = "pinnedyo";
     pinnedLabel.innerHTML = `<div class="iq pinlabel userPinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
+    
+    // 1. Render the tweet FIRST (prepends it to the top of the list)
+    if (uid === document.querySelector("#user-name").dataset.uid) {
+      await renderTweet(pinnedData, d.pinned, auth.currentUser, "skibidi", list);
+      console.log("TWEET RENDERED");
+    }
+
+    // 2. Prepend the label SECOND (pushes it to the very top, resting right above the Wynt)
     if (!document.getElementById('pinnedyo')) {
       list.prepend(pinnedLabel);
-    }
-    if (uid === document.querySelector("#user-name").dataset.uid) {
-      await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
+      console.log(pinnedLabel)
+      document.querySelectorAll("#userList .skeleton-card").forEach(e => {e.remove()});
     }
   }
 }
@@ -1774,7 +1779,7 @@ async function openFollowOverlay(type, userId, isMe) {
               </div>
               <div style="margin-left:auto;display:flex;align-items:center;">
                 ${(theirId === auth.currentUser.uid || userId === auth.currentUser.uid) && data.status != "private" ? `
-                <img class="hide-btn" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-left:15px;display:none;">`
+                <img class="hide-btn1" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-left:15px;display:none;">`
                 : ""}
                 <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); opacity:0;">...</button>
               </div>
@@ -1786,17 +1791,19 @@ async function openFollowOverlay(type, userId, isMe) {
 
       listEl.appendChild(item);
 
-      const hideBtn = item.querySelector(".hide-btn");
+      const hideBtn = item.querySelector(".hide-btn1");
 
       if (hideBtn) {
-        item.addEventListener("contextmenu", (e) => e.preventDefault());
-        item.addEventListener("mousedown", (e) => {
-          if (e.button !== 2) return; 
+        item.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-          
-          document.querySelectorAll(".hide-btn").forEach(btn => btn.style.display = "none");
-          
-          hideBtn.style.display = "block";
+          document.querySelectorAll(".hide-btn1").forEach(btn => btn.style.display = "none")
+          if (hideBtn) hideBtn.style.display = "block";
+        });
+
+        document.addEventListener("mousedown", (e) => {
+          if (!item.contains(e.target)) {
+            if (hideBtn) hideBtn.style.display = "none";
+          }
         });
 
         hideBtn.addEventListener("click", async (e) => {
@@ -1820,7 +1827,7 @@ async function openFollowOverlay(type, userId, isMe) {
       }
 
       item.addEventListener("click", (e) => {
-        if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn")) {
+        if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn1")) {
           document.getElementById("followOverlay").classList.add("hidden");
           openUserSubProfile(theirId);
         }
@@ -1941,7 +1948,7 @@ async function openFollowOverlay(type, userId, isMe) {
             </div>
             <div style="margin-left:auto;display:flex;align-items:center;">
               ${(targetListUserId === auth.currentUser.uid || uid === auth.currentUser.uid) && data.status != "private" ? `
-              <img class="hide-btn" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-right:15px;display:none;">`
+              <img class="hide-btn1" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-right:15px;display:none;">`
               : ""}
               <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border);opacity:0;">...</button>
             </div>
@@ -1951,16 +1958,18 @@ async function openFollowOverlay(type, userId, isMe) {
       </div>
     `;
 
-    const hideBtn = item.querySelector(".hide-btn");
+    const hideBtn = item.querySelector(".hide-btn1");
     if (hideBtn) {
-      item.addEventListener("contextmenu", (e) => e.preventDefault());
-      item.addEventListener("mousedown", (e) => {
-        if (e.button !== 2) return; 
+      item.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-          
-        document.querySelectorAll(".hide-btn").forEach(btn => btn.style.display = "none");
-          
-        hideBtn.style.display = "block";
+        document.querySelectorAll(".hide-btn1").forEach(btn => btn.style.display = "none")
+        if (hideBtn) hideBtn.style.display = "block";
+      });
+
+      document.addEventListener("mousedown", (e) => {
+        if (!item.contains(e.target)) {
+          if (hideBtn) hideBtn.style.display = "none";
+        }
       });
 
       hideBtn.addEventListener("click", async (e) => {
@@ -1984,7 +1993,7 @@ async function openFollowOverlay(type, userId, isMe) {
     }
 
     item.addEventListener("click", (e) => {
-      if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn")) {
+      if (!e.target.classList.contains("mini-follow-btn") && !e.target.classList.contains("hide-btn1")) {
         openUserSubProfile(uid);
         document.getElementById("followOverlay").classList.add("hidden");
       }
@@ -2027,14 +2036,6 @@ async function openFollowOverlay(type, userId, isMe) {
     }
   });
 }
-
-document.addEventListener("mousedown", (e) => {
-  if (e.button === 0 && !e.target.closest(".hide-btn")) {
-    document.querySelectorAll(".hide-btn").forEach(btn => {
-      btn.style.display = "none";
-    });
-  }
-});
 
 async function setupMiniFollowBtn(btn, targetId, skibidi) {
   if (auth.currentUser?.uid !== targetId) {
@@ -2316,6 +2317,14 @@ async function loadUserMentionedTweets(uid, term = "") {
 }
 
 document.body.addEventListener("click", e => {
+  const carduser = e.target.closest(".card-user");
+  if (carduser) {
+    openUserSubProfile(carduser.dataset.uid);
+  }
+  const cardcom = e.target.closest(".card-community");
+  if (cardcom) {
+    openCommunity(cardcom.dataset.id);
+  }
   const copyBtn = e.target.closest(".copy-uid-btn");
   if (copyBtn) {
     document.getElementById("userMenuOverlay").classList.add("hidden");

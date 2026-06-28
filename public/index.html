@@ -83,7 +83,7 @@
 
   <div id="blockOverlay" class="useroverlay hidden">
     <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
         <button onclick="document.getElementById('blockOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
         <input style="margin-right:20px;" type="text" placeholder="search mutes">
       </header>
@@ -95,7 +95,7 @@
 
   <div id="archiveOverlay" class="useroverlay hidden">
     <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:15px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;padding-bottom:13px;">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
         <button onclick="document.getElementById('archiveOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
         <input style="margin-right:20px;" type="text" placeholder="search archives">
       </header>
@@ -1145,7 +1145,7 @@
                   <h2 style="margin:0;margin-left:Auto">ReWynt</h2>
                 </div>
               </header>
-              <div id="retweetOriginal" style="margin-bottom:10px"></div>
+              <div id="retweetOriginal" class="post-body" style="margin-bottom:10px"></div>
               <div style="display:flex;gap:10px;">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=retweetAvatar></img>
                 <div>
@@ -2097,7 +2097,13 @@
   <script src="/lib/script/html2canvas.min.js"></script>
 
   <script type="module">
-    document.addEventListener("DOMContentLoaded", () => {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+
+    function init() {
       twemoji.parse(document.body, {
         folder: 'svg',
         ext: '.svg',
@@ -2119,7 +2125,7 @@
       });
 
       observer.observe(document.body, { childList: true, subtree: true });
-    });
+    }
     
     window.onerror = function(message, source, lineno, colno, error) {
       if (message && message.includes("Failed to load resource:")) {

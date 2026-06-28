@@ -992,13 +992,6 @@ img[src="/image/three-dots.svg"]:hover {
   padding: 10px 20px !important;
 }
 
-p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hover-card p) {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
 .renderedparent {
   margin-bottom: -25px !important;
 } 

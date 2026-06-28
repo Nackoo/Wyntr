@@ -1132,7 +1132,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
       }
 
       const quotedinfo = `
-        <div class="flex" style="margin:0;gap:25px;">
+        <div class="flex" style="margin:0;gap:25px;margin-top:10px;">
           ${comment.isHidden ? "" : `
             <span class="comment-like-btn" data-id="${commentId}" data-tweet="${parentId}" style="cursor:pointer;display:flex;align-items:center;gap:3px;">
               <div id="${likeId1}" class="clikeicon" style="height:20px">
@@ -1174,19 +1174,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           const containsSpoiler = comment.sensitiveMedia === true;
           const src = base91ToImageSrc(comment.media.url);
           const content = `
-            <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
-              ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
-            </p>
-            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-              document.getElementById('expand-${expandquoted}').remove();
-              document.getElementById('${expandquoted}').classList.remove('hidden');
-              this.remove();
-            ">
-              <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-              Expand to read more
-            </button>
-            <div id="${expandquoted}" class="hidden" style="margin-bottom:15px;">
-              <p style="margin: 0;margin-bottom:10px;">${parsedCommentText}</p> 
+              <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedCommentText}</div> 
               ${translateHTML5}
               ${bannedinfo}
               ${containsSpoiler ?
@@ -1201,7 +1189,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 </div>`
               }
               ${pollHTML}
-            </div>
           `;
 
           quotedHTML = `
@@ -1260,19 +1247,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           vidId = `vid-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
           const containsSpoiler = comment.sensitiveMedia === true;
           const content = `
-            <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
-              ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
-            </p>
-            <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-              document.getElementById('expand-${expandquoted}').remove();
-              document.getElementById('${expandquoted}').classList.remove('hidden');
-              this.remove();
-            ">
-              <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-              Expand to read more
-            </button>
-            <div id="${expandquoted}" class="hidden" style="margin-bottom:15px;">
-              <p style="margin: 0;margin-bottom:10px;">${parsedCommentText}</p> 
+              <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedCommentText}</div> 
               ${translateHTML5} 
               ${bannedinfo}
               ${containsSpoiler ?
@@ -1291,7 +1266,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                   </div>`
               }
               ${pollHTML}
-            </div>
           `;
 
           quotedHTML = `
@@ -1470,29 +1444,9 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           getSupabaseVideo(comment.media.url, vidId);
         } else {
           const content = `
-            ${parsedCommentText.length > 100 || pollHTML != "" ? `
-              <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;color:grey;white-space:normal;" id="expand-${expandquoted}">
-                ${parsedCommentText.length > 100 ? `${truncateHTML(parsedCommentText, 100)}` : `${parsedCommentText}`}
-              </p>
-              <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                document.getElementById('expand-${expandquoted}').remove();
-                document.getElementById('${expandquoted}').classList.remove('hidden');
-                this.remove();
-              ">
-                <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                Expand to read more
-              </button>
-              <div id="${expandquoted}" class="hidden">
-                <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;">${parsedCommentText}</p> 
-                ${translateHTML5} 
-                ${bannedinfo}
-                ${pollHTML}   
-              </div>
-            ` : `
-              <p style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;">${parsedCommentText}</p> 
+              <div class=post-body style="margin: 6px 0px 12px;margin-top:6px;margin-left:3px;">${parsedCommentText}</div> 
               ${translateHTML5} 
               ${bannedinfo}
-            `}
           `;
 
           quotedHTML = `
@@ -1749,19 +1703,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 </div>
                 <div class="quoted-body">
                   ${titleHTML1}
-                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)}` : `${parsedText}`}
-                  </p>
-                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                    document.getElementById('expand-${expandretweet}').remove();
-                    document.getElementById('${expandretweet}').classList.remove('hidden');
-                    this.remove();
-                  ">
-                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                      Expand to read more
-                  </button>
-                  <div id="${expandretweet}" class="hidden">
-                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                    <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedText}</div> 
                     ${translateHTML6} 
                     ${baninfo1}
                     ${pollHTML2}
@@ -1776,7 +1718,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                         <img loading='lazy' src="${rtsrc}" data-src="${rtsrc}" class="upscale" onerror="this.onerror=null;this.src='/image/image-error.png';" />
                       </div>`
                     }
-                  </div>
                   ${retweetinfo}
                 </div>
               </div>
@@ -1820,19 +1761,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             
                 <div class="quoted-body">
                   ${titleHTML1}
-                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
-                  </p>
-                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                    document.getElementById('expand-${expandretweet}').remove();
-                    document.getElementById('${expandretweet}').classList.remove('hidden');
-                    this.remove();
-                  ">
-                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                      Expand to read more
-                  </button>
-                  <div id="${expandretweet}" class="hidden">
-                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                    <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedText}</div> 
                     ${translateHTML6} 
                     ${baninfo1}
                     ${pollHTML2}
@@ -1851,7 +1780,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                         </video>
                       </div>`
                     }
-                  </div>
                   <div class="flex">
                     <span style="cursor:pointer;color:#757779" data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="like-btn" id="likeBtn-${t.retweetOf || t.originalId}">
                       <div id="${rtlikeId}" class="likeicon" style="height:20px">
@@ -1908,30 +1836,10 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
               </div>
               <div class="quoted-body">
                 ${titleHTML1}
-                ${parsedText.length > 100 || pollHTML2 != "" ? `
-                  <p style="margin: 0;margin-bottom:10px;white-space:normal;color:grey;" id="expand-${expandretweet}">
-                    ${parsedText.length > 100 ? `${truncateHTML(parsedText, 100)} ...` : `${parsedText}`}
-                  </p>
-                  <button style="margin-top:10px;padding:5px 7px;background:var(--light);color:var(--color);display:flex;gap:5px;border:1px solid grey;font-size:13px;z-index:1;margin-top:15px;margin-bottom:12px;" onclick="
-                    document.getElementById('expand-${expandretweet}').remove();
-                    document.getElementById('${expandretweet}').classList.remove('hidden');
-                      this.remove();
-                  ">
-                      <img style="height:17px;transform:rotate(270deg)" src="/image/leftArrow.svg">
-                      Expand to read more
-                  </button>
-                  <div id="${expandretweet}" class="hidden">
-                    <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                    ${translateHTML6} 
-                    ${baninfo1}
-                    ${pollHTML2}
-                  </div>
-                ` : `
-                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
-                  ${translateHTML6} 
-                  ${baninfo1}
-                  ${pollHTML2}    
-                `}
+                <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedText}</div> 
+                ${translateHTML6} 
+                ${baninfo1}
+                ${pollHTML2}    
                 <div class="flex">
                   <span style="cursor:pointer;color:#757779" data-community-id="${t.sharedFromCommunity || t.communityId || null}" class="like-btn" id="likeBtn-${t.retweetOf || t.originalId}">
                     <div id="${rtlikeId}" class="likeicon" style="height:20px">
@@ -2093,7 +2001,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             </div>
             ${communityHTML}
             ${titleHTML}
-            <p style="margin:5px 0">${parsedText}</p>
+            <div class="post-body" style="margin:5px 0">${parsedText}</div>
             ${translateHTML}
             ${baninfo}
             <div class="tweet-media">
@@ -2134,7 +2042,11 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
       applyReadMoreLogic(updatedTweet);
     }
   } else if (!existingInContainer) {
-    container.insertAdjacentHTML("beforeend", tweetHTML);
+    if (action === "skibidi") {
+      container.insertAdjacentHTML("afterbegin", tweetHTML);
+    } else {
+      container.insertAdjacentHTML("beforeend", tweetHTML);
+    }
     const newTweet = container.querySelector(tweetIdSelector);
     if (newTweet) {
       applyReadMoreLogic(newTweet);
@@ -4187,6 +4099,7 @@ document.body.addEventListener("click", async (e) => {
   let replyingToId = null;
   const commentBtn = e.target.closest(".comment-btn");
   if (commentBtn) {
+    e.preventDefault();
     document.getElementById("commentTweet").innerHTML = `
       <div class="skeleton-card" style="margin:0;margin-bottom:40px">
         <div class="skeleton-header">
@@ -4317,7 +4230,7 @@ document.body.addEventListener("click", async (e) => {
                         </div>
                         <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
                           ${titleHTML}
-                          <p style="margin-bottom:5px !important">${parsedText}</p> 
+                          <div class=post-body style="margin-bottom:5px !important">${parsedText}</div> 
                           ${mediaHTML} 
                         </div>
                       </div>
@@ -4845,6 +4758,7 @@ document.body.addEventListener("click", async (e) => {
 document.body.addEventListener("click", async (e) => {
   const replyBtn = e.target.closest(".reply-btn");
   if (!replyBtn) return;
+  e.preventDefault();
   document.getElementById("replyComment").innerHTML = `
 <div class="skeleton-card" style="margin:0;margin-bottom:40px">
   <div class="skeleton-header">
@@ -4977,7 +4891,7 @@ document.body.addEventListener("click", async (e) => {
                           <span style="opacity:0.7;font-size:12px;"><span class="usernamee">@${escapeHTML(username)} •</span> ${createdAt} ${editHTML6}</span>
                         </div>
                         <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
-                          <p style="margin-bottom:0px !important;">${parsedText}</p>
+                          <div class=post-body style="margin-bottom:0px !important;">${parsedText}</div>
                           ${mediaHTML} 
                         </div>
                       </div>
@@ -5520,7 +5434,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
   }
 
   const content = `
-    <p class="no-margin" style="font-size:16px;margin-top:7px;">${parsedText1}</p> 
+    <div class="no-margin post-body" style="font-size:16px;margin-top:7px;">${parsedText1}</div> 
     ${translateHTML1}
     ${baninfo}
     ${mediaHTML1}
@@ -5624,6 +5538,7 @@ async function renderOwner(tweetId, ownerReplied, communityId, id, dcomid, owner
     }
 
   el.innerHTML = ownerHTML1;
+  applyReadMoreLogic(el)
   const likeEl = el.querySelector(`#${likeId}`);
   getSnap(likeref, likeEl);
 
@@ -5894,7 +5809,7 @@ async function loadComments(tweetId, reset = true, parentId = null, container = 
     }
 
     const content = `
-      <p class="no-margin" style="font-size:16px;margin-top:7px;">${parsedText}</p> 
+      <div class="no-margin post-body" style="font-size:16px;margin-top:7px;">${parsedText}</div> 
       ${translateHTML2}
       ${baninfo}
       ${mediaHTML}
@@ -6093,6 +6008,7 @@ document.body.addEventListener("click", async (e) => {
 document.body.addEventListener("click", async (e) => {
   const commentLikeBtn = e.target.closest(".comment-like-btn");
   if (commentLikeBtn) {
+    e.preventDefault();
     const tweetId = commentLikeBtn.dataset.tweet;
     const commentId = commentLikeBtn.dataset.id;
     const icon1 = commentLikeBtn.querySelector(".clikeicon");
@@ -6204,6 +6120,7 @@ document.body.addEventListener("click", async (e) => {
     }
   }
   if (e.target.closest(".like-btn")) {
+    e.preventDefault();
     const btn = e.target.closest(".like-btn");
     const icon = e.target.closest(".likeicon");
     const tweetId = btn.id.replace("likeBtn-", "");
@@ -6559,6 +6476,7 @@ let communityId = null;
 document.body.addEventListener("click", async (e) => {
   const retweetBtn = e.target.closest(".retweet-btn");
   if (!retweetBtn) return;
+  e.preventDefault();
   selectedRetweet = retweetBtn.dataset.id;
   selectedCommentRetweet = retweetBtn.dataset.commentId || null;
   communityId = retweetBtn.dataset.communityId || null;
@@ -6716,7 +6634,7 @@ document.body.addEventListener("click", async (e) => {
           <span style="opacity:0.7;font-size:12px;"><span class="usernamee">@${escapeHTML(username1)} •</span> ${formatDate(c.createdAt)} ${editHTML7}</span>
         </div>
         <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
-          <p style="margin-bottom:0px !important;font-family:natar;margin-top:10px;">${parsedCommentText}</p> 
+          <div class=post-body style="margin-bottom:0px !important;font-family:natar;margin-top:10px;">${parsedCommentText}</div> 
           ${mediaHTML}
           ${inCommunity ? `<div style="display:flex;gap:5px;font-size:14px;color:grey;margin:5px 0;"><img loading='lazy' src="/image/community-filled.svg" width="16">${escapeHTML(communityName)}</div>` : ""}
           <div style="display:flex;align-items:center"><small style="color:grey;margin-top:5px;">Rewynting a reply</small> 
@@ -6805,7 +6723,7 @@ document.body.addEventListener("click", async (e) => {
         </div>
         <div style="min-height:50px;border-left:2px solid rgba(255, 255, 255, 0.3);padding-left:29px;margin-left:-31px;">
           ${titleHTML}
-          <p style="margin-bottom:0px !important;font-family:natar;margin-top:10px;">${parsedText}</p> 
+          <div class="post-body" style="margin-bottom:0px !important;font-family:natar;margin-top:10px;">${parsedText}</div> 
           ${mediaHTML}
           ${inCommunity ? `<div style="display:flex;gap:5px;font-size:14px;color:grey;margin:5px 0;"><img loading='lazy' src="/image/community-filled.svg" width="16">${escapeHTML(communityName)}</div>` : ""}
         </div>
@@ -7027,9 +6945,7 @@ sendRetweet.onclick = async () => {
       retweetCount: 0,
       createdAt: new Date(),
       uid,
-      ...(mentions.length > 0 && {
-        mentions
-      })
+      mentions
     };
 
     let postref, postsnap;

@@ -355,7 +355,7 @@ service cloud.firestore {
             resource.data.status != "private"
           ));
 
-        allow create: if request.auth != null && request.auth.uid == targetId && !isBanned() && !isSuspended();
+        allow create: if request.auth != null && request.auth.uid == userId && !isBanned() && !isSuspended();
 
         allow update: if request.auth != null && !isBanned() && !isSuspended() && (
           (request.auth.uid == targetId || request.auth.uid == userId) && request.resource.data.status == "private"

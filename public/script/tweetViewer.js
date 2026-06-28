@@ -252,7 +252,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
           const src = base91ToImageSrc(comment.media.url);
           const path = `${tweetId}-${commentId}`;
           const content = `
-            <p style="margin: 0px 0px 15px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 0px 0px 15px;">${parsedCommentText}</div> 
             ${translateHTML} 
             ${baninfox}
             ${containsSpoiler ?
@@ -322,7 +322,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
           const containsSpoiler = comment.sensitiveMedia === true;
           const path = `${tweetId}-${commentId}`;
           const content = `
-            <p style="margin: 0px 0px 15px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 0px 0px 15px;">${parsedCommentText}</div> 
             ${translateHTML} 
             ${baninfox}
             ${containsSpoiler ?
@@ -514,7 +514,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
           const path = `${tweetId}-${commentId}`;
           const content = `
             ${baninfox}
-            <p style="margin: 6px 0px 12px;margin-top:6px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 6px 0px 12px;margin-top:6px;">${parsedCommentText}</div> 
             ${translateHTML} 
             ${donationHTML}
             ${pollHTML}
@@ -769,7 +769,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
                 </div>
                 <div class="quoted-body">
                   ${titleHTML1}
-                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                  <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedText}</div> 
                   ${translateHTML2} 
                   ${baninfo}
                   ${pollHTML2}
@@ -817,7 +817,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
                 </div>
                 <div class="quoted-body">
                   ${titleHTML1}
-                  <p style="margin: 0;margin-bottom:10px;">${parsedText}</p> 
+                  <div class=post-body style="margin: 0;margin-bottom:10px;">${parsedText}</div> 
                   ${translateHTML2} 
                   ${baninfo}
                   ${pollHTML2}
@@ -869,7 +869,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
                 </div>
                 <div class="quoted-body" style="margin-bottom:22px;">
                   ${titleHTML1}
-                  <p style="margin: 0;margin-bottom:15px;">${parsedText}</p> 
+                  <div class=post-body style="margin: 0;margin-bottom:15px;">${parsedText}</div> 
                   ${translateHTML2} 
                   ${baninfo}
                   ${pollHTML2}
@@ -1027,7 +1027,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       </div>
       ${communityHTML}
       ${titleHTML}
-      <p>${parsedText}</p> 
+      <div class="post-body">${parsedText}</div> 
       ${translateHTML3} 
       ${baninfo1}
       <div class="tweet-media">
@@ -1213,10 +1213,11 @@ async function loadTweetRecursive(tweetId, container, comid) {
 }
 
 document.body.addEventListener("click", async (e) => {
-  const link = e.target.closest(".original-tweet-link, .actuallyATweet, .tweet");
+  const link = e.target.closest(".original-tweet-link, .actuallyATweet, .tweet, .quoted-comment.actuallyATweet, .card-tweet");
   if (!link) return;
   const tweetId = link.dataset.id;
   const rawId = link.dataset.communityId;
+
   const isStored = link.dataset.stored == "true";
   const communityId = rawId && rawId !== "null" ? rawId : null;
   const tweetViewer = document.getElementById("tweetViewer");
@@ -1235,8 +1236,12 @@ document.body.addEventListener("click", async (e) => {
       e.target.closest(".attachment2") || 
       e.target.closest("#commentTweet") || 
       e.target.closest("#retweetOverlay #retweetOriginal") || 
-      e.target.closest(".vote-btn") || 
-      e.target.closest(".quoted-comment:not(.quoted-comment.actuallyATweet):not(.quoted-comment.retweet)") || 
+      e.target.closest(".vote-btn") ||
+      (
+        e.target.closest(".quoted-comment") && 
+        !e.target.closest(".actuallyATweet") &&
+        !e.target.closest(".retweet")
+      ) ||
       e.target.closest("#appendEdit .tweet") || 
       e.target.closest(".spoilerr") || 
       e.target.closest(".communityLink") || 
@@ -1247,7 +1252,11 @@ document.body.addEventListener("click", async (e) => {
       e.target.closest("a") ||
       e.target.closest(".morereplies1") ||
       e.target.closest(".viewQuotes") ||
-      e.target.closest(".editedatt") 
+      e.target.closest(".editedatt") ||
+      (
+        e.target.closest(".body-quote") &&
+        !e.target.closest(".card-tweet")        
+      )
   ) {
     return;
   }
@@ -1578,7 +1587,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
           const src = base91ToImageSrc(comment.media.url);
           const path = `${tweetId}-${parentId}`;
           const content = `
-            <p style="margin: 0px 0px 15px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 0px 0px 15px;">${parsedCommentText}</div> 
             ${translateHTML} 
             ${baninfo}
             ${containsSpoiler ?
@@ -1648,7 +1657,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
           const containsSpoiler = comment.sensitiveMedia === true;
           const path = `${tweetId}-${parentId}`;
           const content = `
-            <p style="margin: 0px 0px 15px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 0px 0px 15px;">${parsedCommentText}</div> 
             ${translateHTML}
             ${baninfo}
             ${containsSpoiler ?
@@ -1839,7 +1848,7 @@ async function renderparent(sharedfromcommunity, comid, tweetId, parentId, eleme
         } else {
           const path = `${tweetId}-${parentId}`;
           const content = `
-            <p style="margin: 6px 0px 12px;margin-top:6px;">${parsedCommentText}</p> 
+            <div class=post-body style="margin: 6px 0px 12px;margin-top:6px;">${parsedCommentText}</div> 
             ${translateHTML}
             ${baninfo}
             ${donationHTML}

@@ -2178,3 +2178,46 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 #followOverlay .skeleton-card:first-child {
   margin-top: 13px !important;
 }
+
+#followOverlay .user-search-item {
+  user-select: none;
+}
+
+
+
+
+#appendTweet .tweet .post-body,
+#appendComment .comment .post-body {
+  margin: 13px 0 !important;
+}
+
+.post-body .body-quote:only-child {
+  margin: 0 !important
+}
+
+.body-quote {
+  overflow-wrap: anywhere !important;
+}
+
+.post-body,
+p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hover-card p) {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.body-quote {
+  white-space: normal;     
+  word-wrap: normal;       
+  word-break: normal;      
+  overflow-wrap: normal;   
+}
+
+.body-quote:not(:has(+ span)) {
+  margin-bottom: 0 !important;
+}
+
+.body-quote:has(+ .body-quote) {
+  margin-bottom: -25px !important;
+}

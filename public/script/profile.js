@@ -289,29 +289,33 @@ function init() {
     document.getElementById("my-description").innerHTML =
       await parseMentionsToLinks(data.description || "wsg homie?", data.descriptionMentions || []);
 
-    if (d.pinned && !pinLoaded) {
-      const pinnedSnap = await getDoc(doc(db, "tweets", d.pinned));
-      if (pinnedSnap.exists()) {
-        const pinnedData = pinnedSnap.data();
-
-        const userData = {
-          ...d,
-          uid
-        };
-
-        if (!document.getElementById("pinnedyeah")) {
-          const pinnedLabel = document.createElement("div");
-          pinnedLabel.id = "pinnedyeah";
-          pinnedLabel.innerHTML = `<div class="iq pinlabel profilePinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
-          list.prepend(pinnedLabel);
-        }
-        await renderTweet(pinnedData, d.pinned, userData, "prepend", list);
-      }
+    window.currentPinnedId = d.pinned || null;
+    await loadTweets(uid);
+    if (d.pinned) {
+      await renderPinned(d);
     }
-
-    loadTweets(uid);
     pinLoaded = true;
   });
+}
+
+async function renderPinned(d) {
+  const pinnedSnap = await getDoc(doc(db, "tweets", d.pinned));
+  if (pinnedSnap.exists()) {
+    const pinnedData = pinnedSnap.data();
+
+    const pinnedLabel = document.createElement("div");
+    pinnedLabel.id = "pinnedyeah";
+    pinnedLabel.innerHTML = `<div class="iq pinlabel userPinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
+    
+    await renderTweet(pinnedData, d.pinned, auth.currentUser, "skibidi", list);
+    console.log("TWEET RENDERED");
+
+    if (!document.getElementById('pinnedyeah')) {
+      list.prepend(pinnedLabel);
+      console.log(pinnedLabel)
+      document.querySelectorAll("#youList .skeleton-card").forEach(e => {e.remove()});
+    }
+  }
 }
 
 searchbar.addEventListener("keydown", async (e) => {
@@ -387,7 +391,7 @@ async function loadTweets(uid, term = "") {
 
   for (const docSnap of snap.docs) {
     const d = docSnap.data();
-
+    if (docSnap.id === window.currentPinnedId) continue;
     await renderTweet(d, docSnap.id, auth.currentUser, "append", list);
   }
 
