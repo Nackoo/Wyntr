@@ -359,7 +359,7 @@ function applyReadMoreLogic(container) {
         btn.style.fontSize = "16px";
         btn.style.display = "block";
         btn.style.cursor = "pointer";
-        btn.style.color = "#136FA7"; 
+        btn.style.color = "#19A1F2"; 
         btn.style.textAlign = "left";
         btn.style.marginTop = "10px";
 
