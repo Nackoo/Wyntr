@@ -333,14 +333,36 @@ async function showCreateCommunityOverlay(communityId = null) {
 
       <hr style="margin:0 -20px;margin-top:15px;">
       <p>Community mode</p>
-      <p style="color:grey;font-size:15px;">Choose whether your community is not discoverable or requires approval to join</p>
-
       
       <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
         <span>Accepting applications</span>
         <div class="switch-row" style="margin-left:auto">
           <input id="acceptApplicationCheck" type="checkbox">
           <label for="acceptApplicationCheck" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
+        <span>Only admins can Wynt</span>
+        <div class="switch-row" style="margin-left:auto">
+          <input id="onlyAdmins" type="checkbox">
+          <label for="onlyAdmins" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div id="followersonly" style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
+        <span>Only your followers can join</span>
+        <div class="switch-row" style="margin-left:auto">
+          <input id="followersOnly" type="checkbox">
+          <label for="followersOnly" class="switch-label" aria-hidden="true">
             <span class="switch-track">
               <span class="switch-knob" aria-hidden="true"></span>
             </span>
@@ -535,6 +557,8 @@ document.getElementById("createCommunityBtn").onclick = async () => {
     const communityRef = doc(collection(db, "communities"));
     const acceptingApplications = document.getElementById("acceptApplicationCheck")?.checked || false;
     const private1 = document.getElementById("privateCheck")?.checked || false;
+    const onlyAdmins = document.getElementById("onlyAdmins")?.checked || false;
+    const followersOnly = document.getElementById("followersOnly")?.checked || false;
 
     if (localStorage.getItem("disableConfirmation") != "true") {
       if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
@@ -563,6 +587,8 @@ document.getElementById("createCommunityBtn").onclick = async () => {
         private: private1,
         tags: selectedTags,
         rules: rules,
+        onlyAdmins,
+        followersOnly
       });
 
       const memberRef = doc(db, "communities", communityRef.id, "members", auth.currentUser.uid);
@@ -574,7 +600,8 @@ document.getElementById("createCommunityBtn").onclick = async () => {
         username: userData.username,
         displayName: userData.displayName,
         name: userData.displayName.toLowerCase(),
-        role: 3
+        role: 3,
+        status: "public"
       });
 
       tx.update(userRef, {
@@ -609,9 +636,11 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       return;
     }
 
-    const cData         = comSnap.data()                               ;
+    const cData         = comSnap.data();
     const bannerPreview = document.getElementById("com-banner-preview");
-    const avaPreview    = document.getElementById("com-ava-preview")   ;
+    const avaPreview    = document.getElementById("com-ava-preview");
+    const private1 = document.getElementById("privateCheck")?.checked || false;
+    const onlyAdmins = document.getElementById("onlyAdmins")?.checked || false;
 
     const bannerImage = bannerPreview.dataset.image
       ? await dataUrlToBase91(bannerPreview.dataset.image)
@@ -628,7 +657,8 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       banner: bannerImage,
       avatar: avatarImage,
       acceptingApplications: document.getElementById("acceptApplicationCheck").checked,
-      private: document.getElementById("privateCheck").checked,
+      private: private1,
+      onlyAdmins,
       tags: selectedTags,
       rules: rules,
     });
@@ -820,6 +850,14 @@ async function joinCommunity(communityId) {
     return;
   }
 
+  if (comData.followersOnly) {
+    const snap = await getDoc(doc(db, "users", comData.creatorId, "followers", auth.currentUser.uid));
+    if (!snap.exists()) {
+      info("i", "No access", "this community requires its members to follow the creator.");
+      return;
+    }
+  }
+
   if (comData.acceptingApplications) {
     if (localStorage.getItem("disableConfirmation") != "true") {
       const confirmApply = await confirmDialog("request approval?", `This community requires approval to join. Do you want to apply?`);
@@ -911,17 +949,38 @@ export async function openCommunity(communityId) {
   window.cData = cData;
 
   const isJoined = memberSnap.exists();
-  
-  window.isJoined = isJoined;
-  window.isOnPrivate = cData.private;
-
-  updatePostZIndex();
-  updateCbDisplay();
-
   const isOwner = cData.creatorId === user.uid;
   const isAdmin = (cData.admin || []).includes(user.uid);
   const canModerate = isOwner || isAdmin;
+
+  if (cData.followersOnly && isJoined && !canModerate) {
+    const ref = doc(db, "users", cData.creatorId, "followers", auth.currentUser.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(comRef, {
+          membersCount: increment(-1),
+          members: arrayRemove(user.uid)
+        });
+        transaction.delete(memberRef)
+        transaction.update(doc(db, "users", auth.currentUser.uid), {
+          communitiesCount: increment(-1)
+        });
+      });
+      document.querySelectorAll(`#myCommunities .com-item[data-id="${communityId}"]`).forEach(el => el.remove());
+      info("i", "You unfollowed, you left.", "That's the community's motto. The owner has set only their followers deserve to join this community.")
+      return;
+    }
+  }
+
   window.canModerate = canModerate;
+  window.isOnPrivate = cData.private;
+  window.onlyAdmins = cData.onlyAdmins;
+  window.isJoined = cData.onlyAdmins && !(isAdmin || isOwner) ? 
+    false : isJoined;
+
+  updatePostZIndex();
+  updateCbDisplay();
 
   document.querySelectorAll(".communityo").forEach(o => o.remove());
   const date = cData.createdAt?.toDate ? cData.createdAt.toDate() : new Date(cData.createdAt);
@@ -973,6 +1032,7 @@ export async function openCommunity(communityId) {
         <div style="display:flex;align-items:center;margin:15px 0;">
           <button style="padding:0;padding-right:10px;margin-left:-13px;" onclick="
             history.pushState({}, '', '/');
+            document.getElementById('communityActive').style.display = 'none';
             document.getElementById('communityActiveCheckbox').style.display = 'none';
             document.getElementById('communityActiveCheckbox1').style.display = 'none';
           " class="close-btn">
@@ -1222,8 +1282,9 @@ export async function openCommunity(communityId) {
 function renderCommunityRequirements(cData) {
   return `
     <div style="color:grey;font-size:14px;margin-top:10px;margin-bottom:5px">
-      ${cData.acceptingApplications ? "<span style='color:#c9a413'>Accepting applications</span><br>" : ""}
+      ${cData.acceptingApplications ? "<span style='color:#c9a413'>Accepting applications</span>" : ""}
       ${cData.private === false && cData.acceptingApplications === false ? "<span style='color:#04aa6d'>open community</span>" : ""}
+      ${cData.followersOnly ? "<span style='color:#c9a413'>• followers only</span>" : ""}
     </div>
   `;
 }
@@ -2105,6 +2166,10 @@ window.openComMenu = async function (communityId) {
 
     document.getElementById("acceptApplicationCheck").checked = !!cData.acceptingApplications;
     document.getElementById("privateCheck").checked = !!cData.private;
+    document.getElementById("onlyAdmins").checked = !!cData.onlyAdmins;
+
+    document.getElementById("followersonly")?.remove();
+
     selectedTags = [...(cData.tags || [])];
     refreshTagUI();
     const existingRules = cData.rules || [];

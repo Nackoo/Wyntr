@@ -806,7 +806,7 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
         `}
       `;
 
-      if (quoted.archived && quoted.uid != auth.currentUser.uid) {
+      if (quoted.archived && quoted.uid != auth.currentUser.uid && !quoted.viewPermission?.includes(auth.currentUser.uid) && !quoted.allowAnyoneWithLink && currentUserRole != "admin") {
         parent1 = `
           <div class="quoted-comment actuallyATweet quotedTweet">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">

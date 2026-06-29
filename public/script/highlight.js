@@ -187,6 +187,10 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
         }
         return;
       } else {
+        if (!tweetList.querySelector(".tweet")) {
+          tweetList.innerHTML = "";
+        }
+        
         const box = document.createElement("div");
         box.className = "unavailable";
 

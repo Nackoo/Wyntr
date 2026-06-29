@@ -74,9 +74,9 @@ service cloud.firestore {
         request.writeFields.hasOnly(["membersCount", "members"]) ||
         request.writeFields.hasOnly(["posts", "lastActivity"]) ||
 
-        request.writeFields.hasOnly(["admin"]) && isCommunityOwner(communityId) ||
+        request.writeFields.hasOnly(["admin"]) && isCommunityModerator(communityId) ||
         request.writeFields.hasOnly(["pinned"]) && isCommunityModerator(communityId) ||
-        request.writeFields.hasOnly(["name", "lowerCase", "description", "banner", "avatar", "acceptingApplications", "private", "tags", "requirements", "rules"]) && isCommunityModerator(communityId)
+        request.writeFields.hasOnly(["name", "lowerCase", "description", "banner", "avatar", "acceptingApplications", "private", "tags", "requirements", "rules", "onlyAdmins"]) && isCommunityModerator(communityId)
       );
 
       allow delete: if request.auth != null 
@@ -91,8 +91,8 @@ service cloud.firestore {
         );
         allow update: if request.auth != null && ((
           request.auth.uid == userId && 
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && 
-          request.resource.data.status == 'private') ||
+          request.writeFields.hasOnly(["status"])) ||
+          request.writeFields.hasOnly(["role"]) ||
           isCommunityModerator(communityId)
         );
       }
@@ -131,7 +131,10 @@ service cloud.firestore {
         request.writeFields.hasOnly(["text"]) ||
         request.writeFields.hasOnly(["muteNotif", "noPrivateReply", "sensitiveMedia"]) ||
         request.writeFields.hasOnly(["connectedWynt", "postedInPublic"]) ||
-        request.writeFields.hasOnly(["archived"])))
+        request.writeFields.hasOnly(["archived"]) ||
+        request.writeFields.hasOnly(["disableComments"]) ||
+        request.writeFields.hasOnly(["viewPermission"]) ||
+        request.writeFields.hasOnly(["allowAnyoneWithLink"])))
       );
 
       allow delete: if request.auth != null && (
@@ -404,8 +407,11 @@ service cloud.firestore {
         (resource.data.uid == request.auth.uid && (
         request.writeFields.hasOnly(["text", "title", "edited", "language", "editAfterComment"]) ||
         request.writeFields.hasOnly(["muteNotif", "noPrivateReply", "sensitiveMedia"]) ||
-        request.writeFields.hasOnly(["connectedWynt", "postedInPublic"])) ||
-        request.writeFields.hasOnly(["archived"]))
+        request.writeFields.hasOnly(["connectedWynt", "postedInPublic"]) ||
+        request.writeFields.hasOnly(["archived"]) ||
+        request.writeFields.hasOnly(["viewPermission"]) ||
+        request.writeFields.hasOnly(["disableComments"]) ||
+        request.writeFields.hasOnly(["allowAnyoneWithLink"])))
       );
 
       allow delete: if request.auth != null && (

@@ -15,6 +15,7 @@ import { openCommunity } from "./community.js";
 // import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
 import { openHighlightOverlay } from "./highlight.js";
 import { viewLikes } from "./viewLikes.js";
+import { viewArchivePerm } from "./viewArchivePerm.js";
 
 //2541
 
@@ -1634,7 +1635,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
         </div>
       `
 
-      if (rt.archived) {
+      if (rt.archived && rt.uid != auth.currentUser.uid && !rt.viewPermission?.includes(auth.currentUser.uid) && !rt.allowAnyoneWithLink && currentUserRole != "admin") {
         retweetHTML = `
           <div class="quoted-comment">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -2481,6 +2482,11 @@ document.body.addEventListener("click", async (e) => {
           <img loading='lazy' src="/image/archive.svg"> ${data.archived ? "unarchive" : "archive"} Wynt
         </div>` : ""}
 
+        ${isOwner && data.archived ?
+        `<div class="menu-item archive-perm" data-id="${tweetId}" ${hascom ? `data-community="${communityId}"` : ""}>
+          <img loading='lazy' src="/image/archive.svg"> view Wynt permission
+        </div>` : ""}
+
         <h4 style="margin:5px 0;margin-left:5px;">Others</h4>
 
         ${isOwner ? "" : `<div class="menu-item report-btn" data-community-id="${hascom || null}" data-id="${tweetId}"><img loading='lazy' src="/image/report.svg"> Report this Wynt</div>` }
@@ -2526,6 +2532,19 @@ document.body.addEventListener("click", async (e) => {
 
     viewLikes();
     document.getElementById("tweetMenuOverlay").classList.add("hidden");
+  }
+
+  const archiveperm = e.target.closest(".archive-perm");
+  if (archiveperm) {
+    const tweetId = archiveperm.dataset.id;
+    const communityId = archiveperm.dataset.community || null;
+    
+    window.permission_tweetId = tweetId;
+    window.permission_communityId = communityId;
+
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+
+    viewArchivePerm();
   }
 
   const archivebtn = e.target.closest(".archive");
@@ -4220,7 +4239,7 @@ document.body.addEventListener("click", async (e) => {
                         <img loading='lazy' src="${avatar1 || 'image/default-avatar.jpg'}" onerror="this.src='image/default-avatar.jpg'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
                       </div>
                       <div>
-                        <div class=flex style="display:Flex;gap:5px;">
+                        <div class="flex" style="display:Flex;gap:5px;margin-bottom:10px;">
                          ${(tweetData.mentions && Object.values(tweetData.mentions).includes(auth.currentUser.uid)) ?
                             `<b style="font-family: arial, sans-serif;margin-right:-3px">@</b>` :
                             ""
@@ -4879,7 +4898,7 @@ document.body.addEventListener("click", async (e) => {
                         <img loading='lazy' src="${avatar1 || 'image/default-avatar.jpg'}" onerror="this.src='image/default-avatar.jpg'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;">
                       </div>
                       <div>
-                        <div class=flex style="display:Flex;gap:5px;">
+                        <div class=flex style="display:Flex;gap:5px;margin-bottom:10px">
                           ${commentData.likedByCreator === true ? 
                             `<img style="margin-right:-3px" src="/image/star.svg">` :
                             `${(commentData.mentions && Object.values(commentData.mentions).includes(auth.currentUser.uid)) ?

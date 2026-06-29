@@ -283,8 +283,11 @@ searchInput.addEventListener("keydown", async (e) => {
         const tweetData = tweetSnap.data();
         loading.classList.remove("show");
         renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId);
-        loadComments(tweetId, true, null, null, communityId);
         openCommunity(communityId);
+
+        if (tweetData.archived == true && tweetData.uid != auth.currentUser.uid && !tweetData.viewPermission.includes(auth.currentUser.uid) && !tweetData.allowAnyoneWithLink && currentUserRole != "admin") return;
+        loadComments(tweetId, true, null, null, communityId);
+        
         return;
       }
 
@@ -308,7 +311,10 @@ searchInput.addEventListener("keydown", async (e) => {
 
         const tweetData = tweetSnap.data();
         renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
-        return loadComments(tweetId);
+
+        if (tweetData.archived == true && tweetData.uid != auth.currentUser.uid && !tweetData.viewPermission.includes(auth.currentUser.uid) && !tweetData.allowAnyoneWithLink && currentUserRole != "admin") return;
+        loadComments(tweetId);
+        return;
       }
 
       if (replyMatch) {
@@ -1433,7 +1439,7 @@ async function loadIfFollow(uid) {
           log("green", `user unfollowed`);
           loading.classList.remove("show");
           await loadIfFollow(uid);
-          document.querySelector(`#followList .user-search-item[data-uid="${id}"]`)?.remove();
+          document.querySelector(`#followList .user-search-item[data-uid="${uid}"]`)?.remove();
         } else {
           const [
             { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },

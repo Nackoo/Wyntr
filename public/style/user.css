@@ -885,7 +885,8 @@ input[type="checkbox"] {
 #tweetOption,
 #replyOption, 
 #commentOption,
-#viewlikesOverlay {
+#viewlikesOverlay,
+#archivePerm {
   z-index: 12 !important;
 }
 
@@ -2223,4 +2224,22 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 
 .body-quote:has(+ .body-quote) {
   margin-bottom: -25px !important;
+}
+
+#archivePermList .user-search-item:first-child {
+  padding-top: 0 !important;
+}
+
+.update-perm {
+  margin-left: auto;
+  height: 40px;
+  width: 40px;
+  border-radius: 13px;
+  background: none;
+  color: var(--color);
+  border: var(--border);
+}
+
+.update-perm:hover {
+  background: var(--light);
 }

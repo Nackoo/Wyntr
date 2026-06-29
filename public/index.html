@@ -69,6 +69,43 @@
     </div>
   </div>
 
+  <div id="archivePerm" class="useroverlay hidden">
+    <div class="user-box" style="height:100dvh !important;">
+      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
+        <button onclick="document.getElementById('archivePerm').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
+        <input style="margin-right:20px;" type="text" placeholder="search user">
+      </header>
+
+      <div style="display:flex;gap:10px;margin:25px 0;margin-bottom:15px">
+        <img src="/image/info.svg">
+        <span style="color:grey">only you and anyone you manually allow can view this Wynt while being archived. allow everyone with the link instead?</span>
+        <div class="switch-row">
+          <input id="allowAnyoneWithLink" type="checkbox">
+          <label for="allowAnyoneWithLink" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:35px;">
+        <span style="color:grey">disable comment</span>
+        <div class="switch-row" style="margin-left:auto;">
+          <input id="disableComments" type="checkbox">
+          <label for="disableComments" class="switch-label" aria-hidden="true">
+            <span class="switch-track">
+              <span class="switch-knob" aria-hidden="true"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div id="archivePermList"></div>
+      <br><br><br><br><br><br>
+    </div>
+  </div>
+
   <div id="viewlikesOverlay" class="useroverlay hidden">
     <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
@@ -1145,7 +1182,7 @@
                   <h2 style="margin:0;margin-left:Auto">ReWynt</h2>
                 </div>
               </header>
-              <div id="retweetOriginal" class="post-body" style="margin-bottom:10px"></div>
+              <div id="retweetOriginal" style="margin-bottom:10px"></div>
               <div style="display:flex;gap:10px;">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=retweetAvatar></img>
                 <div>
@@ -1292,7 +1329,7 @@
                 
                 <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOptionComment">Add more</button>
               </div>
-              <div class="flex" id="comment-status"></div>
+              <div class="flex" id="comment-status" style="margin-top:0px"></div>
               <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button id="sendComment" style="border-radius:12px;padding:10px 20px;;">Post</button>
                 <label class="custom-file-btn" for="commentMediaInput"><img src="/image/upload.svg"></label>
@@ -1321,14 +1358,14 @@
                 </div>
               </header>
               <div class="tweet" style="border:none !important;padding:20px 0 0 0" id="replyComment"></div>
-              <div style="display:flex;margin-top:-15px;" class="skibab">
+              <div style="display:flex;margin-top:-15px;" class="skibidi">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=replyAvatar></img>
                 <textarea id="replyInput" style="background:none;font-size:16px;border:none;min-height:65px;" placeholder="hmm...?"></textarea>
               </div>
               <div class="attachment" id="replyPreview"></div>
               <div class="attachment" id="commentPreview"></div>
-              <div id="reply-status" class="flex"></div>
-              <div class="flex" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)" class="skibab">
+              <div id="reply-status" class="flex" style="margin-top:-20px;"></div>
+              <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button style="border-radius:12px;padding:10px 20px;;" id="sendReply">Post</button>
                 <label class="custom-file-btn" for="replyMediaInput"><img src="/image/upload.svg"></label>
                 <input type="file" id="replyMediaInput" class="comment-media-input hidden-input" accept="image/*, video/*" multiple>
@@ -1375,10 +1412,13 @@
                   <h2 style="margin:0;margin-left:Auto">Wynt</h2>
                 </div>
               </header>
-              <input type="text" id="tweetTitle" style="border-radius:0;padding:0;font-weight:bold;border:none;font-size:20px;" placeholder="optional Wynt title">
+              <p style="text-align:right;color:grey;font-size:15px;display:none;" id="communityActive">Posting ts to a community</p>
               <div style="display:flex;gap:10px;margin-top:20px;margin-bottom:10px;">
-                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=tweetAvatar></img>
-                <textarea id="tweetInput" style="height:150px;" placeholder="What's cookin'?"></textarea>
+                <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=tweetAvatar>
+                <div>
+                  <input type="text" id="tweetTitle" style="border-radius:0;padding:0;font-weight:bold;border:none;font-size:20px;margin-left:10px" placeholder="optional Wynt title">
+                  <textarea id="tweetInput" style="height:150px;" placeholder="What's cookin'?"></textarea>
+                </div>
               </div>
               <div class="attachment" id="tweetPreview"></div>
               <div id="pollOptions" class="hidden">

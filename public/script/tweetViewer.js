@@ -710,7 +710,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
         `;
       }
       
-      if (rt.archived) {
+      if (rt.archived && rt.uid != auth.currentUser.uid && !rt.viewPermission?.includes(auth.currentUser.uid) && !rt.allowAnyoneWithLink && currentUserRole != "admin") {
       retweetHTML = `
         <div class="quoted-comment">
           <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;">
@@ -982,7 +982,7 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
       `;
     }
 
-  if (t.archived && auth.currentUser.uid != t.uid) {
+  if (t.archived && auth.currentUser.uid != t.uid && !t.viewPermission?.includes(auth.currentUser.uid) && !t.allowAnyoneWithLink && currentUserRole != "admin") {
     tweetHTML = `         
     <div class="tweet" id="tweet-${tweetId}" data-id="${tweetId}" ${t.communityId ? `data-community-id="${t.communityId}"` : ""}>
     ${quotedHTML}
@@ -1191,7 +1191,7 @@ async function loadTweetRecursive(tweetId, container, comid) {
 
   container.appendChild(tweetDiv);
 
-  if (!(tweetData.archived && auth.currentUser.uid != tweetData.uid)) {
+  if (!(tweetData.archived && auth.currentUser.uid != tweetData.uid && !tweetData.viewPermission?.includes(auth.currentUser.uid) && !tweetData.allowAnyoneWithLink && currentUserRole != "admin")) {
     if (comid) {
       loadComments(tweetId, tweetDiv, comid);
     } else {
@@ -1312,7 +1312,7 @@ document.body.addEventListener("click", async (e) => {
 
   const tweetData = tweetSnap.data();
   renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, false, isStored);
-  if (tweetData.archived && auth.currentUser.uid != tweetData.uid) return;
+  if (tweetData.archived && auth.currentUser.uid != tweetData.uid && !tweetData.viewPermission?.includes(auth.currentUser.uid) && !tweetData.allowAnyoneWithLink && currentUserRole != "admin") return;
   loadComments(tweetId, true, null, null, communityId);
 });
 

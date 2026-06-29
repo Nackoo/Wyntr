@@ -285,6 +285,10 @@ async function loadFolderTweets(folderId, initial = true) {
         }
         return;
       } else {
+        if (!tweetList.querySelector(".tweet")) {
+          tweetList.innerHTML = "";
+        }
+
         const box = document.createElement("div");
         box.className = "unavailable";
 

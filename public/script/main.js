@@ -198,15 +198,30 @@ export function updatePostZIndex() {
 export function updateCbDisplay() {
   const cb = document.getElementById("communityActiveCheckbox");
   const cd = document.getElementById("communityActiveCheckbox1");
+  const a = document.getElementById("communityActive");
   if (!cb) return;
   if (!cd) return;
 
   if (window.communityID != null && window.isOnPrivate === false && window.isJoined) {
     cb.style.display = "flex";
     cd.style.display = "flex";
+    a.style.display = "block";
+    a.textContent = "Posting ts to a community"; 
+  } else if (window.communityID != null && window.isOnPrivate && window.isJoined) {
+    a.style.display = "block";
+    a.textContent = "Posting ts to a community";
+    cb.style.display = "none";
+    cd.style.display = "none";
+  } else if (window.communityID && !window.isJoined) {
+    a.style.display = "block";
+    a.textContent = window.onlyAdmins ?
+      "only admins can Wynt" : "You have no permission in this community";
+    cb.style.display = "none";
+    cd.style.display = "none";
   } else {
     cb.style.display = "none";
     cd.style.display = "none";
+    a.style.display = "none";
   }
 }
 
@@ -432,7 +447,8 @@ document.body.addEventListener("input", (e) => {
     t.value = t.value.slice(0, max);
   }
 
-  const counter = t.parentNode.parentNode.querySelector(".char-counter");
+  const overlay = t.closest(".overlay");
+  const counter = overlay?.querySelector(".char-counter");
   if (counter) {
     counter.textContent = `${t.value.length}/${max}`;
   }
@@ -453,7 +469,8 @@ document.body.addEventListener("paste", (e) => {
 
   t.setRangeText(insertableText, start, end, "end");
 
-  const counter = t.parentNode.parentNode.querySelector(".char-counter");
+  const overlay = t.closest(".overlay");
+  const counter = overlay?.querySelector(".char-counter");
   if (counter) {
     counter.textContent = `${t.value.length}/${max}`;
   }
@@ -512,192 +529,6 @@ observer.observe(document.body, {
 });
 
 checkOverlays();
-
-document.addEventListener("click", async (e) => {
-  const link = e.target.closest("a.internal-link");
-  if (!link) return;
-
-  e.preventDefault(); 
-
-  const term = link.dataset.url;
-  if (term.startsWith("https://wyntr.netlify.app")) {
-    const url = term.replace("https://wyntr.netlify.app", "");
-
-    const userMatch           = url.match(/^\/user\/([^/]+)/);
-    const tweetMatch          = url.match(/^\/wynt\/([^/]+)$/);
-    const communityTweetMatch = url.match(/^\/community\/([^/]+)\/wynt\/([^/]+)$/);
-    const communityReplyMatch = url.match(/^\/community\/([^/]+)\/wynt\/([^/]+)\/reply\/([^/]+)$/);
-    const replyMatch          = url.match(/^\/wynt\/([^/]+)\/reply\/([^/]+)$/);
-    const communityMatch      = url.match(/^\/community\/([^/]+)$/);
-
-      if (communityMatch) {
-        const communityId = communityMatch[1];
-        loading.classList.add("show");
-        const snap = await getDoc(doc(db, "communities", communityId));
-        const data = snap.data();
-
-        if (data.private === true && !(data.members || []).includes(auth.currentUser.uid)) {
-          loading.classList.remove("show");
-          info("x", "No access", "This is a private community and you don't have permission to view this community.");
-          return;
-        }
-        loading.classList.remove("show");
-        return await openCommunity(communityId);
-      }
-
-      if (userMatch) {
-        const userId = userMatch[1];
-        return openUserSubProfile(userId);
-      }
-
-      if (communityReplyMatch) {
-        const communityId = communityReplyMatch[1];
-        const tweetId = communityReplyMatch[2];
-        const commentId = communityReplyMatch[3];
-        loading.classList.add("show");
-
-        const comRef = doc(db, "communities", communityId);
-        const comSnap = await getDoc(comRef);
-
-        if (!comSnap.exists()) return;
-
-        const cData = comSnap.data();
-
-        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
-          loading.classList.remove("show");
-          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this reply.");
-          return;
-        }
-
-        const overlay = document.getElementById("commentViewer");
-        const box = overlay.querySelector("#appendComment");
-        const replyList = overlay.querySelector("#replyList");
-
-        overlay.classList.remove("hidden");
-        replyList.innerHTML = "";
-
-        const commentRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId);
-        const tweetRef = doc(db, "communities", communityId, "posts", tweetId);
-
-        const snap = await getDoc(commentRef);
-
-        if (snap.exists()) {
-          loading.classList.remove("show");
-          const commentData = { id: snap.id, ...snap.data() };
-          const tweetviewer = document.getElementById("tweetViewer");
-          if (tweetviewer && !document.querySelector(`#appendTweet #tweet-${tweetId}`)) {
-            await tweetviewer.classList.add("hidden");
-          }
-          renderCommentViewer(commentData, commentId, tweetId, box, communityId, true);
-          loadComments(tweetId, true, commentId, replyList, communityId);
-          openCommunity(communityId);
-          document.body.classList.add("no-scroll");
-        } else {
-          box.innerHTML = `
-          <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
-        }
-        
-        loading.classList.remove("show");
-        return;
-      }
-
-      if (communityTweetMatch) {
-        const communityId = communityTweetMatch[1];
-        const tweetId = communityTweetMatch[2];
-        loading.classList.add("show");
-
-        const comRef = doc(db, "communities", communityId);
-        const comSnap = await getDoc(comRef);
-
-        if (!comSnap.exists()) return;
-
-        const cData = comSnap.data();
-
-        if (cData.private === true && !(cData.members || []).includes(auth.currentUser.uid)) {
-          loading.classList.remove("show");
-          info("x", "No access", "The community this Wynt belongs to is a private community and you don't have permission to view this Wynt.");
-          return;
-        }
-
-        const tweetViewer = document.getElementById("tweetViewer");
-        const box = tweetViewer.querySelector("#appendTweet");
-
-        tweetViewer.classList.remove("hidden");
-        document.body.classList.add("no-scroll");
-
-        const tweetRef = doc(db, "communities", communityId, "posts", tweetId);
-        const tweetSnap = await getDoc(tweetRef);
-
-        if (!tweetSnap.exists()) {
-          loading.classList.remove("show");
-          document.getElementById("commentList").innerHTML = "";
-          box.innerHTML = `
-          <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
-          return;
-        }
-
-        loading.classList.remove("show");
-        const tweetData = tweetSnap.data();
-        renderTweetViewer(tweetData, tweetId, box, auth.currentUser, communityId, true);
-        loadComments(tweetId, true, null, null, communityId);
-        openCommunity(communityId);
-        return;
-      }
-
-      if (tweetMatch) {
-        const tweetId = tweetMatch[1];
-        const tweetViewer = document.getElementById("tweetViewer");
-        const box = tweetViewer.querySelector("#appendTweet");
-
-        tweetViewer.classList.remove("hidden");
-        document.body.classList.add("no-scroll");
-
-        const tweetRef = doc(db, "tweets", tweetId);
-        const tweetSnap = await getDoc(tweetRef);
-
-        if (!tweetSnap.exists()) {
-          document.getElementById("commentList").innerHTML = "";
-          box.innerHTML = `
-          <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynt found</h2><p style="color:grey;margin:7px 0;">seems like this wynt have been deleted or you don't have permission to view it.</p></div></div>`;
-          return;
-        }
-
-        const tweetData = tweetSnap.data();
-        renderTweetViewer(tweetData, tweetId, box, auth.currentUser);
-        return loadComments(tweetId);
-      }
-
-      if (replyMatch) {
-        const tweetId = replyMatch[1];
-        const commentId = replyMatch[2];
-
-        const overlay = document.getElementById("commentViewer");
-        const box = overlay.querySelector("#appendComment");
-        const replyList = overlay.querySelector("#replyList");
-
-        overlay.classList.remove("hidden");
-        replyList.innerHTML = "";
-
-        const commentRef = doc(db, "tweets", tweetId, "comments", commentId);
-        const snap = await getDoc(commentRef);
-
-        if (snap.exists()) {
-          const commentData = { id: snap.id, ...snap.data() };
-          const tweetviewer = document.getElementById("tweetViewer");
-          if (tweetviewer && !document.querySelector(`#appendTweet #tweet-${tweetId}`)) {
-            await tweetviewer.classList.add("hidden");
-          }
-          renderCommentViewer(commentData, commentId, tweetId, box);
-          loadComments(tweetId, true, commentId, replyList);
-          document.body.classList.add("no-scroll");
-        } else {
-          box.innerHTML = `
-          <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;border-bottom:var(--border)"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No reply found</h2><p style="color:grey;margin:7px 0;">seems like this reply have been deleted or you don't have permission to view it.</p></div></div>`;
-        }
-        return;
-      }
-  }
-});
 
 const titleInput = document.getElementById("tweetTitle");
 

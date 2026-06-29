@@ -33,11 +33,11 @@ export async function renderCard(url, match) {
           `
         } else {
           internal = `
-            <div class="card-community" data-id="${communityMatch[1]}" style="display:flex;align-items:center;gap:12px;">
+            <div class="card-community" data-id="${communityMatch[1]}" style="display:flex;gap:12px;">
               <img style="border-radius:7px;min-height:39px;max-height:39px;min-width:39px;max-width:39px;" src="${base91ToImageSrc(data.avatar)}">
               <div style="display:flex;flex-direction:column;gap:2px;">
                 <strong class="user-link">${escapeHTML(data.name)}</strong>
-                <span style="color:grey;font-size:14px;">${escapeHTML(data.description)}</span>
+                <span style="color:grey;font-size:14px;">${data.description.length > 100 ? `${escapeHTML(data.description.slice(0, 100))} ...` : escapeHTML(data.description)}</span>
               </div>
             </div>
           `;
@@ -46,7 +46,7 @@ export async function renderCard(url, match) {
         internal = `
           <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
             <img height="13px" src="/image/info.svg">
-            <div style="color:grey;">user does not exist</div>
+            <div style="color:grey;">community is nonexistant</div>
           </div>
         `;
       }
@@ -115,7 +115,7 @@ export async function renderCard(url, match) {
           if (snap.exists()) {
             const data = snap.data();
 
-            if (data.archived == true && data.uid != auth.currentUser.uid) {
+            if (data.archived == true && data.uid != auth.currentUser.uid && !data.viewPermission?.includes(auth.currentUser.uid) && !data.allowAnyoneWithLink) {
               internal = `
                 <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
                   <img height="13px" src="/image/info.svg">
@@ -157,7 +157,7 @@ export async function renderCard(url, match) {
       if (snap.exists()) {
         const data = snap.data();
 
-        if (data.archived == true && data.uid != auth.currentUser.uid) {
+        if (data.archived == true && data.uid != auth.currentUser.uid && !data.viewPermission?.includes(auth.currentUser.uid) && !data.allowAnyoneWithLink) {
           internal = `
             <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
               <img height="13px" src="/image/info.svg">
@@ -197,7 +197,7 @@ export async function renderCard(url, match) {
       if (snap.exists()) {
         const data = snap.data();
 
-        if (data.archived == true && data.uid != auth.currentUser.uid) {
+        if (data.archived == true && data.uid != auth.currentUser.uid && !data.viewPermission?.includes(auth.currentUser.uid) && !data.allowAnyoneWithLink) {
           internal = `
             <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
               <img height="13px" src="/image/info.svg">

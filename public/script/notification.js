@@ -1,7 +1,7 @@
 import { runTransaction, auth, db, doc, getDoc, collection, query, orderBy, onSnapshot,serverTimestamp, setDoc, limit, getDocs, where, updateDoc, writeBatch, deleteDoc, startAfter, arrayUnion, increment, arrayRemove } from "./firebase.js";
 import { loadComments, getUserData, waitForAuth } from "./index.js";
 import { renderTweetViewer } from "./tweetViewer.js";
-import { confirmDialog, escapeHTML, log } from "./texts.js";
+import { confirmDialog, escapeHTML, log, info } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { openCommunity } from "./community.js";
 import { base91ToImageSrc } from "./attachments.js";
@@ -643,6 +643,16 @@ if (notification.type === "communityJoinRequest") {
         const userData = userSnap.data();
         const comData = comSnap.data();
 
+        if (comData.followersOnly) {
+          const snap = await getDoc(doc(db, "users", comData.creatorId, "followers", notification.senderId));
+          if (!snap.exists()) {
+            info("i", "No access", "your requester doesn't follow you, whereas it's a requirement for your community.");
+            deleteDoc(doc(db, "users", ownerId, "notifications", notification.id));
+            div.remove();
+            return;
+          }
+        }
+
         if (comData.creatorId !== ownerId) return log("red", "You aren't the community owner");
 
         tx.update(comRef, {
@@ -659,7 +669,7 @@ if (notification.type === "communityJoinRequest") {
           username: userData.username,
           photoURL: userData.photoURL,
           displayName: userData.displayName,
-          description: userData.description,
+          description: userData.description || "wsg homie?",
           name: userData.displayName.toLowerCase(),
           role: 1,
           status
@@ -668,12 +678,11 @@ if (notification.type === "communityJoinRequest") {
           communitiesCount: increment(1)
         });
         tx.delete(doc(db, "users", ownerId, "notifications", notification.id));
+        sendAcceptedNotification(notification.senderId, notification.communityId, notification.communityName, notification.media);
+
+        div.remove();
+        log("green", `${notification.senderName} has been accepted to ${notification.communityName}`);
       });
-
-      await sendAcceptedNotification(notification.senderId, notification.communityId, notification.communityName, notification.media);
-
-      div.remove();
-      log("green", `${notification.senderName} has been accepted to ${notification.communityName}`);
     } catch (err) {
       console.error("Error accepting join request:", err);
       log("red", "Error accepting join request")
@@ -1052,7 +1061,8 @@ export async function loadNotifications(initial = false) {
   }
 
   if (snap.empty && initial) {
-    notificationsContainer.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No activities — yet</h2><p style="color:grey;margin:7px 0;">seems like you're new here.</p></div></div>`;
+    document.getElementById("notifplaceholder").innerHTML = "";
+    notificationsContainer.innerHTML = `<div id="noactivities" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No activities — yet</h2><p style="color:grey;margin:7px 0;">seems like you're new here.</p></div></div>`;
     notificationLoading = false;
     return;
   }
@@ -1083,6 +1093,7 @@ export async function loadNotifications(initial = false) {
         document.getElementById("notifplaceholder").innerHTML = "";
         document.getElementById("notifications").classList.remove("hidden");
       }
+      if (notificationsContainer.querySelector(".noactivities")) notificationsContainer.innerHTML = "";
       notificationsContainer.appendChild(createNotificationElement(data));
     }
   }
@@ -1595,7 +1606,7 @@ export async function sendCommunityDonationNotification(tweetId, donationAmount,
   if (!tweetSnap.exists()) return;
 
   const creatorId = tweetSnap.data().uid;
-  const { username: senderName } = await getUserData(sender.uid);
+  const { username: senderName } = await getUserData(auth.currentUser.uid);
 
   const blocked = await isBlocked(creatorId);
   if (blocked) return;

@@ -29,7 +29,7 @@ function askDeleteReason() {
     submitBtn.onclick = () => {
       const reason = input.value.trim();
       if (!reason) return log("red", "Please provide a reason");
-      if (reason.length < 20) return log("red", "add minimum 20 characters");
+      if (reason.length < 10) return log("red", "add minimum 10 characters");
       cleanup();
       resolve(reason);
     };
@@ -37,12 +37,14 @@ function askDeleteReason() {
 }
 
 async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, parentData) {
-  if (parentData != null && parentData.replyPermission) {
-    if (parentData.replyPermission != "everyone") {
+  if (parentData != null) {
+    if (parentData.replyPermission && parentData.replyPermission != "everyone") {
       tweetData.replyPermission = parentData.replyPermission;
       tweetData.mentioned = parentData.mentioned;
       tweetData.uid = parentData.uid;
     }
+    tweetData.disableComments = parentData.disableComments;
+    tweetData.archived = parentData.archived;
   }
 
   const permission = tweetData.replyPermission || "everyone";
@@ -66,20 +68,32 @@ async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, 
     }
   }
 
-  if ((canComment || isOwner || !hasValidMentions)) {
+  if (tweetData.disableComments && tweetData.archived && tweetData.uid != auth.currentUser.uid) {
+    canComment = false;
+    console.log("i can't comment");
+  }
+
+  if ((canComment || isOwner || (!hasValidMentions && !(tweetData.archived && tweetData.disableComments)))) {
     commentInput.classList.remove("hidden");
-    skibidi.forEach(el => el.classList.remove("hidden"));
+    document.querySelectorAll(".skibidi").forEach(el => el.classList.remove("hidden"));
+    console.log("i can comment")
   } else {
     commentInput.classList.add("hidden");
-    skibidi.forEach(el => el.classList.add("hidden"));
+    document.querySelectorAll(".skibidi").forEach(el => el.classList.add("hidden"));
   }
 
   if (commentStatus) {
     if (permission === "everyone") {
       commentStatus.innerHTML = "";
-    } else if (permission === "mentioned" && hasValidMentions) {
+    }
+
+    if (permission === "mentioned" && hasValidMentions && (!tweetData.disableComments && !(tweetData.archived && tweetData.disableComments))) {
       commentStatus.innerHTML =
         `<img src="/image/exclamation.svg"> the creator has chosen only mentioned users can reply to this post`;
+    }
+
+    if (tweetData.disableComments && tweetData.archived) {
+      commentStatus.innerHTML = `<img src="/image/exclamation.svg"> Comment section are turned off while Wynt is being archived`
     }
   }
 }

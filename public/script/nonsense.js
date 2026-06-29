@@ -24,6 +24,7 @@ export const profilecom        = document.getElementById("profileCom");
 export const quote             = document.getElementById("quoteViewer");
 export const archive           = document.getElementById("archiveOverlay");
 export const carchive          = document.getElementById("communityArchiveOverlay");
+export const perm              = document.getElementById("archivePerm");
 
 export const bookmarksvg       = document.getElementById("bookmarksvg");
 export const homesvg           = document.getElementById("homesvg");
@@ -105,7 +106,8 @@ const panelsToHide = () => [
   highlightTweet,
   archive,
   carchive,
-  view
+  view,
+  perm
 ];
 
 const filledIcons = [
@@ -197,6 +199,7 @@ function hideCom() {
   document.getElementById("banOverlay").classList.add("hidden");
   document.getElementById("communityActiveCheckbox").style.display = "none";
   document.getElementById("communityActiveCheckbox1").style.display = "none";
+  document.getElementById("communityActive").style.display = "none";
 }
 
 function hidebookmark() {
@@ -278,6 +281,7 @@ document.body.addEventListener("click", async (e) => {
       archive.classList.add("hidden");
       carchive.classList.add("hidden");
       view.classList.add("hidden");
+      perm.classList.add("hidden");
       usersub.classList.remove("hidden");
       community.classList.add("hidden");
       premiumfilled.classList.add("hidden");
