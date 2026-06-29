@@ -1844,7 +1844,9 @@ h3, .translated-text {
 
 @media (max-width: 700px) {
   #user-name, #my-name, .lembergember {
-    max-width: 180px;
+    text-overflow:ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
   #communityloadingbitches {
     margin:45px -10px;
@@ -2183,8 +2185,9 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
   user-select: none;
 }
 
-
-
+.translated-text {
+  margin-top: 20px !important;
+}
 
 #appendTweet .tweet .post-body,
 #appendComment .comment .post-body {

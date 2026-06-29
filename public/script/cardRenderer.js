@@ -1,7 +1,16 @@
 import { getDoc, doc, db, auth } from "./firebase.js";
-import { escapeHTML, base91ToImageSrc } from "./texts";
+import { escapeHTML, formatDate } from "./texts.js";
+import { getUserData, waitForAuth } from "./index.js";
+import { base91ToImageSrc } from "./attachments.js";
 
-async function renderCard(match) {
+export async function renderCard(url, match) {
+    const userMatch           = url.match(/^\/user\/([^/]+)/);
+    const tweetMatch          = url.match(/^\/wynt\/([^/]+)$/);
+    const communityTweetMatch = url.match(/^\/community\/([^/]+)\/wynt\/([^/]+)$/);
+    const communityReplyMatch = url.match(/^\/community\/([^/]+)\/wynt\/([^/]+)\/reply\/([^/]+)$/);
+    const replyMatch          = url.match(/^\/wynt\/([^/]+)\/reply\/([^/]+)$/);
+    const communityMatch      = url.match(/^\/community\/([^/]+)$/);
+
     let internal = `
       <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
         <img height="13px" src="/image/info.svg">
@@ -9,7 +18,7 @@ async function renderCard(match) {
       </div>
     `;
 
-    if (match == "communityMatch") {
+    if (communityMatch) {
       const snap = await getDoc(doc(db, "communities", communityMatch[1]));
 
       if (snap.exists()) {
@@ -41,7 +50,7 @@ async function renderCard(match) {
           </div>
         `;
       }
-    } else if (match == "communityReplyMatch") {
+    } else if (communityReplyMatch) {
       const [, communityId, tweetId, commentId] = communityReplyMatch;
       const communitySnap = await getDoc(doc(db, "communities", communityId));
 
@@ -65,9 +74,10 @@ async function renderCard(match) {
               <div class="card-reply" data-id="${commentId}" data-tweet="${tweetId}" data-community-id="${communityId}" style="display:flex;gap:9px;">
                 <img style="margin-top:5px;min-height:39px;max-height:39px;min-width:39px;max-width:39px;border-radius:7px;" src="${base91ToImageSrc(userdata.avatar)}">
                 <div style="display:flex;flex-direction:column;gap:2px;">
-                  <div style="display:flex;align-items:center;gap:7px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:7px;">
                     <strong style="font-size:14px;" class="user-link">${escapeHTML(userdata.displayName)}</strong>
-                    <span style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)} • ${formatDate(data.createdAt)}</span>
+                    <span class="usernamee" style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)}</span>
+                    <span style="color:grey;font-size:14px;">• ${formatDate(data.createdAt)}</span>
                   </div>
                   <span style="font-size:14px;">${data.text.length > 100 ? `${escapeHTML(data.text.slice(0, 100))} ...` : escapeHTML(data.text)}</span>
                   ${data.media ? `
@@ -86,7 +96,7 @@ async function renderCard(match) {
           }
         }
       }
-    } else if (match == "communityTweetMatch") {
+    } else if (communityTweetMatch) {
       const [, communityId, tweetId] = communityTweetMatch;
       const communitySnap = await getDoc(doc(db, "communities", communityId));
 
@@ -105,7 +115,7 @@ async function renderCard(match) {
           if (snap.exists()) {
             const data = snap.data();
 
-            if (data.archived == true) {
+            if (data.archived == true && data.uid != auth.currentUser.uid) {
               internal = `
                 <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
                   <img height="13px" src="/image/info.svg">
@@ -118,9 +128,10 @@ async function renderCard(match) {
                 <div class="card-tweet" data-id="${tweetId}" data-community-id="${communityId}" style="display:flex;gap:9px;">
                   <img style="margin-top:5px;min-height:39px;max-height:39px;min-width:39px;max-width:39px;border-radius:7px;" src="${base91ToImageSrc(userdata.avatar)}">
                   <div style="display:flex;flex-direction:column;gap:2px;">
-                    <div style="display:flex;align-items:center;gap:7px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+                    <div style="display:flex;align-items:center;gap:7px;">
                       <strong style="font-size:14px;" class="user-link">${escapeHTML(userdata.displayName)}</strong>
-                      <span style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)} • ${formatDate(data.createdAt)}</span>
+                      <span class="usernamee" style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)}</span>
+                      <span style="color:grey;font-size:14px;">• ${formatDate(data.createdAt)}</span>
                     </div>
                     <span style="font-size:14px;">${data.text.length > 100 ? `${escapeHTML(data.text.slice(0, 100))} ...` : escapeHTML(data.text)}</span>
                     ${data.media ? `
@@ -140,13 +151,13 @@ async function renderCard(match) {
           }
         }
       }
-    } else if (match == "replyMatch") {
+    } else if (replyMatch) {
       const snap = await getDoc(doc(db, "tweets", replyMatch[1], "comments", replyMatch[2]));
 
       if (snap.exists()) {
         const data = snap.data();
 
-        if (data.archived == true) {
+        if (data.archived == true && data.uid != auth.currentUser.uid) {
           internal = `
             <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
               <img height="13px" src="/image/info.svg">
@@ -159,9 +170,10 @@ async function renderCard(match) {
             <div class="card-reply" data-id="${replyMatch[2]}" data-tweet="${replyMatch[1]}" data-community-id="null" style="display:flex;gap:9px;">
               <img style="margin-top:5px;min-height:39px;max-height:39px;min-width:39px;max-width:39px;border-radius:7px;" src="${base91ToImageSrc(userdata.avatar)}">
               <div style="display:flex;flex-direction:column;gap:2px;">
-                <div style="display:flex;align-items:center;gap:7px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:7px;">
                   <strong style="font-size:14px;" class="user-link">${escapeHTML(userdata.displayName)}</strong>
-                  <span style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)} • ${formatDate(data.createdAt)}</span>
+                  <span class="usernamee" style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)}</span>
+                  <span style="color:grey;font-size:14px;">• ${formatDate(data.createdAt)}</span>
                 </div>
                 <span style="font-size:14px;">${data.text.length > 100 ? `${escapeHTML(data.text.slice(0, 100))} ...` : escapeHTML(data.text)}</span>
                 ${data.media ? `
@@ -179,13 +191,13 @@ async function renderCard(match) {
           </div>
         `;
       }
-    } else if (match == "tweetMatch") {
+    } else if (tweetMatch) {
       const snap = await getDoc(doc(db, "tweets", tweetMatch[1]));
 
       if (snap.exists()) {
         const data = snap.data();
 
-        if (data.archived == true) {
+        if (data.archived == true && data.uid != auth.currentUser.uid) {
           internal = `
             <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
               <img height="13px" src="/image/info.svg">
@@ -198,9 +210,10 @@ async function renderCard(match) {
             <div class="card-tweet" data-id="${tweetMatch[1]}" data-community-id="null" style="display:flex;gap:9px;">
               <img style="margin-top:5px;min-height:39px;max-height:39px;min-width:39px;max-width:39px;border-radius:7px;" src="${base91ToImageSrc(userdata.avatar)}">
               <div style="display:flex;flex-direction:column;gap:2px;">
-                <div style="display:flex;align-items:center;gap:7px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:7px;">
                   <strong style="font-size:14px;" class="user-link">${userdata.displayName}</strong>
-                  <span style="color:grey;font-size:14px;">@${userdata.username} • ${formatDate(data.createdAt)}</span>
+                  <span class="usernamee" style="color:grey;font-size:14px;">@${escapeHTML(userdata.username)}</span>
+                  <span style="color:grey;font-size:14px;">• ${formatDate(data.createdAt)}</span>
                 </div>
                 <span style="font-size:14px;">${data.text.length > 100 ? `${escapeHTML(data.text.slice(0, 100))} ...` : escapeHTML(data.text)}</span>
                 ${data.media ? `
@@ -218,7 +231,7 @@ async function renderCard(match) {
           </div>
         `;
       }
-    } else if (match == "userMatch") {
+    } else if (userMatch) {
       const snap = await getDoc(doc(db, "users", userMatch[1]));
       if (snap.exists()) {
         const data = snap.data();
