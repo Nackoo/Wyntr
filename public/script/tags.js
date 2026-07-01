@@ -1,4 +1,5 @@
 import { db, doc, collection, auth, runTransaction, increment, getDoc, updateDoc, setDoc } from "./firebase.js";
+import { getUserData } from "./index.js";
 import { log } from "./texts.js";
 
 export async function handleTags(text) {
@@ -34,8 +35,10 @@ export async function handleTags(text) {
           postCount: increment(1),
         });
       } else {
+        const d = await getUserData(auth.currentUser.uid);
         await setDoc(ref, {
           postCount: 1,
+          firstPost: d.username
         });
       }
     })

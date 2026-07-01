@@ -1999,7 +1999,7 @@ export async function sendTweetWarningNotification(targetUserId, text, reason, m
   });
 }
 
-export async function sendCommentWarningNotification(targetUserId, text, reason, media) {
+export async function sendCommentWarningNotification(targetUserId, text, reason, media = null) {
   if (!targetUserId) return;
 
   const warningRef = doc(

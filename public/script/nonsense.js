@@ -465,8 +465,8 @@ document.body.addEventListener("click", (e) => {
   const cardcom        = e.target.closest(".card-community")
 
   if (cardcom) {commentViewer.classList.add("hidden");usersub.classList.add("hidden");viewer.classList.add("hidden")}
-  if (cardtweet) {commentViewer.classList.add("hidden");usersub.classList.add("hidden")}
-  if (cardreply) {viewer.classList.add("hidden");usersub.classList.add("hidden")}
+  if (cardtweet) {commentViewer.classList.add("hidden");}
+  if (cardreply) {viewer.classList.add("hidden");}
   if (carduser) {viewer.classList.add("hidden");commentViewer.classList.add("hidden")}
   if (closenotif) {document.getElementById("notifMenuOverlay").classList.add("hidden");}
   if (closecomrule) { document.getElementById("skibidicome").classList.add("hidden") }

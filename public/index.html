@@ -77,7 +77,6 @@
       </header>
 
       <div style="display:flex;gap:10px;margin:25px 0;margin-bottom:15px">
-        <img src="/image/info.svg">
         <span style="color:grey">only you and anyone you manually allow can view this Wynt while being archived. allow everyone with the link instead?</span>
         <div class="switch-row">
           <input id="allowAnyoneWithLink" type="checkbox">
@@ -386,7 +385,7 @@
             </div>
             <span style="color:grey" id="my-username"></span>
             <p id="my-description"></p>
-            <p id="my-suspended" class="hidden" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;color:grey;"><svg style="min-width:20px;min-height:20px;" class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 11h2v5m-2 0h4m-2.592-8.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg><span>user is temporarily suspended <span id="suspended-for"></span></span></p>
+            <p id="my-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:1px solid #63430c;border-radius:10px;padding:10px;color:grey;"><span style="font-size:15px !important;">you are temporarily suspended <span id="suspended-for" style="font-size:15px !important;"></span></span></p>
             <div style="border-bottom:var(--border);padding:0 20px;padding-bottom:15px;margin:0 -20px;margin-top:15px;display:flex;align-items:center;margin-bottom:0;gap:7px;">
               <img src="/image/calendar.svg" style="height:20px;">
               <span id="my-creation"></span>
@@ -501,10 +500,6 @@
           <div class="menu-item copy-link-btn" id="copyMyLinkBtn" data-uid="">
             <img src="/image/link.svg"> Copy user link
           </div>
-
-          <div class="menu-item copy-uid-btn" id="copyMyIdBtn" data-uid="">
-            <img src="/image/copy.svg"> Copy user ID
-          </div>
         </div>
       </div>
 
@@ -615,58 +610,6 @@
 
             <div id="B" style="display: block;">
 
-              <span style="color:grey;display:flex;gap:10px;"><img src="/image/info.svg"> some settings might require a client restart for changes to apply.</span>
-
-              <h3 style="margin:0;margin-top:10px">privacy</h3>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Allow people to see your followings</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeFollows" type="checkbox">
-                  <label for="seeFollows" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Allow people to see your followers</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeFollowers" type="checkbox">
-                  <label for="seeFollowers" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Allow people to see posts you like</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="privateLikes" type="checkbox">
-                  <label for="privateLikes" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Allow people to see communities you're joined in</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeCom" type="checkbox">
-                  <label for="seeCom" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
               <h3 style="margin:0;margin-top:10px">Invite permission</h3>
 
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
@@ -705,10 +648,77 @@
                 </div>
               </div>
 
+              <h3 style="margin:20px 0;margin-top:15px;">privacy</h3>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span>Make following list public</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="seeFollows" type="checkbox">
+                  <label for="seeFollows" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who you follow.</p>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span>Make Followers List Public</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="seeFollowers" type="checkbox">
+                  <label for="seeFollowers" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who follows you.</p>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span>Show Likes on Public Lists</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="privateLikes" type="checkbox">
+                  <label for="privateLikes" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p style="color:grey;margin:0;margin-bottom:20px;">When off, your likes are hidden from public view.</p>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span>Share Interaction Data with Authors</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="privateView" type="checkbox">
+                  <label for="privateView" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p style="color:grey;margin:0;margin-bottom:20px;">If off, authors won't see you in their analytics.</p>
+
+              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+                <span>Make Joined Communities Public</span>
+                <div class="switch-row" style="margin-left:auto">
+                  <input id="seeCom" type="checkbox">
+                  <label for="seeCom" class="switch-label" aria-hidden="true">
+                    <span class="switch-track">
+                      <span class="switch-knob" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p style="color:grey;margin:0;margin-bottom:20px;">When off, your joined communities are hidden from your profile.</p>
+
               <h3 style="margin:0;margin-top:10px">Others</h3>
 
               <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Disable confirmation popup</span>
+                <span style="color:grey">Disable some confirmation popup</span>
                 <div class="switch-row" style="margin-left:auto">
                   <input id="discon" type="checkbox">
                   <label for="discon" class="switch-label" aria-hidden="true">
@@ -766,12 +776,7 @@
               <svg style="color:var(--color);margin-left:auto" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"></path></svg>
             </button>
           </div>
-
-          <div style="width:100%;display:flex;flex-direction:column;align-items: center;margin-top:20px;">
-            <p style="margin-bottom:0px;margin-top:50px;color:grey">A project developed by</p>
-            <img src="/image/WyntX.png" style="width:100%;max-width:300px;mix-blend-mode: screen">
-          </div>
-          <br><br><br><br><br><br>
+          <br><br><br>
         </div>
       </div>
 
@@ -867,16 +872,22 @@
       </div>
 
       <div id="tagSubOverlay" class="useroverlay hidden suboverlay">
-        <div class="user-box">
+        <div class="user-box" style="height: 100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('tagSubOverlay').classList.add('hidden');">
                 <img src="/image/leftArrow.svg">
               </button>
-              <h2 style="margin:0;margin-left:auto;" class="skibidi-link" id="tagId"></h2>
-              <h2 style="margin:0;color:grey">tag</h2>
             </div>
           </header>
+          <div style="padding: 20px;border-bottom:var(--border);margin:-20px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <h2 style="margin:0;" id="tagId"></h2>
+              <h2 style="margin:0;color:grey">tag</h2>
+            </div>
+            <p style="color:grey;margin:0;margin-top:5px;font-size:15px;" id="tagTweets"></p>
+          </div>
+
           <div id="tagstweet"></div>
           <br><br><br>
         </div>
@@ -908,7 +919,7 @@
             </div>
             <span style="color:grey" id="username"></span> <span id="followsBadge" style="font-size:16px;color:#04aa63;">Follows you</span>
             <p id="user-description"></p>
-            <p id="user-suspended" class="hidden" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;color:grey"><svg style="min-width:20px;min-height:20px;" class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 11h2v5m-2 0h4m-2.592-8.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg><span>user is temporarily suspended <span id="suspended-for1"></span></span></p>
+            <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:1px solid #63430c;border-radius:10px;padding:10px;color:grey;"><span style="font-size:15px !important;">user is temporarily suspended <span id="suspended-for1" style="font-size:15px !important;"></span></span></p>
             <div style="border-bottom:var(--border);padding:0 20px;padding-bottom:15px;margin:0 -20px;margin-top:15px;display:flex;align-items:center;margin-bottom:0;gap:7px;"><img src="/image/calendar.svg" style="height:20px;"><span id="user-creation"></span>
               <span id="com" style="display:flex;align-items:center;gap:5px;margin-left:auto;color:grey;">
                 <span id="comCount" style="font-weight:bold;color:var(--color)">0</span> 
@@ -1050,12 +1061,6 @@
             <img src="/image/copy.svg"> Copy user link
           </div>
 
-          <div class="menu-item copy-uid-btn" id="copyUserIdBtn" data-uid="">
-            <img src="/image/link.svg"> Copy user ID
-          </div>
-          
-          <h4 style="margin:0;margin-left:5px;">Others</h4>
-
           <div class="menu-item" id="reportUser">
             <img src="/image/report.svg"> Report this user
           </div>
@@ -1185,7 +1190,7 @@
               <div id="retweetOriginal" style="margin-bottom:10px"></div>
               <div style="display:flex;gap:10px;">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=retweetAvatar></img>
-                <div>
+                <div style="width:100%">
                   <input type="text" id="retweetTitle" style="border-radius:0;margin-bottom:10px;padding:0;font-weight:bold;border:none;font-size:20px;margin-top:10px;" placeholder="optional Wynt title">
                   <textarea id="retweetText" placeholder="what do you think...?" style="width:100%;height:100px;padding-left:0;padding-top:0;border-radius:0;font-size:16px;"></textarea>
                 </div>
@@ -1415,7 +1420,7 @@
               <p style="text-align:right;color:grey;font-size:15px;display:none;" id="communityActive">Posting ts to a community</p>
               <div style="display:flex;gap:10px;margin-top:20px;margin-bottom:10px;">
                 <img class="avatar" style="min-width:40px;min-height:40px;max-width:40px;max-height:40px;" id=tweetAvatar>
-                <div>
+                <div style="width:100%">
                   <input type="text" id="tweetTitle" style="border-radius:0;padding:0;font-weight:bold;border:none;font-size:20px;margin-left:10px" placeholder="optional Wynt title">
                   <textarea id="tweetInput" style="height:150px;" placeholder="What's cookin'?"></textarea>
                 </div>

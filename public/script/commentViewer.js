@@ -3,6 +3,7 @@ import { formatDate, escapeHTML, parseMentionsToLinks, formatNumber, formatTime,
 import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole, waitForAuth } from "./index.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js";
+import { incrementViews } from "./view.js";
 
 await waitForAuth();
  
@@ -133,9 +134,9 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   }
 
   let editHTML = "";
-  if (c.edited) {
+  if (c.edited && c.editAfterComment) {
     editHTML = `       
-      <img src="/image/editicon.svg" title="edited at ${formatTime(c.edited)}. ${c.editAfterComment ? "click me" : ""}" class="editedatt edit0">`
+      <img src="/image/editicon.svg" title="edited at ${formatTime(c.edited)}. click me" class="editedatt edit0">`
   }
 
   let parentReply = "";
@@ -178,9 +179,9 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
       const hasImage = parent.media && parent.mediaType === "image";
       const hasVideo = parent.media && parent.mediaType === "video";
 
-      if (parent.edited) {
+      if (parent.edited && parent.editAfterComment) {
         editHTML2 = `
-       <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} ${parent.editAfterComment ? "click me" : ""}" class="editedatt edit1>
+       <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} click me" class="editedatt edit1>
       `
       }
 
@@ -256,14 +257,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 
       const random = randomString(14);
 
-      let baninfo = "";
-
-      if (data.banned === true && currentUserRole === "admin") {
-        baninfo = `
-          <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${data.bannedFor}</p>
-        `;
-      }
-
       if (data.banned === true && currentUserRole != "admin") {
           parentReply = `
           ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
@@ -288,7 +281,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const content = `
               <div class=post-body style="margin:0;">${parsedparent}</div>
               ${translateHTML}
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -352,7 +344,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const content = `
               <div class=post-body style="margin:0;">${parsedparent}</div> 
               ${translateHTML}
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -419,7 +410,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const containsSpoiler = parent.sensitiveMedia === true;
           const path = `${tweetId}-${commentId}`;
           const content = `
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -486,7 +476,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const src = base91ToImageSrc(parent.media.url);
           const path = `${tweetId}-${commentId}`;
           const content = `
-            ${baninfo}
             ${containsSpoiler ?
               `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                 <div class="spoiler-overlay">
@@ -548,7 +537,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           const content = `
             <div class=post-body style="margin:6px 0 12px;">${parsedparent}</div> 
             ${translateHTML}
-            ${baninfo}
             ${pollHTML}
           `;
 
@@ -665,19 +653,10 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
 
   const random1 = randomString(14);
 
-  let bannedinfo = "";
-
-  if (d.banned && currentUserRole === "admin") {
-    bannedinfo = `
-      <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d.bannedFor}</p>
-    `;
-  }
-
   const content1 = `
     ${communityHTML}
     <div class=post-body>${parsedText}</div> 
     ${translateHTML1} 
-    ${bannedinfo}
     ${mediaHTML}
     ${donationHTML}
     ${privateHTML}
@@ -722,9 +701,9 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
           titleHTML2 = `<h3 style="margin:10px 0;">${escapeHTML(quoted.title)}</h3>`
         }
 
-        if (quoted.edited) {
+        if (quoted.edited && quoted.editAfterComment) {
           editHTML67 = `
-          <img src="/image/editicon.svg" title="edited at ${formatTime(quoted.edited)} ${quoted.editAfterComment ? "click me" : ""}" class="editedatt edit2>
+          <img src="/image/editicon.svg" title="edited at ${formatTime(quoted.edited)} click me" class="editedatt edit2">
         `
         }
 
@@ -774,14 +753,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
             }
           }
           pollHTML = renderPoll(quoted, tweetId, myVoteIndex);
-        }
-
-        let baninfo1 = "";
-
-        if (d1.banned === true && currentUserRole === "admin") {
-          baninfo1 = `
-            <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d1.bannedFor}</p>
-          `;
         }
 
         const info67 = `
@@ -857,7 +828,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                   ${titleHTML2} 
                   <div class=post-body style="margin:0;">${parsedQuoted}</div>
                   ${translateHTML2}
-                  ${baninfo1}
                   ${containsSpoiler ?
                       `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
                         <div class="spoiler-overlay">
@@ -897,7 +867,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                   ${titleHTML2}
                   <div class=post-body style="margin:0;">${parsedQuoted}</div> 
                   ${translateHTML2}
-                  ${baninfo1}
                   
                   ${containsSpoiler ?
                       `<div class="attachment spoiler-media" style="margin-bottom:5px;margin-top:15px;" onclick="this.classList.add('revealed')">
@@ -944,7 +913,6 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
                   ${titleHTML2}
                   <div class=post-body style="margin:6px 0 12px;">${parsedQuoted}</div> 
                   ${translateHTML2}
-                  ${baninfo1}
                   ${pollHTML}
                   ${info67}
                 </div>
@@ -1100,41 +1068,11 @@ export async function renderCommentViewer(c, commentId, tweetId, container, comm
   document.getElementById("replyList").classList.remove("hidden");
 
   if (window.communityID) {
-    const viewRef = doc(db, "communities", window.communityID, "posts", tweetId, "views",  auth.currentUser.uid);
-    const postRef = doc(db, "communities", window.communityID, "posts", tweetId);
-    const viewSnap = await getDoc(viewRef);
-    if (!viewSnap.exists()) {
-      await setDoc(viewRef, {
-        viewedAt: new Date()
-      });
-      updateDoc(postRef, {
-        viewsCount: increment(1)
-      });
-    }
+    incrementViews(tweetId, commentId, window.communityID);
   } else if (communityId) {
-    const viewRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId, "views",  auth.currentUser.uid);
-    const postRef = doc(db, "communities", communityId, "posts", tweetId, "comments", commentId);
-    const viewSnap = await getDoc(viewRef);
-    if (!viewSnap.exists()) {
-      await setDoc(viewRef, {
-        viewedAt: new Date()
-      });
-      updateDoc(postRef, {
-        viewsCount: increment(1)
-      });
-    }
+    incrementViews(tweetId, commentId, communityId);
   } else {
-    const viewRef = doc(db, "tweets", tweetId, "comments", commentId, "views", auth.currentUser.uid);
-    const postRef = doc(db, "tweets", tweetId, "comments", commentId);
-    const viewSnap = await getDoc(viewRef);
-    if (!viewSnap.exists()) {
-      await setDoc(viewRef, {
-        viewedAt: new Date()
-      });
-      updateDoc(postRef, {
-        viewsCount: increment(1)
-      });
-    }
+    incrementViews(tweetId, commentId, null);
   }
 }
 
@@ -1227,6 +1165,7 @@ document.getElementById("commentviewerclose").addEventListener("click", async ()
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
+  document.addEventListener("DOMContentLoaded", init);
   init();
 }
 
@@ -1443,9 +1382,9 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
       const hasImage = parent.media && parent.mediaType === "image";
       const hasVideo = parent.media && parent.mediaType === "video";
 
-      if (parent.edited) {
+      if (parent.edited && parent.editAfterComment) {
         editHTML2 = `
-        <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} ${parent.editAfterComment ? "click me" : ""}" class="edit0">
+        <img src="/image/editicon.svg" title="edited at ${formatTime(parent.edited)} click me" class="edit0">
       `
       }
 
@@ -1518,14 +1457,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
               </div>
       `
 
-      let baninfo = "";
-
-      if (d.banned === true && currentUserRole === "admin") {
-        baninfo = `
-          <p id="user-suspended" class="" style="display:flex;align-items:center;gap:7px;background:#241f13;border:2px solid #63430c;border-radius:10px;padding:7px;margin:0;color:grey"><img src="/image/info.svg">Suspended — Reason: ${d.bannedFor}</p>
-        `;
-      }
-
       if (d.banned === true && currentUserRole != "admin") {
         parentReply = `
           ${parent.parentId != null ? `<button class="morereplies" id="more-replies-${path}" onclick="renderQuoted('${communityId}', '${tweetId}', '${parent.parentId}', '${path}', ${isFromMain})" style="margin-left:18px;color:grey;margin-bottom:20px;margin-top:11px;font-size:16px;padding:0;background:none;color: #1a8cd8;">more replies...</button>` : ""}
@@ -1553,7 +1484,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const content = `
               <div class=post-body style="margin:0;">${parsedparent}</div>
               ${translateHTML}
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -1617,7 +1547,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const content = `
               <div class=post-body style="margin:0;">${parsedparent}</div> 
               ${translateHTML}
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -1684,7 +1613,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const containsSpoiler = parent.sensitiveMedia === true;
           const path = `${tweetId}-${parentId}`;
           const content = `
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -1751,7 +1679,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const src = base91ToImageSrc(parent.media.url);
           const path = `${tweetId}-${parentId}`;
           const content = `
-              ${baninfo}
               ${containsSpoiler ?
                   `<div class="attachment spoiler-media" style="margin-bottom:5px" onclick="this.classList.add('revealed')">
                     <div class="spoiler-overlay">
@@ -1813,7 +1740,6 @@ async function renderQuoted(communityId, tweetId, parentId, element, isFromMain)
           const content = `
             <div class=post-body style="margin:6px 0 12px;">${parsedparent}</div> 
             ${translateHTML}
-            ${baninfo}
             ${pollHTML}
           `
 

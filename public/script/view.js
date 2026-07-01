@@ -1,9 +1,9 @@
 import { toDate, escapeHTML, confirmDialog, formatDate } from "./texts.js";
-import { auth, query, collection, getDocs, limit, db, doc, deleteDoc, where, startAfter, orderBy, updateDoc } from "./firebase.js";
+import { auth, query, collection, getDocs, limit, db, doc, deleteDoc, where, startAfter, orderBy, updateDoc, setDoc, getDoc, increment } from "./firebase.js";
 import { base91ToImageSrc } from "./attachments.js";
 import { openUserSubProfile } from "./user.js";
 
-const notfound = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No users found</h2><p style="color:grey;margin:7px 0;">Seems like nobody has liked this post. Be the first one.</p></div></div>`;
+const notfound = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No users found</h2><p style="color:grey;margin:7px 0;">Seems like nobody has ${window.view_mode === "likes" ? "liked" : "interacted with"} this post. Be the first one.</p></div></div>`;
 
 const list = document.getElementById("viewlikesList");
 const searchInput = document.querySelector("#viewlikesOverlay input");
@@ -55,16 +55,17 @@ async function view(term = currentTerm) {
     if (window.view_replyId) {
         pathArgs.push("comments", window.view_replyId);
     }
-    pathArgs.push("likes");
+    window.view_mode == "likes" ?
+      pathArgs.push("likes") : pathArgs.push("views");
 
     const baseCollection = collection(db, ...pathArgs);
 
     function buildQuery(searchField = null, searchVal = null) {
-        const constraints = [orderBy("likedAt", "desc")];
-        
-        if (window.view_isOwner === "false" || window.view_isOwner === false) {
-            constraints.push(where("status", "!=", "private"));
-        }
+        const constraints = [
+            orderBy("followers", "desc"), 
+            where("status", "!=", "private")
+        ];  
+
         if (searchField && searchVal) {
             constraints.push(
                 where(searchField, ">=", searchVal),
@@ -133,10 +134,12 @@ async function view(term = currentTerm) {
                     <span style="font-weight:normal;color:grey;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;font-size:13px;">@${escapeHTML(data.username)}</span>
                 </div>
                 <span style="font-size:14px; color:grey;">
-                    liked ${formatDate(data.likedAt)} ago
+                    ${window.view_mode == "likes" ? 
+                        `liked ${formatDate(data.likedAt)} ago` :
+                        `viewed ${formatDate(data.viewedAt)} ago`}
                 </span>
             </div>
-            ${docSnap.id == auth.currentUser.uid && window.view_isOwner == 'false' ? `
+            ${docSnap.id == auth.currentUser.uid ? `
             <img class="hide-btn" src="/image/eye.svg" style="margin-left:auto; cursor:pointer;height:22px;">`
             : "" }
         </div>`;
@@ -195,3 +198,57 @@ scrollBox.addEventListener("scroll", () => {
         view(term);
     }
 });
+
+export async function incrementViews(tweetId, replyId, communityId) {
+    let postRef, viewRef;
+
+    if (replyId) {
+        postRef = communityId ?
+            doc(db, "communities", communityId, "posts", tweetId, "comments", replyId) :
+            doc(db, "tweets", tweetId, "comments", replyId);
+        viewRef = communityId ?
+            doc(db, "communities", communityId, "posts", tweetId, "comments", replyId, "views", auth.currentUser.uid) :
+            doc(db, "tweets", tweetId, "comments", replyId, "views", auth.currentUser.uid);
+    } else {
+        postRef = communityId ?
+            doc(db, "communities", communityId, "posts", tweetId) :
+            doc(db, "tweets", tweetId);
+        viewRef = communityId ?
+            doc(db, "communities", communityId, "posts", tweetId, "views", auth.currentUser.uid) :
+            doc(db, "tweets", tweetId, "views", auth.currentUser.uid)
+    }
+                
+    const [viewSnap, userSnap] = await Promise.all([
+        getDoc(viewRef),
+        getDoc(doc(db, "users", auth.currentUser.uid))
+    ]);
+    
+    if (!viewSnap.exists() && userSnap.exists()) {
+        const d = userSnap.data();
+        const status = d.privateView ?
+            "private" : "public";
+
+        await setDoc(viewRef, {
+            viewedAt: new Date(),
+            status,
+            displayName: d.displayName,
+            photoURL: d.photoURL,
+            username: d.username,
+            name: d.displayName.toLowerCase(),
+            followers: d.followers
+        });
+        updateDoc(postRef, {
+            viewsCount: increment(1)
+        });
+    }
+}
+
+export function initViews(tweetId, communityId, replyId, mode) {
+    window.view_tweetId = tweetId;
+    window.view_communityId = communityId;
+    window.view_replyId = replyId;
+    window.view_mode = mode;
+    
+    viewLikes();
+    document.getElementById("tweetMenuOverlay").classList.add("hidden");
+}

@@ -206,6 +206,7 @@ async function loadUserHighlights(uid, initial = false) {
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
+  document.addEventListener("DOMContentLoaded", init);
   init();
 }
 
@@ -218,7 +219,6 @@ function init() {
     document.getElementById("youList").classList.remove('hidden');
     document.getElementById("my-name").dataset.uid = uid;
     document.querySelector("#copyMyLinkBtn").dataset.uid = uid;
-    document.getElementById("copyMyIdBtn").dataset.uid = uid;
     document.getElementById("profileOverlay").classList.remove("hidden");
 
     const docSnap = await getDoc(doc(db, "users", uid));

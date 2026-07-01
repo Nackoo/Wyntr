@@ -2,13 +2,13 @@ import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth
 import { renderTweet, getUserData, loadComments, currentUserRole, waitForAuth } from './index.js';
 import { sendFollowNotification } from "./notification.js";
 import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
-import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8 } from "./texts.js";
-import { sendToDiscord, reportToDiscord } from "./discord.js";
+import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js"; 
 import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
+import { discord } from "./moderation.js";
 
 await waitForAuth();
 
@@ -352,25 +352,38 @@ searchInput.addEventListener("keydown", async (e) => {
 
       hasLoaded = false;
       displayskeletons.innerHTML = skeleton;
+
+      const noresults = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:60px;">
+        <div style="max-width:400px;text-align:left;">
+          <h2 style="margin:0;">No results</h2>
+          <p style="color:grey;margin:7px 0;">Try again with a different keywords.</p>
+        </div>
+      </div>`;
       
-      const [a, b] = await Promise.all([
-        fetchUsers(term),
-        searchTweets(term)
-      ])
-      b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
-      displayskeletons.innerHTML = "";
+      if (term.startsWith("#")) {
+        const tag = term.replace("#", "");
+        const b = await searchTweets(tag, false, true);
 
-      if (term == "") hasLoaded = true;
+        b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
+        displayskeletons.innerHTML = "";
+        displayUsers.innerHTML = "";
 
-      if (b.length === 0 && !a) {
-        displayskeletons.innerHTML = `
-              <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:60px;">
-                <div style="max-width:400px;text-align:left;">
-                  <h2 style="margin:0;">No results</h2>
-                  <p style="color:grey;margin:7px 0;">Try again with a different keywords.</p>
-                </div>
-              </div>
-        `;
+        if (b.length === 0) {
+          displayskeletons.innerHTML = noresults;
+        }
+      } else {
+        const [a, b] = await Promise.all([
+          fetchUsers(term),
+          searchTweets(term)
+        ])
+        b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
+        displayskeletons.innerHTML = "";
+
+        if (term == "") hasLoaded = true;
+
+        if (b.length === 0 && !a) {
+          displayskeletons.innerHTML = noresults
+        }
       }
     }
   }
@@ -391,7 +404,7 @@ document.querySelector("#userOverlay .user-box").addEventListener("scroll", asyn
   loadingMoreTweets = true;
 
   try {
-    const tweets = await searchTweets(term, true);
+    const tweets = await searchTweets(term, true, window.isTag);
     tweets.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
   } finally {
     loadingMoreTweets = false;
@@ -401,8 +414,9 @@ document.querySelector("#userOverlay .user-box").addEventListener("scroll", asyn
 const TWEETS_PAGE = 10;
 let lastTweetDoc = null;
 
-async function searchTweets(term = "", loadmore = false) {
+async function searchTweets(term = "", loadmore = false, isTag = false) {
   if (!loadmore) displayTweets.innerHTML = "";
+  window.isTag = isTag ? true : false;
 
   if (term == "") {
     const q = query(collection(db, "tweets"), 
@@ -421,7 +435,6 @@ async function searchTweets(term = "", loadmore = false) {
       })
     })
     return results;
-
   } else {
     const words = tokenize(term);
     if (words.length === 0) return [];
@@ -431,11 +444,16 @@ async function searchTweets(term = "", loadmore = false) {
     if (!loadmore) lastTweetDoc = null;
 
     const base = [
-      where("searchTokens", "array-contains-any", searchList),
       where("archived", "!=", true),
       orderBy("createdAt", "desc"),
       limit(5),
     ];
+
+    if (window.isTag) {
+      base.push(where("tags", "array-contains", term))
+    } else {
+      base.push(where("searchTokens", "array-contains-any", searchList))
+    }
 
     const q = lastTweetDoc ?
       query(collection(db, "tweets"), ...base, startAfter(lastTweetDoc)) :
@@ -443,19 +461,13 @@ async function searchTweets(term = "", loadmore = false) {
 
     const snap = await getDocs(q);
 
-    const mustHaveAll = true;
     const results = [];
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      if (
-        !mustHaveAll ||
-        words.every(w => (d.searchTokens || []).includes(w))
-      ) {
-        results.push({
-          id: docSnap.id,
-          ...d
-        });
-      }
+      results.push({
+        id: docSnap.id,
+        ...d
+      });
     });
 
     if (!snap.empty) {
@@ -630,7 +642,7 @@ async function getIfUserfollows(uid) {
 function softblank() {
   document.getElementById("stardenburdenhardenbart").textContent = "user";
   document.getElementById("username").textContent = "username"
-  document.getElementById("user-description").textContent = "loading description...";
+  document.getElementById("user-description").innerHTML = "loading description...";
   document.getElementById("user-name").textContent = "user";
   document.getElementById("user-status").textContent = "i'm cold";
   document.getElementById("posts").textContent = "0";
@@ -657,7 +669,7 @@ function softblank() {
 function blank() {
   document.getElementById("stardenburdenhardenbart").textContent = "user";
   document.getElementById("username").style.display = "none";
-  document.getElementById("user-description").textContent = "";
+  document.getElementById("user-description").innerHTML = "";
   document.querySelectorAll(".status")[1].style.display = "none";
   document.getElementById("posts").textContent = "0";
   document.getElementById("followers").textContent = "0";
@@ -670,7 +682,6 @@ function blank() {
   document.getElementById("ers").style.pointerEvents = "none";
   document.getElementById("user-pfp").style.background = "#16181c";
   document.getElementById("user-banner").style.background = "#16181c";
-  document.getElementById("sujdiqu").style.display = "none";
 
   const userEffectEl = document.querySelector("#profile-effect");
   if (userEffectEl) {
@@ -682,15 +693,20 @@ function blank() {
   usermentionedList.classList.add("hidden");
 }
 
-async function isBanned(uid) {
+async function isBanned(uid, d) {
   const bannedRef = doc(db, "banned", uid);
   const bannedSnap = await getDoc(bannedRef);
   if (bannedSnap.exists()) {
     document.getElementById("user-name").textContent = "user is suspended";
     document.getElementById("followBtn").classList.add("hidden");
+
+    if (currentUserRole == "admin") {
+      document.getElementById("user-suspended").classList.remove("hidden");
+      document.getElementById("suspended-for1").textContent = `for: ${d.bannedFor}`
+    }
     blank();
     return;
-  }
+  } 
 }
 
 function setupHighlightInfiniteScroll(uid) {
@@ -799,6 +815,7 @@ async function loadUserHighlights(uid, initial = false) {
 }
 
 export async function openUserSubProfile(uid) {
+  document.getElementById("userSubOverlay").classList.remove("hidden");
   searchsvg.click();
   searchbar.value = "";
 
@@ -834,7 +851,6 @@ export async function openUserSubProfile(uid) {
 
   document.getElementById("user-name").dataset.uid = uid;
   document.getElementById("copyUserLinkBtn").dataset.uid = uid;
-  document.getElementById("copyUserIdBtn").dataset.uid = uid;
   document.getElementById("banBtn").dataset.uid = uid;
   document.getElementById("reportUser").dataset.uid = uid;
   document.querySelectorAll(".status")[1].style.display = "inline";  
@@ -848,10 +864,20 @@ export async function openUserSubProfile(uid) {
   const d = docSnap.data();
 
   if (d.suspended && d.suspendedUntil > Timestamp.now()) {
-    document.getElementById("user-suspended").classList.remove("hidden");
-    if (currentUserRole === "admin") { 
-      document.getElementById("suspended-for1").textContent = `for: ${d.suspendedFor || "no reason specified"}`;
-    }
+      document.getElementById("user-suspended").classList.remove("hidden");
+
+      // 1. Get the difference in milliseconds
+      const now = new Date();
+      const suspendedUntilDate = d.suspendedUntil.toDate(); // Convert Firestore Timestamp to JS Date
+      const diffInMs = suspendedUntilDate - now;
+
+      // 2. Convert milliseconds to days (1000ms * 60s * 60m * 24h)
+      const daysLeft = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+
+      if (currentUserRole === "admin") { 
+          document.getElementById("suspended-for1").textContent = 
+              `Suspended for: ${d.suspendedFor || "no reason specified"} (${daysLeft}d left)`;
+      }
   } else {
     document.getElementById("user-suspended").classList.add("hidden");
   }
@@ -939,49 +965,21 @@ export async function openUserSubProfile(uid) {
 
             await openUserSubProfile(uid);
 
-            let screenshotBase64 = null;
-            const profileEl = document.querySelector("#userSubOverlay .user-box");
-            if (profileEl) {
-              try {
-                const canvas = await html2canvas(profileEl, {
-                  backgroundColor: null
-                });
-                screenshotBase64 = canvas.toDataURL("image/png");
-              } catch (err) {
-                console.error("Unban screenshot failed:", err);
-              }
-            }
-
-            const { realusername: unbannedName } = await getUserData(uid);
+            const { d } = await getUserData(uid);
             const { username: adminName } = await getUserData(auth.currentUser.uid);
 
-            const susRef = doc(db, "susList", uid);
-
-            const susSnap = await getDoc(susRef);
-            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
-
-            const embed = {
-              title: "User Unbanned",
-              color: 4529510,
-              fields: [
-                { name: "User", value: unbannedName },
-                { name: "Unbanned By", value: adminName },
-                { name: "Reason", value: reason },
-                { name: "Previous Ban Reason", value: previousReason },
-                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-                { name: "user warnings", value: currentWarnings.toString() },
-                { name: "unbanned at", value: formatUTC8() },
-              ],
-              timestamp: new Date(),
-            };
-
-            if (screenshotBase64) embed.image = {
-              url: "attachment://screenshot.png"
-            };
-
-            await sendToDiscord(null, {
-              embeds: [embed]
-            }, screenshotBase64);
+            discord("user unbanned", "gray", {
+              "name": d.displayName,
+              "username": d.username,
+              "user ID": uid,
+              "reason": reason,
+              "previous ban reason": previousReason,
+              "responsible admin": `${adminName} (${auth.currentUser.uid})`,
+              "source": `https://wyntr.netlify.app/${uid}`
+            }, new Date(), [
+              d.photoURL || null,
+              d.banner
+            ], "admin");
 
             banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
             document.getElementById("userMenuOverlay").classList.add("hidden");
@@ -990,6 +988,7 @@ export async function openUserSubProfile(uid) {
             reasonInput.value = "";
             deleteReasonSubmit.classList.remove("disabled");
             deleteReasonSubmit.disabled = false;
+            log("green", "user unbanned")
           };
           return;
         }
@@ -1010,19 +1009,6 @@ export async function openUserSubProfile(uid) {
           deleteReasonSubmit.disabled = true;
           deleteReasonSubmit.classList.add("disabled");
 
-          let screenshotBase64 = null;
-          const profileEl = document.querySelector("#userSubOverlay .user-box");
-          if (profileEl) {
-            try {
-              const canvas = await html2canvas(profileEl, {
-                backgroundColor: null
-              });
-              screenshotBase64 = canvas.toDataURL("image/png");
-            } catch (err) {
-              console.error("Ban screenshot failed:", err);
-            }
-          }
-
           const userRef = doc(db, "users", uid);
           await runTransaction(db, async (tx) => {
             tx.update(userRef, {
@@ -1037,34 +1023,24 @@ export async function openUserSubProfile(uid) {
 
           openUserSubProfile(uid);
 
-          const { username: bannedName } = await getUserData(uid);
+          const { d } = await getUserData(uid);
           const { username: adminName } = await getUserData(auth.currentUser.uid);
 
           const susRef = doc(db, "susList", uid);
           const susSnap = await getDoc(susRef);
           const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
 
-          const embed = {
-            title: "User Banned",
-            color: 16711680,
-            fields: [
-              { name: "User", value: bannedName },
-              { name: "Banned By", value: adminName }, 
-              { name: "Reason", value: reason },
-              { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-              { name: "user warnings", value: currentWarnings },
-              { name: "banned at", value: formatUTC8() },
-            ],
-            timestamp: new Date(),
-          };
-
-          if (screenshotBase64) embed.image = {
-            url: "attachment://screenshot.png"
-          };
-
-          await sendToDiscord(null, {
-            embeds: [embed]
-          }, screenshotBase64);
+          discord("user banned", "red", {
+            "name": d.displayName,
+            "username": d.username,
+            "user ID": uid,
+            "offend": reason,
+            "offender": `${adminName} (${auth.currentUser.uid})`,
+            "source": `https://wyntr.netlify.app/${uid}`
+          }, new Date(), [
+            d.photoURL || null,
+            d.banner
+          ], "admin");
 
           banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
           document.getElementById("userMenuOverlay").classList.add("hidden");
@@ -1073,6 +1049,7 @@ export async function openUserSubProfile(uid) {
           reasonInput.value = "";
           deleteReasonSubmit.classList.remove("disabled");
           deleteReasonSubmit.disabled = false;
+          log("green", "user banned");
         };
       };
 
@@ -1112,51 +1089,24 @@ export async function openUserSubProfile(uid) {
 
             await openUserSubProfile(uid);
 
-            let screenshotBase64 = null;
-            const profileEl = document.querySelector("#userSubOverlay .user-box");
-            if (profileEl) {
-              try {
-                const canvas = await html2canvas(profileEl, {
-                  backgroundColor: null
-                });
-                screenshotBase64 = canvas.toDataURL("image/png");
-              } catch (err) {
-                console.error("Unban screenshot failed:", err);
-              }
-            }
-
-            const { realusername: unbannedName } = await getUserData(uid);
+            const { d } = await getUserData(uid);
             const { username: adminName } = await getUserData(auth.currentUser.uid);
 
-            const susRef = doc(db, "susList", uid);
+            discord("user un-suspended", "gray", {
+              "name": d.displayName,
+              "username": d.username,
+              "user ID": uid,
+              "reason": reason,
+              "previous suspend reason": previousReason,
+              "responsible admin": `${adminName} (${auth.currentUser.uid})`,
+              "source": `https://wyntr.netlify.app/${uid}`
+            }, new Date(), [
+              d.photoURL || null,
+              d.banner
+            ], "admin");
 
-            const susSnap = await getDoc(susRef);
-            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
-
-            const embed = {
-              title: "User Un-suspended",
-              color: 4529510,
-              fields: [
-                { name: "User", value: unbannedName },
-                { name: "un-suspended By", value: adminName },
-                { name: "Reason", value: reason },
-                { name: "Previous suspended Reason", value: previousReason },
-                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-                { name: "user warnings", value: currentWarnings.toString() },
-                { name: "un-suspended at", value: formatUTC8() },
-              ],
-              timestamp: new Date(),
-            };
-
-            if (screenshotBase64) embed.image = {
-              url: "attachment://screenshot.png"
-            };
-
-            await sendToDiscord(null, {
-              embeds: [embed]
-            }, screenshotBase64);
-
-            banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Ban this user`;
+            log("green", "user un-suspended");
+            suspendBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Suspend this user`;
             document.getElementById("userMenuOverlay").classList.add("hidden");
             overlay.classList.add("hidden");
             document.body.classList.remove("no-scroll");
@@ -1187,19 +1137,6 @@ export async function openUserSubProfile(uid) {
             confirmSuspend.classList.add("disabled");
             confirmSuspend.disabled = true;
 
-            let screenshotBase64 = null;
-            const profileEl = document.querySelector("#userSubOverlay .user-box");
-            if (profileEl) {
-              try {
-                const canvas = await html2canvas(profileEl, {
-                  backgroundColor: null
-                });
-                screenshotBase64 = canvas.toDataURL("image/png");
-              } catch (err) {
-                console.error("Ban screenshot failed:", err);
-              }
-            }
-
             const duration = document.getElementById("suspendDuration").value;
 
             await runTransaction(db, async (tx) => {
@@ -1212,36 +1149,29 @@ export async function openUserSubProfile(uid) {
 
             openUserSubProfile(uid);
 
-            const { username: bannedName } = await getUserData(uid);
+            const { d } = await getUserData(uid);
             const { username: adminName } = await getUserData(auth.currentUser.uid);
 
             const susRef = doc(db, "susList", uid);
             const susSnap = await getDoc(susRef);
             const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
 
-            const embed = {
-              title: "User Suspended",
-              color: 16711680,
-              fields: [
-                { name: "User", value: bannedName },
-                { name: "suspended By", value: adminName }, 
-                { name: "Reason", value: reason },
-                { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-                { name: "user warnings", value: currentWarnings },
-                { name: "suspended at", value: formatUTC8() },
-              ],
-              timestamp: new Date(),
-            };
+            discord("user suspended", "red", {
+              "name": d.displayName,
+              "username": d.username,
+              "user ID": uid,
+              "offend": reason,
+              "offender": `${adminName} (${auth.currentUser.uid})`,
+              "suspended until": formatUTC8(getSuspendedUntil(duration)),
+              "source": `https://wyntr.netlify.app/${uid}`,
+              "user warnings": `${currentWarnings}`,
+            }, new Date(), [
+              d.photoURL || null,
+              d.banner
+            ], "admin");
 
-            if (screenshotBase64) embed.image = {
-              url: "attachment://screenshot.png"
-            };
-
-            await sendToDiscord(null, {
-              embeds: [embed]
-            }, screenshotBase64);
-
-            banBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Unban this user`;
+            log("green", "user suspended");
+            suspendBtn.innerHTML = `<img loading='lazy' src="/image/ban.svg"> Un-suspend this user`;
             confirmSuspend.classList.remove("disabled");
             confirmSuspend.disabled = false;
             document.getElementById("suspendOptions").classList.add("hidden");
@@ -1278,46 +1208,26 @@ export async function openUserSubProfile(uid) {
       deleteReasonSubmit.onclick = async () => {
         const reason = reasonInput.value.trim();
         if (!reason) return log("red", "Please provide a reason");
-        if (!reason.length < 20) return log("red", "add minimum 20 characters");
 
         deleteReasonSubmit.classList.add("disabled");
         deleteReasonSubmit.disabled = true;
 
-        const { username, avatar } = await getUserData(uid);
+        const { d } = await getUserData(uid);
         const { username: reporterName } = await getUserData(auth.currentUser.uid);
 
-        const profileEl = document.querySelector("#userSubOverlay .user-box");
-        let screenshotBase64 = null;
+        discord("user report", "red", {
+          "name": d.displayName,
+          "username": d.username,
+          "user ID": uid,
+          "offend": reason,
+          "offender": `${reporterName} (${auth.currentUser.uid})`,
+          "source": `https://wyntr.netlify.app/${uid}`
+        }, new Date(), [
+          d.photoURL || null,
+          d.banner
+        ], "user");
 
-        if (profileEl) {
-          try {
-            const canvas = await html2canvas(profileEl, { backgroundColor: null });
-            screenshotBase64 = canvas.toDataURL("image/png");
-          } catch (err) {
-            console.error("Profile screenshot failed:", err);
-            deleteReasonSubmit.classList.remove("disabled");
-            deleteReasonSubmit.disabled = false;
-            }
-          }
-
-        const embed = {
-          title: "User Report",
-          color: 8421504,
-          fields: [
-            { name: "Reported", value: username },
-            { name: "Reason", value: reason },
-            { name: "Reporter", value: reporterName },
-            { name: "Redirect Link", value: `https://wyntr.netlify.app/user/${uid}` },
-          ],
-          timestamp: new Date(),
-        };
-
-        if (screenshotBase64) {
-          embed.image = { url: "attachment://screenshot.png" };
-        }
-
-        await reportToDiscord(null, { embeds: [embed] }, screenshotBase64);
-
+        log("green", "user reported");
         overlay.classList.add("hidden");
         document.body.classList.remove("no-scroll");
         reasonInput.value = "";
@@ -1373,7 +1283,7 @@ export async function openUserSubProfile(uid) {
     await renderPinned(d, uid);
   }
   loadIfFollow(uid);
-  isBanned(uid);
+  isBanned(uid, d);
 
   document.getElementById("posts").textContent = d.posts || 0;
   document.getElementById("followers").textContent = d.followers || 0;
@@ -1531,16 +1441,12 @@ async function renderPinned(d, uid) {
     pinnedLabel.id = "pinnedyo";
     pinnedLabel.innerHTML = `<div class="iq pinlabel userPinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
     
-    // 1. Render the tweet FIRST (prepends it to the top of the list)
     if (uid === document.querySelector("#user-name").dataset.uid) {
       await renderTweet(pinnedData, d.pinned, auth.currentUser, "skibidi", list);
-      console.log("TWEET RENDERED");
     }
 
-    // 2. Prepend the label SECOND (pushes it to the very top, resting right above the Wynt)
     if (!document.getElementById('pinnedyo')) {
       list.prepend(pinnedLabel);
-      console.log(pinnedLabel)
       document.querySelectorAll("#userList .skeleton-card").forEach(e => {e.remove()});
     }
   }
@@ -1549,15 +1455,20 @@ async function renderPinned(d, uid) {
 window.openUserSubProfile = openUserSubProfile;
 
 window.openTag = async function (tagId) {
+  document.getElementById("searchsvg").click();
+
   const tweetList = document.getElementById("tagstweet");
   const scrollBox = document.querySelector("#tagSubOverlay .user-box");
   const tagOverlay = document.getElementById("tagSubOverlay");
+  const tagtweets = document.getElementById("tagTweets");
 
   tagOverlay.classList.remove("hidden");
   tweetList.innerHTML = skeleton;
   tagName.textContent = tagId;
+  tagtweets.textContent = "loading...";
 
-  const tagTweetsRef = collection(db, "tags", tagId, "tweets");
+  const tagTweetsRef = collection(db, "tweets");
+  const tagRef = doc(db, "tags", tagId);
 
   const BATCH_SIZE = 5;
   let lastDoc = null;
@@ -1568,26 +1479,28 @@ window.openTag = async function (tagId) {
     if (isLoading || reachedEnd) return;
     isLoading = true;
 
-    let q;
+    const queryConstraints = [
+      tagTweetsRef,
+      orderBy("createdAt", "desc"),
+      where("archived", "!=", true),
+      where("tags", "array-contains", tagId),
+      limit(BATCH_SIZE)
+    ];
 
-    if (lastDoc) {
-      q = query(
-        tagTweetsRef,
-        orderBy("taggedAt", "desc"),
-        where("archived", "!=", true),
-        startAfter(lastDoc),
-        limit(BATCH_SIZE)
-      );
+    if (lastDoc) queryConstraints.push(startAfter(lastDoc));
+    const q = query(...queryConstraints);
+
+    const [snap, tagSnap] = await Promise.all([
+      getDocs(q),
+      getDoc(tagRef)
+    ])
+
+    if (tagSnap.exists()) {
+      const data = tagSnap.data();
+      tagtweets.textContent = `${data.postCount} Wynts ${data.firstPost ? `• by @${data.firstPost}` : ""}`;
     } else {
-      q = query(
-        tagTweetsRef,
-        orderBy("taggedAt", "desc"),
-        where("archived", "!=", true),
-        limit(BATCH_SIZE)
-      );
+      tagtweets.textContent = "data unavailable";
     }
-
-    const snap = await getDocs(q);
 
     if (snap.empty) {
       reachedEnd = true;
@@ -1605,7 +1518,7 @@ window.openTag = async function (tagId) {
 
       const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
       if (tweetDoc.exists()) {
-        if (!tweetList.querySelector(".tweet")) tweetList.innerHTML = "";
+        tweetList.querySelectorAll(".skeleton-card").forEach(e => {e.remove()});
         renderTweet(tweetDoc.data(), tweetId, auth.currentUser, "append", tweetList);
       }
     });
@@ -1784,7 +1697,7 @@ async function openFollowOverlay(type, userId, isMe) {
                 </span>
               </div>
               <div style="margin-left:auto;display:flex;align-items:center;">
-                ${(theirId === auth.currentUser.uid || userId === auth.currentUser.uid) && data.status != "private" ? `
+                ${(theirId === auth.currentUser.uid) && data.status != "private" ? `
                 <img class="hide-btn1" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-left:15px;display:none;">`
                 : ""}
                 <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border); opacity:0;">...</button>
@@ -2331,20 +2244,6 @@ document.body.addEventListener("click", e => {
   if (cardcom) {
     openCommunity(cardcom.dataset.id);
   }
-  const copyBtn = e.target.closest(".copy-uid-btn");
-  if (copyBtn) {
-    document.getElementById("userMenuOverlay").classList.add("hidden");
-    document.getElementById("profileMenuOverlay").classList.add("hidden");
-    const uid = copyBtn.dataset.uid;
-
-    navigator.clipboard.writeText(uid)
-      .then(() => {
-        log("green", "user ID copied");
-      })
-      .catch(() => {
-        info("i", "Copy this ID", uid);
-      });
-  }
 });
 
 document.body.addEventListener("click", e => {
@@ -2369,6 +2268,7 @@ document.body.addEventListener("click", e => {
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
+  document.addEventListener("DOMContentLoaded", init);
   init();
 }
 

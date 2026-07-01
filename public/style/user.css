@@ -2230,6 +2230,10 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   padding-top: 0 !important;
 }
 
+#archivePermList .user-search-item:hover {
+  background: none;
+}
+
 .update-perm {
   margin-left: auto;
   height: 40px;
@@ -2242,4 +2246,14 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 
 .update-perm:hover {
   background: var(--light);
+}
+
+.unavailable p {
+  margin-left: -60px;
+}
+
+@media (max-width: 700px) {
+  #bookmarkList .skeleton-skibidi:first-child {
+    margin-top: -25px;
+  }
 }

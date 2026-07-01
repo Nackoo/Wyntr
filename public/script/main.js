@@ -1,4 +1,4 @@
-import { auth, db, doc, getDoc, onAuthStateChanged, onSnapshot, Timestamp } from "./firebase.js";
+import { auth, db, doc, getDoc, onAuthStateChanged, onSnapshot, Timestamp, query, where, getDocs, limit, collection } from "./firebase.js";
 import { loadFollowingTweets } from "./followingTweets.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
@@ -652,6 +652,7 @@ function init() {
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
+  document.addEventListener("DOMContentLoaded", init);
   init();
 }
 
@@ -687,3 +688,203 @@ export async function showOriginal(text, mentions, title) {
     );
   });
 });
+
+function initMentionAutocompleter(inputElement) {
+  let currentUsers = [];
+  let selectedIndex = -1;
+
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.display = inputElement.style.display || "block";
+  wrapper.style.width = inputElement.offsetWidth ? `${inputElement.offsetWidth}px` : "100%";
+  
+  inputElement.parentNode.insertBefore(wrapper, inputElement);
+  wrapper.appendChild(inputElement);
+
+  const dropdown = document.createElement("ul");
+  dropdown.style.position = "absolute";
+  dropdown.style.top = "100%";
+  dropdown.style.left = "0";
+  dropdown.style.width = "100%";
+  dropdown.style.maxHeight = "200px";
+  dropdown.style.overflowY = "auto";
+  dropdown.style.margin = "0";
+  dropdown.style.padding = "0";
+  dropdown.style.listStyle = "none";
+  dropdown.style.background = "black";
+  dropdown.style.border = "var(--border)";
+  dropdown.style.borderRadius = "12px";
+  dropdown.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
+  dropdown.style.zIndex = "1000";
+  dropdown.style.display = "none";
+
+  wrapper.appendChild(dropdown);
+
+  async function fetchUsers(term) {
+    const lowerTerm = term.toLowerCase();
+    const nameQuery = query(
+      collection(db, "users"),
+      where("name", ">=", lowerTerm),
+      where("name", "<=", lowerTerm + "\uf8ff"),
+      limit(10)
+    );
+    const usernameQuery = query(
+      collection(db, "users"),
+      where("username", ">=", lowerTerm),
+      where("username", "<=", lowerTerm + "\uf8ff"),
+      limit(10)
+    );
+
+    const [nameSnap, userSnap] = await Promise.all([getDocs(nameQuery), getDocs(usernameQuery)]);
+    const usersMap = new Map();
+
+    nameSnap.forEach((doc) => usersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+    userSnap.forEach((doc) => usersMap.set(doc.id, { id: doc.id, ...doc.data() }));
+
+    return Array.from(usersMap.values()).slice(0, 10);
+  }
+
+  function insertMention(text, cursorPosition, username) {
+    const textBefore = text.slice(0, cursorPosition);
+    const textAfter = text.slice(cursorPosition);
+    const lastAt = textBefore.lastIndexOf("@");
+
+    if (lastAt !== -1) {
+      const newTextBefore = textBefore.slice(0, lastAt);
+      return {
+        text: `${newTextBefore}@${username} ${textAfter}`,
+        newCursorPos: lastAt + username.length + 2 
+      };
+    }
+    return { text, newCursorPos: cursorPosition };
+  }
+
+  function closeDropdown() {
+    dropdown.style.display = "none";
+    dropdown.innerHTML = "";
+    currentUsers = [];
+    selectedIndex = -1;
+  }
+
+  function selectUser(user) {
+    const value = inputElement.value;
+    const cursorPosition = inputElement.selectionStart;
+    const result = insertMention(value, cursorPosition, user.username);
+
+    inputElement.value = result.text;
+    closeDropdown();
+
+    inputElement.setSelectionRange(result.newCursorPos, result.newCursorPos);
+    inputElement.dispatchEvent(new Event("input", { bubbles: true })); 
+  }
+
+  function updateHighlight() {
+    const items = dropdown.querySelectorAll("li");
+    items.forEach((li, index) => {
+      if (index === selectedIndex) {
+        li.style.backgroundColor = "var(--light)";
+      } else {
+        li.style.backgroundColor = "black";
+      }
+    });
+
+    if (selectedIndex >= 0 && items[selectedIndex]) {
+      items[selectedIndex].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function renderDropdown(users) {
+    dropdown.innerHTML = "";
+    currentUsers = users;
+
+    if (users.length === 0) {
+      closeDropdown();
+      return;
+    }
+
+    selectedIndex = 0; 
+
+    users.forEach((user, index) => {
+      const li = document.createElement("li");
+      
+      li.style.display = "flex";
+      li.style.alignItems = "center";
+      li.style.gap = "12px";
+      li.style.padding = "10px 15px";
+      li.style.cursor = "pointer";
+      li.style.borderBottom = "1px solid var(--border)";
+      li.style.backgroundColor = index === selectedIndex ? "var(--light)" : "black";
+
+      const avatarSrc = user.photoURL || "/image/default-avatar.jpg"; 
+
+      li.innerHTML = `
+        <img src="${base91ToImageSrc(avatarSrc)}" alt="${user.name}" style="width: 32px; height: 32px; border-radius: 10px; object-fit: cover;">
+        <div style="display: flex; flex-direction: column; line-height: 1.2;">
+          <strong>${user.name}</strong>
+          <span style="color: grey; font-size: 13px;">@${user.username}</span>
+        </div>
+      `;
+
+      li.addEventListener("mouseenter", () => {
+        selectedIndex = index;
+        updateHighlight();
+      });
+
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault(); 
+        selectUser(user);
+      });
+
+      dropdown.appendChild(li);
+    });
+
+    dropdown.style.display = "block";
+    updateHighlight();
+  }
+
+  inputElement.addEventListener("input", async () => {
+    const value = inputElement.value;
+    const cursorPosition = inputElement.selectionStart;
+    
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const match = textBeforeCursor.match(/@(\S*)$/);
+
+    if (match) {
+      const searchTerm = match[1];
+      const users = await fetchUsers(searchTerm);
+      renderDropdown(users);
+    } else {
+      closeDropdown();
+    }
+  });
+
+  inputElement.addEventListener("keydown", (e) => {
+    if (dropdown.style.display !== "block" || currentUsers.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, currentUsers.length - 1);
+      updateHighlight();
+    } 
+    else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+      updateHighlight();
+    } 
+    else if (e.key === "Enter" && selectedIndex >= 0) {
+      e.preventDefault(); 
+      selectUser(currentUsers[selectedIndex]);
+    }
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      closeDropdown();
+    }
+  });
+
+  inputElement.addEventListener("blur", closeDropdown);
+}
+
+initMentionAutocompleter(document.getElementById("tweetInput"));
+initMentionAutocompleter(document.getElementById("retweetText"));
+initMentionAutocompleter(document.getElementById("replyInput"));
+initMentionAutocompleter(document.getElementById("commentInput"));

@@ -150,9 +150,18 @@ service cloud.firestore {
       }
       
       match /views/{userId} {
-        allow read: if request.auth != null;
+        allow read: if request.auth != null && (
+          resource == null || 
+          request.auth.uid == userId ||
+          isParentOwner(get(/databases/$(database)/documents/communities/$(communityId)/posts/$(postId)).data) || 
+          resource.data.status != "private"
+        );
         allow delete: if false;
         allow create: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null && 
+          request.auth.uid == userId && 
+          request.writeFields.hasOnly(['status']) && 
+          request.resource.data.status == 'private';
       }
     }
 
@@ -250,9 +259,18 @@ service cloud.firestore {
       }
       
       match /views/{userId} {
-        allow read: if request.auth != null;
+        allow read: if request.auth != null && (
+          resource == null || 
+          request.auth.uid == userId ||
+          isParentOwner(get(/databases/$(database)/documents/communities/$(communityId)/posts/$(postId)/comments/$(commentId)).data) || 
+          resource.data.status != "private"
+        );
         allow create: if request.auth != null && request.auth.uid == userId;
         allow delete: if false
+        allow update: if request.auth != null && 
+          request.auth.uid == userId && 
+          request.writeFields.hasOnly(['status']) && 
+          request.resource.data.status == 'private';
       }
     }
     
@@ -426,9 +444,18 @@ service cloud.firestore {
       }
 
       match /views/{userId} {
-        allow read: if request.auth != null;
+        allow read: if request.auth != null && (
+          resource == null || 
+          request.auth.uid == userId ||
+          isParentOwner(get(/databases/$(database)/documents/tweets/$(tweetId)).data) || 
+          resource.data.status != "private"
+        );
         allow create: if request.auth != null && request.auth.uid == userId;
         allow delete: if false
+        allow update: if request.auth != null && 
+          request.auth.uid == userId && 
+          request.writeFields.hasOnly(['status']) && 
+          request.resource.data.status == 'private';
       }
 
       match /comments/{commentId} {
@@ -485,9 +512,18 @@ service cloud.firestore {
         }
         
         match /views/{userId} {
-          allow read: if request.auth != null;
+          allow read: if request.auth != null && (
+            resource == null || 
+            request.auth.uid == userId ||
+            isParentOwner(get(/databases/$(database)/documents/tweets/$(tweetId)/comments/$(commentId)).data) || 
+            resource.data.status != "private"
+          );
           allow create: if request.auth != null && request.auth.uid == userId;
           allow delete: if false
+          allow update: if request.auth != null && 
+            request.auth.uid == userId && 
+            request.writeFields.hasOnly(['status']) && 
+            request.resource.data.status == 'private';
         }
       }
     }

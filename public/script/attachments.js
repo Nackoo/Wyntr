@@ -1288,6 +1288,70 @@ async function makeCollage(inputs) {
   });
 }
 
+export async function extractVideoFrame(videoUrl, timeInSeconds = 0.1) {
+  const response = await fetch(videoUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch video network resource: ${response.status}`);
+  }
+  
+  const videoBlob = await response.blob();
+  const localBlobUrl = URL.createObjectURL(videoBlob);
+
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.style.cssText = "position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none;";
+    
+    document.body.appendChild(video);
+
+    const source = document.createElement("source");
+    source.src = localBlobUrl;
+    source.type = videoBlob.type || "video/mp4"; 
+    video.appendChild(source);
+
+    video.onloadedmetadata = () => {
+      video.currentTime = timeInSeconds;
+    };
+
+    video.onseeked = async () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const frameDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+
+        video.remove();
+        URL.revokeObjectURL(localBlobUrl);
+
+        const compressedBase91 = await compressImageTo480(frameDataUrl);
+        resolve(compressedBase91);
+      } catch (error) {
+        video.remove();
+        URL.revokeObjectURL(localBlobUrl);
+        reject(new Error(`Frame asset conversion dropped: ${error.message}`));
+      }
+    };
+
+    video.onerror = () => {
+      const errDetails = video.error 
+        ? `Code: ${video.error.code} | Message: ${video.error.message}` 
+        : "Unknown MediaError";
+      
+      video.remove();
+      URL.revokeObjectURL(localBlobUrl);
+      reject(new Error(`Video element failed to parse media stream. Details -> ${errDetails}`));
+    };
+
+    video.load();
+  });
+}
+
 document.getElementById("mediaInput").addEventListener("change", (e) => {
   handleMediaInput(e, document.getElementById("tweetPreview"));
 });

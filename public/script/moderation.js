@@ -3,40 +3,7 @@ import { log } from "./texts.js";
 
 const loading = document.getElementById("loadingOverlay");
 
-function askDeleteReason() {
-  return new Promise((resolve, reject) => {
-    if (loading.classList.contains("show")) {
-      loading.classList.remove("show");
-    }
-    const overlay = document.getElementById("deleteReasonOverlay");
-    const input = document.getElementById("deleteReasonInput");
-    const cancelBtn = document.getElementById("deleteReasonCancel");
-    const submitBtn = document.getElementById("deleteReasonSubmit");
-
-    overlay.classList.remove("hidden");
-    input.value = "";
-
-    const cleanup = () => {
-      overlay.classList.add("hidden");
-      cancelBtn.onclick = null;
-      submitBtn.onclick = null;
-    };
-
-    cancelBtn.onclick = () => {
-      cleanup();
-      reject("cancelled");
-    };
-    submitBtn.onclick = () => {
-      const reason = input.value.trim();
-      if (!reason) return log("red", "Please provide a reason");
-      if (reason.length < 10) return log("red", "add minimum 10 characters");
-      cleanup();
-      resolve(reason);
-    };
-  });
-}
-
-async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, parentData) {
+export async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, parentData) {
   if (parentData != null) {
     if (parentData.replyPermission && parentData.replyPermission != "everyone") {
       tweetData.replyPermission = parentData.replyPermission;
@@ -98,4 +65,26 @@ async function updateCommentUI(tweetData, commentInput, skibidi, commentStatus, 
   }
 }
 
-export { askDeleteReason, updateCommentUI }
+export async function discord(title, color, fields, timestamp, images = [], type = "admin") {
+  try {
+    const response = await fetch("/.netlify/functions/discord", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title,
+        color,
+        fields,
+        timestamp: timestamp || new Date(),
+        images,
+        type
+      })
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error("Failed to route webhook through Netlify function:", error);
+  }
+}

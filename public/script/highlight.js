@@ -151,7 +151,7 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
     if (snap.empty) {
       if (initial) {
         const emptyMsg = document.createElement('div');
-        tweetList.innerHTML = "";
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
         emptyMsg.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:50px;">
             <div style="max-width:400px;text-align:left;">
               <h2 style="margin:0;">No Wynts for this folder</h2>
@@ -176,9 +176,7 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
       const tweetSnap = await getDoc(tweetRef);
 
       if (tweetSnap.exists()) {
-        if (!tweetList.querySelector(".tweet")) {
-          tweetList.innerHTML = "";
-        }
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
 
         if (data.communityId) {
           await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, "append", tweetList, data.communityId, true, data.private);
@@ -187,9 +185,7 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
         }
         return;
       } else {
-        if (!tweetList.querySelector(".tweet")) {
-          tweetList.innerHTML = "";
-        }
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
         
         const box = document.createElement("div");
         box.className = "unavailable";
@@ -485,6 +481,7 @@ async function selectFolder(folderId, tweetId, isPremium = true, communityId) {
         lastUpdated: serverTimestamp()
       })
     });
+    document.querySelector(`#highlightTweetOverlay .tweet[data-id="${tweetId}"]`).remove();
     log("green", `Removed from "${displayName}"`);
   } else {
     await runTransaction(db, async (tx) => {

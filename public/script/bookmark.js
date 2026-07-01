@@ -101,7 +101,7 @@ async function loadBookmarks(initial = false) {
 
   if (folderSnap.empty) {
     if (!lastDoc) {
-      bookmarkList.innerHTML = "";
+      bookmarkList.querySelectorAll(`.skeleton-skibidi`).forEach(el => el.remove()); 
       bookmarkList.innerHTML = `
         <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:20px;">
           <div style="max-width:400px;text-align:left;margin-top:20px;">
@@ -122,7 +122,7 @@ async function loadBookmarks(initial = false) {
     if (folderDoc.id === 'index') hasIndex = true;
 
     if (!bookmarkList.querySelector(`#folder-${folderDoc.id}`)) {
-      if (!bookmarkList.querySelector(".folder-item")) bookmarkList.innerHTML = "";
+      bookmarkList.querySelectorAll(`.skeleton-skibidi`).forEach(el => el.remove()); 
       renderedFolderIds.add(folderDoc.id);
       bookmarkList.appendChild(createFolderItem(folderDoc));
     }
@@ -250,7 +250,7 @@ async function loadFolderTweets(folderId, initial = true) {
     if (snap.empty) {
       if (initial) {
         const emptyMsg = document.createElement('div');
-        tweetList.innerHTML = "";
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
         emptyMsg.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:50px;">
             <div style="max-width:400px;text-align:left;">
               <h2 style="margin:0;">No Wynts for this folder</h2>
@@ -274,9 +274,7 @@ async function loadFolderTweets(folderId, initial = true) {
       const tweetSnap = await getDoc(tweetRef);
 
       if (tweetSnap.exists()) {
-        if (!tweetList.querySelector(".tweet")) {
-          tweetList.innerHTML = "";
-        }
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
 
         if (data.communityId) {
           await renderTweet(tweetSnap.data(), tweetId, auth.currentUser, "append", tweetList, data.communityId, true, data.private);
@@ -285,9 +283,7 @@ async function loadFolderTweets(folderId, initial = true) {
         }
         return;
       } else {
-        if (!tweetList.querySelector(".tweet")) {
-          tweetList.innerHTML = "";
-        }
+        tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
 
         const box = document.createElement("div");
         box.className = "unavailable";
@@ -571,6 +567,7 @@ async function selectFolder(folderId, tweetId, isPremium = true, communityId) {
         lastUpdated: serverTimestamp()
       })
     });
+    document.querySelector(`#bookmarkTweetOverlay .tweet[data-id="${tweetId}"]`).remove();
     log("green", `Removed from "${displayName}"`);
   } else {
     await runTransaction(db, async (tx) => {

@@ -296,6 +296,7 @@ const inviteeveryone = document.getElementById("inviteEveryone");
 const invitefollow = document.getElementById("inviteFollow");
 const inviteno = document.getElementById("inviteNo"); 
 const privateLike = document.getElementById("privateLikes");
+const privateView = document.getElementById("privateView");
 
 document.getElementById("settingssvg").addEventListener("click", async () => { 
   const userRef = doc(db, "users", auth.currentUser.uid);
@@ -327,6 +328,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
       await updateDoc(userRef, {
         invitePermission: "everyone"
       });
+      log("green", "setting updated");
     }
     if (inviteeveryone.checked === false) {
       inviteeveryone.checked = true;
@@ -342,6 +344,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
       await updateDoc(userRef, {
         invitePermission: "follow"
       });
+      log("green", "setting updated");
     }
     if (invitefollow.checked === false) {
       invitefollow.checked = true;
@@ -357,6 +360,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
       await updateDoc(userRef, {
         invitePermission: "no"
       });
+      log("green", "setting updated");
     }
     if (inviteno.checked === false) {
       inviteno.checked = true;
@@ -373,6 +377,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
     await updateDoc(userRef, {
       cannotSeeFollows: !checkbox.checked
     });
+    log("green", "setting updated");
   };
 
   checkbox2.checked = userData?.cannotSeeFollowers !== true;
@@ -380,6 +385,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
     await updateDoc(userRef, {
       cannotSeeFollowers: !checkbox2.checked
     });
+    log("green", "setting updated");
   };
 
   checkbox1.checked = userData?.cannotSeeCom !== true;
@@ -387,6 +393,7 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
     await updateDoc(userRef, {
       cannotSeeCom: !checkbox1.checked
     });
+    log("green", "setting updated");
   };
 
   privateLike.checked = userData?.privateLikes !== true;
@@ -394,5 +401,14 @@ document.getElementById("settingssvg").addEventListener("click", async () => {
     await updateDoc(userRef, {
       privateLikes: !privateLike.checked
     });
+    log("green", "setting updated");
+  }
+
+  privateView.checked = userData?.privateView !== true;
+  privateView.onchange = async() => {
+    await updateDoc(userRef, {
+      privateView: !privateView.checked
+    });
+    log("green", "setting updated");
   }
 });

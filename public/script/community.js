@@ -1,15 +1,25 @@
 import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter, runTransaction, Timestamp, serverTimestamp } from "./firebase.js";
 import { fileToBase64 } from "./settings.js";
 import { sendadminDismissedNotification, sendCommunityJoinRequest, sendCommunityWarningNotification, sendAdminNotification, sendInviteNotification } from "./notification.js";
-import { renderTweet, openReportOverlay, getUserData, loadComments, getCommunityNameById } from "./index.js";
-import { askDeleteReason } from "./moderation.js";
-import { sendToDiscord } from "./discord.js";
-import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, info, log, inputDialog, confirmDialog } from "./texts.js";
+import { renderTweet, getUserData, loadComments, getCommunityNameById } from "./index.js";
+import { discord } from "./moderation.js";
+import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, info, log, inputDialog, confirmDialog, formatUTC8 } from "./texts.js";
 import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc, uploadMedia, compressImageTo480 } from "./attachments.js";
 import { openUserSubProfile } from "./user.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { updatePostZIndex, updateCbDisplay } from "./main.js";
 import { initArchiveViewer } from "./archive.js";
+
+const skeletonskibidi = `
+  <div class="skeleton-skibidi">
+    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+  </div>
+  <div class="skeleton-skibidi">
+    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+  </div>
+  <div class="skeleton-skibidi">
+    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
+  </div>`;
 
 let lastCommunityDoc          = null;
 let hasMoreCommunities        = true;
@@ -177,17 +187,7 @@ export async function loadMyCommunities(reset = false) {
 
   if (reset) {
     myComLastDoc = null;
-    container.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-    `;
+    container.innerHTML = skeletonskibidi;
   }
 
   let q;
@@ -731,17 +731,7 @@ export async function loadCommunities(reset = false) {
   const container = document.getElementById("communityList");
 
   if (reset) {
-    container.innerHTML = `
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
-            <div class="skeleton-skibidi">
-              <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-            </div>
-    `  ;
+    container.innerHTML = skeletonskibidi;
     lastCommunityDoc    = null;
     hasMoreCommunities  = true;
   }
@@ -1908,8 +1898,8 @@ window.openComMenu = async function (communityId) {
   reportBtn.style.display = isOwner ? "none" : "flex";
   disbandBtn.style.display = (isGlobalAdmin && cData.creatorId != auth.currentUser.uid) ? "flex" : "none";
 
+  const link = `https://wyntr.netlify.app/community/${communityId}`;
   copyBtn.onclick = async () => {
-    const link = `https://wyntr.netlify.app/community/${communityId}`;
     try {
       await navigator.clipboard.writeText(link);
       log("green", "Copied community link");
@@ -1922,29 +1912,27 @@ window.openComMenu = async function (communityId) {
   closeBtn.onclick = () => overlay.classList.add("hidden");
 
   reportBtn.onclick = async () => {
-    const communityEl = document.querySelector(".communityo .user-box");
-
-    let screenshotBase64 = null;
-    if (communityEl) {
-      try {
-        const canvas = await html2canvas(communityEl, { backgroundColor: null });
-        screenshotBase64 = canvas.toDataURL("image/png");
-      } catch (err) {
-        console.error("Screenshot failed:", err);
-      }
-    }
-
     const data = snap.data();
     const { username } = await getUserData(data.creatorId);
+    const { username: usn } = await getUserData(auth.currentUser.uid);
 
-    openReportOverlay({
-      type: "community",
-      id: communityId,
-      text: data.name,
-      link: `https://wyntr.netlify.app/community/${communityId}`,
-      username: username,
-      screenshot: screenshotBase64, 
-    });
+    const reason = await inputDialog("report community", "state why you're proceeding this action", null, "", true);
+    
+    discord("community report", "red", {
+      "name": data.name,
+      "description": data.description,
+      "author": `${username} (${data.creatorId})`,
+      "total members": data.membersCount,
+      "offend": reason,
+      "offender": `${usn}, (${auth.currentUser.uid})`,
+      "source": link
+    }, new Date(), [
+      data.avatar || null,
+      data.banner || null
+    ], "user");
+
+    log("green", "community reported");
+    overlay.classList.add("hidden");
   };
 
   inviteBtn.onclick = async () => {
@@ -2190,25 +2178,14 @@ window.openComMenu = async function (communityId) {
     const confirmDelete = await confirmDialog("Disband community?", "Are you sure you want to disband this community permanently?", "red");
     if (!confirmDelete) return;
 
-    const typed = await inputDialog("Disband community", `Type the community name EXACTLY to confirm:\n${cData.name}`);
+    const typed = await inputDialog("Disband community", `Type the community name EXACTLY to confirm:\n${cData.name}`, null, "", true);
     if (typed !== cData.name) {
       log("red", "Name mismatch, cancelled");
       return;
     }
 
-    const reason = await askDeleteReason();
+    const reason = await inputDialog("disband community", "state why you're proceeding this action", null, "", true);
     loading.classList.add("show");
-
-    let screenshotBase64 = null;
-    try {
-      const box = document.querySelector(".communityo .user-box");
-      if (box) {
-        const canvas = await html2canvas(box, { backgroundColor: null });
-        screenshotBase64 = canvas.toDataURL("image/png");
-      }
-    } catch (err) {
-      console.error("Screenshot error:", err);
-    }
 
     const { username: offenderName } = await getUserData(auth.currentUser.uid);
     const { username: creatorName } = await getUserData(cData.creatorId);
@@ -2217,27 +2194,25 @@ window.openComMenu = async function (communityId) {
     const susSnap = await getDoc(susRef);
     const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
 
-    const embed = {
-      title: "Community Disbanded",
-      color: 15105570,
-      fields: [
-        { name: "Name", value: cData.name || "(no name)" },
-        { name: "Creator", value: creatorName || "(unknown)" },
-        { name: "Total Members", value: cData.membersCount },
-        { name: "Reason", value: reason || "No reason given" },
-        { name: "Offender", value: offenderName || "(unknown)" },
-        { name: "Creator warnings", value: `${currentWarnings + 1}` },
-      ],
-      timestamp: new Date(),
-    };
+    discord("community deleted", "red", {
+      "name": cData.name,
+      "description": cData.description,
+      "author": `${creatorName} (${cData.creatorId})`,
+      "total members": cData.membersCount,
+      "offend": reason,
+      "offender": `${offenderName} (${auth.currentUser.uid})`,
+      "user warnings": `${currentWarnings + 1}`,
+    }, new Date(), [
+      cData.avatar || null,
+      cData.banner || null
+    ], "admin");
 
-    if (screenshotBase64) {
-      embed.image = { url: "attachment://screenshot.png" };
-    }
     await deleteDoc(comRef);
-
-    await sendToDiscord(null, { embeds: [embed] }, screenshotBase64);
-    await sendCommunityWarningNotification(cData.creatorId, cData.name, reason, cData.avatar);
+    sendCommunityWarningNotification(cData.creatorId, cData.name, reason, cData.avatar);
+    
+    updateDoc(susRef, {
+      warnings: increment(1)
+    }, { merge: true });
 
     loading.classList.remove("show");
     log("green", "Community has been disbanded");
@@ -2263,6 +2238,7 @@ async function waitForAuth() {
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
+  document.addEventListener("DOMContentLoaded", init);
   init();
 }
 
@@ -2298,14 +2274,7 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
     const term = e.target.value.trim().toLowerCase();
 
     const list = document.getElementById("myCommunities");
-    list.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-    `;
+    list.innerHTML = skeletonskibidi;
 
     if (!term) {
       loadingComList = true;
@@ -2379,14 +2348,7 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
     const term = e.target.value.trim().toLowerCase();
 
     const list = document.getElementById("communityList");
-    list.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-      </div>
-    `;
+    list.innerHTML = skeletonskibidi;
 
     if (!term) {
       loadingComList = true;
@@ -2782,6 +2744,7 @@ document.getElementById("my-com").onclick = () => {
   window.cannotSeeCom = false;
   window.currentComID = auth.currentUser.uid;
 };
+
 document.getElementById("com").onclick = () => {
   openCommunityOverlay(document.getElementById("user-name").dataset.uid, true);
   comLastDoc = null;
@@ -2795,9 +2758,7 @@ async function openCommunityOverlay(uid, reset) {
 
   if (reset) {
     comLastDoc = null;
-    container.innerHTML = `
-<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-    `;
+    container.innerHTML = skeletonskibidi;
 
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);

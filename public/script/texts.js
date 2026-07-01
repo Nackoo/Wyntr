@@ -84,7 +84,7 @@ function createEmojiOverlay(button) {
   document.body.appendChild(overlay);
 }
 
-function inputDialog(title, desc, extraElement, inputValue) {
+function inputDialog(title, desc, extraElement, inputValue, red) {
   return new Promise(resolve => {
     if (loading.classList.contains("show")) {
       loading.classList.remove("show");
@@ -134,6 +134,9 @@ function inputDialog(title, desc, extraElement, inputValue) {
     const ok = document.getElementById("inputOk");
     const cancel = document.getElementById("inputCancel");
 
+    ok.style.background = red ? "#db1d23" : "white";
+    ok.style.color = red ? "white" : "black";
+    
     ok.onclick = () => {
       if (!input.value) return log("red", "input cannot be blank");
       close(input.value.trim() || null)
@@ -717,6 +720,15 @@ export function toDate(input, options = {}) {
   }
 
   return date.toLocaleString(locale, formatOptions);
+}
+
+export function isOlderThanBlankDays(createdAtTimestamp, days) {
+  const postDate = createdAtTimestamp.toDate();
+  const now = new Date();
+  
+  // ([num] days * 24 hours * 60 mins * 60 secs * 1000 ms)
+  const blankDaysInMs = days * 24 * 60 * 60 * 1000;
+  return (now - postDate) > blankDaysInMs;
 }
 
 export { randomString, inputDialog, confirmDialog, log, info, tokenize, formatDate, linkify, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime }
