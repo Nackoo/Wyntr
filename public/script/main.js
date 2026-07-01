@@ -692,6 +692,7 @@ export async function showOriginal(text, mentions, title) {
 function initMentionAutocompleter(inputElement) {
   let currentUsers = [];
   let selectedIndex = -1;
+  let isFetching = false; 
 
   const wrapper = document.createElement("div");
   wrapper.style.position = "relative";
@@ -842,17 +843,43 @@ function initMentionAutocompleter(inputElement) {
     updateHighlight();
   }
 
+  function renderSkeleton() {
+    dropdown.innerHTML = "";
+    dropdown.style.display = "block";
+    for (let i = 0; i < 3; i++) {
+      const li = document.createElement("li");
+      li.style.padding = "10px 10px";
+      li.style.display = "flex";
+      li.style.alignItems = "center";
+      li.style.gap = "12px";
+      li.innerHTML = `
+        <div class="skeleton" style="width: 32px; height: 32px; border-radius: 10px;"></div>
+        <div style="flex: 1;">
+          <div class="skeleton" style="width: 80px; height: 12px; margin-bottom: 6px; border-radius: 4px;"></div>
+          <div class="skeleton" style="width: 120px; height: 10px; border-radius: 4px;"></div>
+        </div>
+      `;
+      dropdown.appendChild(li);
+    }
+  }
+
   inputElement.addEventListener("input", async () => {
     const value = inputElement.value;
     const cursorPosition = inputElement.selectionStart;
-    
     const textBeforeCursor = value.slice(0, cursorPosition);
     const match = textBeforeCursor.match(/@(\S*)$/);
 
     if (match) {
+      isFetching = true;
+      renderSkeleton(); 
+      
       const searchTerm = match[1];
       const users = await fetchUsers(searchTerm);
-      renderDropdown(users);
+      
+      if (isFetching) {
+        renderDropdown(users);
+        isFetching = false;
+      }
     } else {
       closeDropdown();
     }

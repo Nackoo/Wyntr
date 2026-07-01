@@ -1059,7 +1059,8 @@ img.emoji {
 .skeleton-line,
 .skeleton-pill,
 .skeleton-avatar,
-.skeleton-dot {
+.skeleton-dot,
+.skeleton {
   background: linear-gradient(90deg, #2f3031 25%, #3a3b3c 50%, #2f3031 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
