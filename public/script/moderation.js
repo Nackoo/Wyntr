@@ -37,13 +37,11 @@ export async function updateCommentUI(tweetData, commentInput, skibidi, commentS
 
   if (tweetData.disableComments && tweetData.archived && tweetData.uid != auth.currentUser.uid) {
     canComment = false;
-    console.log("i can't comment");
   }
 
   if ((canComment || isOwner || (!hasValidMentions && !(tweetData.archived && tweetData.disableComments)))) {
     commentInput.classList.remove("hidden");
     document.querySelectorAll(".skibidi").forEach(el => el.classList.remove("hidden"));
-    console.log("i can comment")
   } else {
     commentInput.classList.add("hidden");
     document.querySelectorAll(".skibidi").forEach(el => el.classList.add("hidden"));
@@ -85,6 +83,7 @@ export async function discord(title, color, fields, timestamp, images = [], type
     const result = await response.json();
     return result;
   } catch (error) {
+    log("red", "failed to send report");
     console.error("Failed to route webhook through Netlify function:", error);
   }
 }

@@ -157,6 +157,7 @@ const filledIconMap = {
 
 const clickHandler = (clickedIcon) => {
   return () => {
+    history.pushState({}, '', '/');
     panelsToHide().forEach(p => p?.classList.add("hidden"));
     filledIcons.forEach(icon => icon?.classList.add("hidden"));
     Object.values(outlineIcons).forEach(icon => icon?.classList.remove("hidden"));

@@ -4,6 +4,7 @@ import { formatDate, escapeHTML, applyReadMoreLogic, parseMentionsToLinks, forma
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js"; 
 import { incrementViews } from "./view.js";
+import { openCommunity } from "./community.js";
  
 export async function renderTweetViewer(t, tweetId, container, user, comid, isFromMain, isStored) {
   document.getElementById("commentList").classList.add("hidden");
@@ -1086,19 +1087,11 @@ export async function renderTweetViewer(t, tweetId, container, user, comid, isFr
 
 export async function viewTweet(tweetId, comid) {
   const overlay = document.getElementById("tweetViewer");
-  const userBox = overlay.querySelector("#appendTweet");
-  userBox.innerHTML = "";
+  const container = overlay.querySelector("#appendTweet");
+  container.innerHTML = "";
   overlay.classList.remove("hidden");
   document.body.classList.add('no-scroll');
 
-  if (comid) {
-    await loadTweetRecursive(tweetId, userBox, comid);
-  } else {
-    await loadTweetRecursive(tweetId, userBox);
-  }
-}
-
-async function loadTweetRecursive(tweetId, container, comid) {
   let tweetDoc;
   if (window.communityID != null) {
     tweetDoc = await getDoc(doc(db, "communities", window.communityID, "posts", tweetId));
@@ -1117,38 +1110,13 @@ async function loadTweetRecursive(tweetId, container, comid) {
   }
 
   const tweetData = tweetDoc.data();
-  const tweetDiv = document.createElement("div");
-  tweetDiv.className = "tweet-box";
-  tweetDiv.dataset.id = tweetId;
-  tweetDiv.innerHTML = ``;
 
-  if (comid) {
-    renderTweetViewer(tweetData, tweetId, container, auth.currentUser, comid);
-  } else {
-    renderTweetViewer(tweetData, tweetId, container, auth.currentUser);
-  }
-
-  container.appendChild(tweetDiv);
+  renderTweetViewer(tweetData, tweetId, container, auth.currentUser, comid || null);
+  if (comid) openCommunity(comid);
 
   if (!(tweetData.archived && auth.currentUser.uid != tweetData.uid && !tweetData.viewPermission?.includes(auth.currentUser.uid) && !tweetData.allowAnyoneWithLink && currentUserRole != "admin")) {
-    if (comid) {
-      loadComments(tweetId, tweetDiv, comid);
-    } else {
-      loadComments(tweetId, tweetDiv);
-    }
+    loadComments(tweetId, true, null, document.getElementById("commentList"), comid || null);
   }
-
-  if (tweetData.originalTweetId) {
-    const originalContainer = document.createElement("div");
-    originalContainer.className = "tweet-box original-chain";
-    tweetDiv.appendChild(originalContainer);
-    if (comid) {
-      loadTweetRecursive(tweetData.originalTweetId, originalContainer, comid);
-    } else {
-      loadTweetRecursive(tweetData.originalTweetId, originalContainer);
-    }
-  }
-  return tweetData;
 }
 
 document.body.addEventListener("click", async (e) => {

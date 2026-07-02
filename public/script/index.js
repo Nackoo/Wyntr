@@ -2362,9 +2362,10 @@ document.body.addEventListener("click", async (e) => {
         ${showDeleteBtn || (window.communityID && window.canModerate)
           ? `<div class="menu-item delete-btn" data-community-id="${hascom || null}" data-id="${tweetId}">
             <img loading='lazy' src="/image/trash.svg"> Delete this Wynt 
-            ${(isAdmin && tweetUserRole !== "admin" && data.uid != auth.currentUser.uid) ? "as global admin" : `
-              ${window.communityID && window.canModerate && data.uid != auth.currentUser.uid ? "as community admin" : ""}  
-            `}
+            ${isOwner ? "" : `
+            ${(isAdmin && tweetUserRole !== "admin") ? "as global admin" : `
+              ${window.communityID && window.canModerate ? "as community admin" : ""}  
+            `}`}
           </div>`
         : ""}
 
@@ -3264,9 +3265,9 @@ document.body.addEventListener("click", async (e) => {
 
       ${showDeleteBtn || (window.communityID && window.canModerate)
         ? `<div class="c-menu-item comment-delete-btn"  data-community-id="${hascom || null}" data-id="${commentId}" data-tweet="${tweetId}">
-            <img loading='lazy' src="/image/trash.svg"> Delete this reply ${(isAdmin && commentUserRole !== "admin") ? "as global admin" : `
+            <img loading='lazy' src="/image/trash.svg"> Delete this reply ${isOwner ?  "" : `${(isAdmin && commentUserRole !== "admin") ? "as global admin" : `
               ${window.communityID && window.canModerate ? "as community admin" : ""}
-            `}
+            `}`}
           </div>`
         : ""
       }
