@@ -43,7 +43,6 @@ let bb                   = false;
 let isSearching          = false;
 let lastUserDoc          = null;
 let totalLoaded          = 0;
-let previousTerm         = "";
 let followList           = [];
 let followLastDoc        = null;
 
@@ -156,8 +155,6 @@ searchsvg.addEventListener("click", async () =>  {
 searchInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter") {
     const term = searchInput.value.trim();
-    if (term === previousTerm) return;
-    previousTerm = term;
 
     if (term.startsWith("https://wyntr.netlify.app")) {
 
@@ -171,7 +168,6 @@ searchInput.addEventListener("keydown", async (e) => {
 
       if (userMatch || tweetMatch || communityMatch || replyMatch || communityTweetMatch || communityReplyMatch) {
         searchInput.value = "";
-        previousTerm = "";
       }
  
       if (communityMatch) {
