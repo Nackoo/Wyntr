@@ -312,11 +312,9 @@ async function renderPinned(d) {
     pinnedLabel.innerHTML = `<div class="iq pinlabel userPinned-${d.pinned}" style="background:var(--color);margin-bottom:10px;margin-top:30px;width:fit-content;font-size:13px;">Pinned by Wynt author</div>`;
     
     await renderTweet(pinnedData, d.pinned, auth.currentUser, "skibidi", list);
-    console.log("TWEET RENDERED");
 
     if (!document.getElementById('pinnedyeah')) {
       list.prepend(pinnedLabel);
-      console.log(pinnedLabel)
       document.querySelectorAll("#youList .skeleton-card").forEach(e => {e.remove()});
     }
   }
@@ -344,9 +342,7 @@ searchbar.addEventListener("keydown", async (e) => {
     mentionedLoadedCount = 0;
     bb = false;
 
-    console.log("hi");
     await loadUserMentionedTweets(uid, term);
-    console.log("yes")
   }
 });
 

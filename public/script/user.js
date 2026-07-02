@@ -1551,7 +1551,8 @@ window.followOverlay = followOverlay;
 
 const skeleton1 = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
 
-async function openFollowOverlay(type, userId, isMe) {
+async function openFollowOverlay(userId, isMe) {
+  window.followOverlayUid = userId;
   const overlay = document.getElementById("followOverlay");
   const listEl = document.getElementById("followList");
   const input = overlay.querySelector("input");
@@ -1565,7 +1566,7 @@ async function openFollowOverlay(type, userId, isMe) {
   window.cannotSeeFollowers = false;
   window.cannotSeeFollows = false;
 
-  await loadFollowUsers(type, userId);
+  await loadFollowUsers(userId);
 
   let previousValue = "";
 
@@ -1579,7 +1580,7 @@ async function openFollowOverlay(type, userId, isMe) {
       followList = [];
       isSearching = false;
       hasMore = true; 
-      await loadFollowUsers(type, userId);
+      await loadFollowUsers(userId);
       return;
     }
     if (value.trim().toLowerCase() === previousValue) return;
@@ -1626,7 +1627,7 @@ async function openFollowOverlay(type, userId, isMe) {
       }
       
       constraints.push(limit(10));
-      return query(collection(db, "users", userId, type), ...constraints);
+      return query(collection(db, "users", userId, window.type), ...constraints);
     }
 
     const [nameSnap, usernameSnap] = await Promise.all([
@@ -1638,7 +1639,6 @@ async function openFollowOverlay(type, userId, isMe) {
     nameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
     usernameSnap.forEach(doc => uniqueDocs.set(doc.id, doc));
 
-    // 💡 CHANGED HERE: Handle empty search response elegantly
     if (uniqueDocs.size === 0) {
       hasMore = false; 
       if (!isNextPage && !(listEl.querySelector(".user-search-item"))) {
@@ -1726,7 +1726,7 @@ async function openFollowOverlay(type, userId, isMe) {
           if (!confirmed) return;
 
           try {
-            const followDocRef = doc(db, "users", userId, type, theirId);
+            const followDocRef = doc(db, "users", userId, window.type, theirId);
             await updateDoc(followDocRef, { status: "private" });
             loading.classList.remove("show");
             log("green", "user hidden from public");
@@ -1744,25 +1744,21 @@ async function openFollowOverlay(type, userId, isMe) {
       });
 
       const btn = item.querySelector(".mini-follow-btn");
-      if (type === "following" && userId === auth.currentUser.uid) {
-        setupMiniFollowBtn(btn, theirId, true);
-      } else {
-        setupMiniFollowBtn(btn, theirId);
-      }
+      setupMiniFollowBtn(btn, theirId);
     }
   }
 
-  async function loadFollowUsers(type, userId) {
+  async function loadFollowUsers(userId) {
     let ref;
     if (userId !== auth.currentUser.uid) {
       ref = query(
-        collection(db, "users", userId, type), 
+        collection(db, "users", userId, window.type), 
         where("status", "!=", "private"),
         orderBy("followersCount", "desc")
       );
     } else {
       ref = query(
-        collection(db, "users", userId, type),
+        collection(db, "users", userId, window.type),
         orderBy("followersCount", "desc")
       );
     }
@@ -1776,23 +1772,20 @@ async function openFollowOverlay(type, userId, isMe) {
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
 
-      if (userData.cannotSeeFollows === true && type == "following" && userId !== auth.currentUser.uid) {
+      if (userData.cannotSeeFollows === true && window.type == "following" && userId !== auth.currentUser.uid) {
         document.getElementById("followList").innerHTML = noaccess;
         if (userData.cannotSeeFollows) window.cannotSeeFollows = true;
-        window.type = "following";
         return;
       }
-      if (userData.cannotSeeFollowers && type == "followers" && userId !== auth.currentUser.uid) {
+      if (userData.cannotSeeFollowers && window.type == "followers" && userId !== auth.currentUser.uid) {
         document.getElementById("followList").innerHTML = noaccess;
         if (userData.cannotSeeFollowers) window.cannotSeeFollowers = true;
-        window.type = "followers"
         return;
       }
     }
 
     window.cannotSeeFollows = false;
     window.cannotSeeFollowers = false;
-    window.type = type;
     window.userId = userId;
 
     const q = followLastDoc
@@ -1808,9 +1801,9 @@ async function openFollowOverlay(type, userId, isMe) {
           <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
             <div style="max-width:400px;text-align:left;">
               <h2 style="margin:0;">No results — yet</h2>
-              <p style="color:grey;margin:7px 0;">${type == "following" ? "seems like nobody is followed by this user." : "seems like nobody follows them. Be the first one.s"}</p>
+              <p style="color:grey;margin:7px 0;">${window.type == "following" ? "seems like nobody is followed by this user." : "seems like nobody follows them. Be the first one.s"}</p>
             </div>
-          </div>`; // Fixed missing closing div tag from original code
+          </div>`; 
       }
       return;
     }
@@ -1833,7 +1826,7 @@ async function openFollowOverlay(type, userId, isMe) {
         if (document.getElementById("my-name").dataset.uid !== userId) return;
       }
 
-      const item = await renderFollowUserItem(theirId, data, type, userId);
+      const item = await renderFollowUserItem(theirId, data, userId);
       item.dataset.uid = theirId;
       item.id = `skibidi-${theirId}`;
 
@@ -1844,7 +1837,7 @@ async function openFollowOverlay(type, userId, isMe) {
     }
   }
 
-  async function renderFollowUserItem(uid, data, type, targetListUserId) {
+  async function renderFollowUserItem(uid, data, targetListUserId) {
     const item = document.createElement("div");
     item.className = "user-search-item";
     item.style.cssText = "display:flex;gap:10px;padding:10px 0;border-bottom:var(--border);align-items:center";
@@ -1898,7 +1891,7 @@ async function openFollowOverlay(type, userId, isMe) {
         if (!confirmed) return;
 
         try {
-          const followDocRef = doc(db, "users", targetListUserId, type, uid);
+          const followDocRef = doc(db, "users", targetListUserId, window.type, uid);
           await updateDoc(followDocRef, { status: "private" });
           loading.classList.remove("show");
           log("green", "user hidden from public");
@@ -1916,11 +1909,7 @@ async function openFollowOverlay(type, userId, isMe) {
     });
 
     const btn = item.querySelector(".mini-follow-btn");
-    if (type === "following" && window.userId === auth.currentUser.uid) {
-      setupMiniFollowBtn(btn, uid, true);
-    } else {
-      setupMiniFollowBtn(btn, uid);
-    }
+    setupMiniFollowBtn(btn, uid);
 
     return item;
   }
@@ -1929,7 +1918,6 @@ async function openFollowOverlay(type, userId, isMe) {
   let isLoading = false;
 
   followListContainer.addEventListener("scroll", async () => {
-    // 💡 CHANGED HERE: Instantly returns if hasMore is false to prevent redundant queries
     if (isLoading || !hasMore) return; 
 
     const scrollBottom = followListContainer.scrollTop + followListContainer.clientHeight;
@@ -1945,7 +1933,7 @@ async function openFollowOverlay(type, userId, isMe) {
       if (activeSearchTerm) {
         await searchFollowUsers(activeSearchTerm, true); 
       } else {
-        await loadFollowUsers(window.type, window.userId);
+        await loadFollowUsers(window.userId);
       }
       
       isLoading = false;
@@ -1953,7 +1941,7 @@ async function openFollowOverlay(type, userId, isMe) {
   });
 }
 
-async function setupMiniFollowBtn(btn, targetId, skibidi) {
+async function setupMiniFollowBtn(btn, targetId) {
   if (auth.currentUser?.uid !== targetId) {
     const currentUid = auth.currentUser.uid;
     const myFollowingRef = doc(db, "users", currentUid, "following", targetId);
@@ -1966,7 +1954,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
 
     btn.textContent = isFollowingSnap.exists() ? "UnFoll" : "Follow";
 
-    if (skibidi === true) {
+    if (window.followOverlayUid == auth.currentUser.uid) {
       btn.style.cssText = isFollowingSnap.exists() ? "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
     } else {
       btn.style.cssText = isFollowingSnap.exists() ? "display:none" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
@@ -2080,7 +2068,7 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
 
           btn.textContent = "UnFoll";
 
-          if (skibidi === true) {
+          if (window.followOverlayUid == auth.currentUser.uid) {
             btn.style.cssText = "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;"
           } else {
             btn.style.cssText = "display:none";
@@ -2100,15 +2088,21 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
   }
 }
 
-document.getElementById("my-ers").onclick = () => openFollowOverlay("followers", auth.currentUser.uid, true);
-document.getElementById("my-ing").onclick = () => openFollowOverlay("following", auth.currentUser.uid, true);
+document.getElementById("my-ers").onclick = () => {
+  window.type = "followers";
+  openFollowOverlay(auth.currentUser.uid, true);
+}
+document.getElementById("my-ing").onclick = () => {
+  window.type = "following";
+  openFollowOverlay(auth.currentUser.uid, true);
+}
 document.getElementById("ers").onclick = () => {
-  window.lastViewedUserId = document.getElementById("user-name").dataset.uid;
-  openFollowOverlay("followers", window.lastViewedUserId, false);
+  window.type = "followers";
+  openFollowOverlay(document.getElementById("user-name").dataset.uid, false);
 };
 document.getElementById("ing").onclick = () => {
-  window.lastViewedUserId = document.getElementById("user-name").dataset.uid;
-  openFollowOverlay("following", window.lastViewedUserId, false);
+  window.type = "following"
+  openFollowOverlay(document.getElementById("user-name").dataset.uid, false);
 };
 
 document.querySelectorAll(".tab3").forEach(tab => {
