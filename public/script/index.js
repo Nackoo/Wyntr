@@ -3777,7 +3777,6 @@ function setupPoll(checkboxId, containerId, addBtnId, pollDuration) {
   const addBtn = document.getElementById(addBtnId);
   const polldur = document.getElementById(pollDuration);
 
-  // 🔥 Apply max length to existing inputs (HTML ones)
   const applyMaxLength = () => {
     container.querySelectorAll(".poll-option").forEach(input => {
       input.maxLength = 50;
@@ -3796,7 +3795,6 @@ function setupPoll(checkboxId, containerId, addBtnId, pollDuration) {
       });
       addBtn.style.display = "inline-block";
 
-      // 🔥 Re-apply after reset
       applyMaxLength();
     }
   });
@@ -3816,7 +3814,6 @@ function setupPoll(checkboxId, containerId, addBtnId, pollDuration) {
     input.className = "poll-option";
     input.placeholder = `Option`;
 
-    // 🔥 Apply limit to new input
     input.maxLength = 50;
 
     const removeBtn = document.createElement("div");
