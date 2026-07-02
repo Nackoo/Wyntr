@@ -655,6 +655,8 @@ function softblank() {
   document.getElementById("user-banner").style.background = "#16181c";
   document.getElementById("user-creation").textContent = "loading date";
   document.getElementById("highlights-container").innerHTML = "";
+  document.getElementById("comRule").style.display = "none";
+  document.getElementById("followBtn").innerHTML = "";
 
   const userEffectEl = document.querySelector("#profile-effect");
   if (userEffectEl) {
@@ -699,9 +701,9 @@ async function isBanned(uid, d) {
   if (bannedSnap.exists()) {
     document.getElementById("user-name").textContent = "user is suspended";
     document.getElementById("followBtn").classList.add("hidden");
+    document.getElementById("user-description").classList.add("hidden");
 
     if (currentUserRole == "admin") {
-      document.getElementById("user-suspended").classList.remove("hidden");
       document.getElementById("suspended-for1").textContent = `for: ${d.bannedFor}`
     }
     blank();
@@ -815,7 +817,6 @@ async function loadUserHighlights(uid, initial = false) {
 }
 
 export async function openUserSubProfile(uid) {
-  document.getElementById("userSubOverlay").classList.remove("hidden");
   searchsvg.click();
   searchbar.value = "";
 
@@ -823,13 +824,6 @@ export async function openUserSubProfile(uid) {
   window.cannotSeeFollows = false;
   window.cannotSeeFollowers = false;
   tweetviewactive1();
-
-  document.getElementById("comRule").style.display = "none";
-
-  const followBtn = document.getElementById("followBtn");
-
-  followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
-  followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
 
   userLoadedCount = 0;
   userLastVisibleDoc = null;
@@ -866,17 +860,15 @@ export async function openUserSubProfile(uid) {
   if (d.suspended && d.suspendedUntil > Timestamp.now()) {
       document.getElementById("user-suspended").classList.remove("hidden");
 
-      // 1. Get the difference in milliseconds
       const now = new Date();
-      const suspendedUntilDate = d.suspendedUntil.toDate(); // Convert Firestore Timestamp to JS Date
+      const suspendedUntilDate = d.suspendedUntil.toDate(); 
       const diffInMs = suspendedUntilDate - now;
 
-      // 2. Convert milliseconds to days (1000ms * 60s * 60m * 24h)
       const daysLeft = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
 
       if (currentUserRole === "admin") { 
           document.getElementById("suspended-for1").textContent = 
-              `Suspended for: ${d.suspendedFor || "no reason specified"} (${daysLeft}d left)`;
+              `for: ${d.suspendedFor || "no reason specified"} (${daysLeft}d left)`;
       }
   } else {
     document.getElementById("user-suspended").classList.add("hidden");
@@ -968,6 +960,10 @@ export async function openUserSubProfile(uid) {
             const { d } = await getUserData(uid);
             const { username: adminName } = await getUserData(auth.currentUser.uid);
 
+            const susRef = doc(db, "susList", uid);
+            const susSnap = await getDoc(susRef);
+            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
+
             discord("user unbanned", "gray", {
               "name": d.displayName,
               "username": d.username,
@@ -975,7 +971,8 @@ export async function openUserSubProfile(uid) {
               "reason": reason,
               "previous ban reason": previousReason,
               "responsible admin": `${adminName} (${auth.currentUser.uid})`,
-              "source": `https://wyntr.netlify.app/${uid}`
+              "source": `https://wyntr.netlify.app/${uid}`,
+              "current warnings": currentWarnings
             }, new Date(), [
               d.photoURL || null,
               d.banner
@@ -1036,7 +1033,8 @@ export async function openUserSubProfile(uid) {
             "user ID": uid,
             "offend": reason,
             "offender": `${adminName} (${auth.currentUser.uid})`,
-            "source": `https://wyntr.netlify.app/${uid}`
+            "source": `https://wyntr.netlify.app/${uid}`,
+            "current warnings": currentWarnings
           }, new Date(), [
             d.photoURL || null,
             d.banner
@@ -1092,6 +1090,10 @@ export async function openUserSubProfile(uid) {
             const { d } = await getUserData(uid);
             const { username: adminName } = await getUserData(auth.currentUser.uid);
 
+            const susRef = doc(db, "susList", uid);
+            const susSnap = await getDoc(susRef);
+            const currentWarnings = susSnap.exists() ? susSnap.data().warnings || 0 : 0;
+
             discord("user un-suspended", "gray", {
               "name": d.displayName,
               "username": d.username,
@@ -1099,7 +1101,8 @@ export async function openUserSubProfile(uid) {
               "reason": reason,
               "previous suspend reason": previousReason,
               "responsible admin": `${adminName} (${auth.currentUser.uid})`,
-              "source": `https://wyntr.netlify.app/${uid}`
+              "source": `https://wyntr.netlify.app/${uid}`,
+              "current warnings": currentWarnings
             }, new Date(), [
               d.photoURL || null,
               d.banner
@@ -1164,7 +1167,7 @@ export async function openUserSubProfile(uid) {
               "offender": `${adminName} (${auth.currentUser.uid})`,
               "suspended until": formatUTC8(getSuspendedUntil(duration)),
               "source": `https://wyntr.netlify.app/${uid}`,
-              "user warnings": `${currentWarnings}`,
+              "current warnings": currentWarnings
             }, new Date(), [
               d.photoURL || null,
               d.banner
@@ -1341,10 +1344,9 @@ async function loadIfFollow(uid) {
 
           await batch.commit();
 
-          followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
-          followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
+          followBtn.innerHTML = "";
           followBtn.classList.remove("disabled");
-          followBtn.disabled = false;;
+          followBtn.disabled = false;
 
           log("green", `user unfollowed`);
           loading.classList.remove("show");
@@ -1415,8 +1417,7 @@ async function loadIfFollow(uid) {
             log("green", `followed ${tDisplayName || "them"}`);
           });
 
-          followBtn.style.cssText = `margin-right:-13px;background:none;margin-bottom:-10px;`;
-          followBtn.innerHTML = `<img loading='lazy' height="30" src="/image/loader.svg">`;
+          followBtn.innerHTML = "";
 
           reset();
           await loadIfFollow(uid);

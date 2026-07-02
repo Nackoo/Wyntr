@@ -4,6 +4,7 @@ export const profile           = document.getElementById('profileOverlay');
 export const profilesub        = document.getElementById('profileSubOverlay');
 export const user              = document.getElementById('userOverlay');
 export const usersub           = document.getElementById('userSubOverlay');
+export const skibidiyanto      = document.getElementById('skibidiyanto');
 export const tag               = document.getElementById('tagSubOverlay');
 export const viewer            = document.getElementById('tweetViewer');
 export const tweet             = document.getElementById('tweetOverlay');
@@ -85,6 +86,7 @@ const panelsToHide = () => [
   profilesub, 
   user, 
   usersub, 
+  skibidiyanto,
   tag, 
   document.getElementById("followOverlay"), 
   viewer, 
@@ -269,7 +271,7 @@ window.closeUser    = closeUser;
 window.closeuser    = closeuser;
 
 document.body.addEventListener("click", async (e) => {
-  const userLink = e.target.closest(".user-link");
+  const userLink = e.target.closest(".user-link:not(.user-search-item .user-link)");
   if (userLink && userLink.dataset.uid) {
     const uid = userLink.dataset.uid;
     if (uid) {

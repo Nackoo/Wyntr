@@ -2256,4 +2256,10 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   #bookmarkList .skeleton-skibidi:first-child {
     margin-top: -25px;
   }
+  #profileComList .skeleton-card {
+    margin: 15px -20px !important;
+  }
+  #profileComList .skeleton-skibidi:first-child .skeleton-card {
+    margin-top: 0px !important;
+  }
 }

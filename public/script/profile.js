@@ -50,7 +50,6 @@ export function applyUserEffect(effectValue, targetId = "#user-profile-effect") 
 let userHighlightLastDoc = null;
 let userHighlightLoading = false;
 let userHighlightNoMore = false;
-let userHighlightLoaded = false;
 let userHighlightNewestDoc = null;
 const userHighlightRenderedIds = new Set();
 
@@ -104,7 +103,6 @@ function setupHighlightSnapshot(uid) {
 
   let isFirst = true;
   onSnapshot(q, (snap) => {
-    // Skip first emission — Firestore fires immediately and would duplicate the initial load
     if (isFirst) {
       isFirst = false;
       return;
@@ -112,7 +110,6 @@ function setupHighlightSnapshot(uid) {
 
     snap.docChanges().forEach((change) => {
       if (change.type === "removed") {
-        // Remove from DOM and tracking set
         userHighlightRenderedIds.delete(change.doc.id);
         document.getElementById(`highlight-item-${change.doc.id}`)?.remove();
         if (container.querySelectorAll(".highlight-item").length === 0) {
@@ -122,7 +119,6 @@ function setupHighlightSnapshot(uid) {
       }
 
       if (change.type === "added") {
-        // Skip if already rendered (backfill from deletion window or initial load)
         if (userHighlightRenderedIds.has(change.doc.id)) return;
 
         userHighlightRenderedIds.add(change.doc.id);
@@ -189,7 +185,6 @@ async function loadUserHighlights(uid, initial = false) {
     container.appendChild(createHighlightItem(docSnap));
   });
 
-  // Track the newest doc so onSnapshot can detect truly new ones
   if (initial && snap.docs.length > 0) {
     userHighlightNewestDoc = snap.docs[0];
   }
@@ -210,6 +205,8 @@ if (document.readyState === "loading") {
   init();
 }
 
+let loaded = false;
+
 function init() {
   document.getElementById('usersvg').addEventListener("click", async () => {
     youListActive();
@@ -221,14 +218,24 @@ function init() {
     document.querySelector("#copyMyLinkBtn").dataset.uid = uid;
     document.getElementById("profileOverlay").classList.remove("hidden");
 
+    if (loaded) return;
+    loaded = true;
+
     const docSnap = await getDoc(doc(db, "users", uid));
-    if (!docSnap.exists()) return;
+    if (!docSnap.exists()) return log("red", "user doesn't exist");
 
     const d = docSnap.data();
 
     if (d.suspended && d.suspendedUntil > Timestamp.now()) {
+      const now = new Date();
+      const suspendedUntilDate = d.suspendedUntil.toDate(); 
+      const diffInMs = suspendedUntilDate - now;
+
+      const daysLeft = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+
       document.getElementById("my-suspended").classList.remove("hidden");
-      if (d.suspendedFor) document.getElementById("suspended-for").textContent = `for: ${d.suspendedFor}`;
+      document.getElementById("suspended-for").textContent = 
+        `for: ${d.suspendedFor || "no reason specified"} (${daysLeft}d left)`;
     } else {
       document.getElementById("my-suspended").classList.add("hidden");
     }
@@ -261,12 +268,9 @@ function init() {
     const userSnap = await getDoc(doc(db, "users", uid));
     const userData = userSnap.data();
 
-    if (!userHighlightLoaded) {
-      userHighlightLoaded = true;
-      loadUserHighlights(uid, true);
-      setupHighlightInfiniteScroll(uid);
-      setupHighlightSnapshot(uid);
-    }
+    loadUserHighlights(uid, true);
+    setupHighlightInfiniteScroll(uid);
+    setupHighlightSnapshot(uid);
 
     document.getElementById("my-posts").textContent = userData.posts || 0;
     document.getElementById("my-followers").textContent = userData.followers || 0;
