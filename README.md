@@ -54,15 +54,19 @@ read [Firestore rules](/firestore_rules.txt)
 | members       | `role ↓`, `status ↓`, `__name__ ↓`                                        | Collection  |
 | members       | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection  |
 | members       | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection  |
-| followers     | `followedAt ↓`, `status ↓`, `__name__ ↓`                                  | Collection  |
-| followers     | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection  |
-| followers     | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection  |
-| following     | `followedAt ↓`, `status ↓`, `__name__ ↓`                                  | Collection  |
-| following     | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection  |
-| following     | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection  |
 | views         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
 | views         | `followers ↓`, `name ↓`, `status ↓`, `__name__ ↓`                         | Collection  |
 | views         | `followers ↓`, `status ↓`, `username ↓`, `__name__ ↓`                     | Collection  |
+| followers     | `followersCount ↓`, `name ↓`, `status ↓`, `__name__ ↓`                    | Collection  |
+| followers     | `followersCount ↓`, `username ↓`, `__name__ ↓`                            | Collection  |
+| followers     | `followersCount ↓`, `status ↓`, `username ↓`, `__name__ ↓`                | Collection  |
+| followers     | `followersCount ↓`, `name ↓`, `__name__ ↓`                                | Collection  |
+| followers     | `followersCount ↓`, `status ↓`, `__name__ ↓`                              | Collection  |
+| following     | `followersCount ↓`, `name ↓`, `status ↓`, `__name__ ↓`                    | Collection  |
+| following     | `followersCount ↓`, `status ↓`, `__name__ ↓`                              | Collection  |
+| following     | `followersCount ↓`, `status ↓`, `username ↓`, `__name__ ↓`                | Collection  |
+| following     | `followersCount ↓`, `username ↓`, `__name__ ↓`                            | Collection  |
+| following     | `followersCount ↓`, `name ↓`, `__name__ ↓`                                | Collection  |
 
 ## supabase policies
 

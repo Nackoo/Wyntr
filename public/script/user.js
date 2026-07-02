@@ -1349,14 +1349,6 @@ async function loadIfFollow(uid) {
           await loadIfFollow(uid);
           document.querySelector(`#followList .user-search-item[data-uid="${uid}"]`)?.remove();
         } else {
-          const [
-            { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
-            { displayName, username, realavatar: photoURL, realdescription: description }
-          ] = await Promise.all([
-            getUserData(uid),
-            getUserData(auth.currentUser.uid)
-          ]);
-
           await runTransaction(db, async (batch) => {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
             const targetUserRef = doc(db, "users", uid);
@@ -1385,21 +1377,23 @@ async function loadIfFollow(uid) {
 
             batch.set(doc(db, "users", uid, "followers", auth.currentUser.uid), {
               followedAt: serverTimestamp(),
-              displayName:displayName,
-              username: username,
-              name: displayName?.toLowerCase(),
-              photoURL: photoURL,
-              description: description || null,
-              status
+              displayName: currentUserData.displayName,
+              username: currentUserData.username,
+              name: currentUserData.displayName.toLowerCase(),
+              photoURL: currentUserData.photoURL,
+              description: currentUserData.description || null,
+              status,
+              followersCount: currentUserData.followers || 0
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
               followedAt: serverTimestamp(),
-              displayName: tDisplayName,
-              username: tUsername,
-              name: tDisplayName?.toLowerCase(),
-              photoURL: tPhotoURL,
-              description: tDescription || null
+              displayName: targetUserData.displayName,
+              username: targetUserData.username,
+              name: targetUserData.displayName?.toLowerCase(),
+              photoURL: targetUserData.photoURL,
+              description: targetUserData.description || null,
+              followersCount: targetUserData.followers || 0
             });
 
             batch.update(currentUserRef, {
@@ -1409,8 +1403,8 @@ async function loadIfFollow(uid) {
               followers: increment(1)
             });      
 
-            sendFollowNotification(uid, username, photoURL);
-            log("green", `followed ${tDisplayName || "them"}`);
+            sendFollowNotification(uid, currentUserData.username, currentUserData.photoURL);
+            log("green", `followed ${targetUserData.displayName || "them"}`);
           });
 
           followBtn.innerHTML = "";
@@ -1544,7 +1538,7 @@ followOverlay.innerHTML = `
       <button onclick="document.getElementById('followOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:100%;padding:12px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
-          <input style="margin-left:10px;" type="text" placeholder="search anything">
+          <input style="margin:0 10px;" type="text" placeholder="search anything">
         </div>
       </div>
     </header>
@@ -1584,7 +1578,7 @@ async function openFollowOverlay(type, userId, isMe) {
       followLastDoc = null;
       followList = [];
       isSearching = false;
-      hasMore = true; // 💡 Reset when clearing search
+      hasMore = true; 
       await loadFollowUsers(type, userId);
       return;
     }
@@ -1593,7 +1587,7 @@ async function openFollowOverlay(type, userId, isMe) {
     previousValue = value.trim().toLowerCase();
     isSearching = true;
     listEl.innerHTML = "";
-    hasMore = true; // 💡 Reset for new search term
+    hasMore = true; 
     await searchFollowUsers(previousValue);
   });
 
@@ -1624,7 +1618,7 @@ async function openFollowOverlay(type, userId, isMe) {
       constraints.push(
         where(field, ">=", searchVal),
         where(field, "<=", searchVal + "\uf8ff"),
-        orderBy(field)
+        orderBy("followersCount", "desc")
       );
       
       if (isNextPage && followLastDoc) {
@@ -1761,9 +1755,16 @@ async function openFollowOverlay(type, userId, isMe) {
   async function loadFollowUsers(type, userId) {
     let ref;
     if (userId !== auth.currentUser.uid) {
-      ref = query(collection(db, "users", userId, type), where("status", "!=", "private"));
+      ref = query(
+        collection(db, "users", userId, type), 
+        where("status", "!=", "private"),
+        orderBy("followersCount", "desc")
+      );
     } else {
-      ref = collection(db, "users", userId, type);
+      ref = query(
+        collection(db, "users", userId, type),
+        orderBy("followersCount", "desc")
+      );
     }
 
     if (!followLastDoc) {
@@ -1795,12 +1796,11 @@ async function openFollowOverlay(type, userId, isMe) {
     window.userId = userId;
 
     const q = followLastDoc
-      ? query(ref, orderBy("followedAt", "desc"), startAfter(followLastDoc), limit(10))
-      : query(ref, orderBy("followedAt", "desc"), limit(10));
+      ? query(ref, startAfter(followLastDoc), limit(10))
+      : query(ref, limit(10));
 
     const snap = await getDocs(q);
 
-    // 💡 CHANGED HERE: Halts execution safely if Firestore collection is exhausted
     if (snap.empty) {
       hasMore = false; 
       if (!followLastDoc) {
@@ -1863,7 +1863,7 @@ async function openFollowOverlay(type, userId, isMe) {
               </span>
             </div>
             <div style="margin-left:auto;display:flex;align-items:center;">
-              ${(targetListUserId === auth.currentUser.uid || uid === auth.currentUser.uid) && data.status != "private" ? `
+              ${(uid === auth.currentUser.uid) && data.status != "private" ? `
               <img class="hide-btn1" src="/image/eye.svg" style="cursor:pointer;height:22px;margin-right:15px;display:none;">`
               : ""}
               <button class="mini-follow-btn" style="padding:0 10px; border-radius:50px; background:white; height:26px; cursor:pointer; border:1px solid var(--border);opacity:0;">...</button>
@@ -2020,14 +2020,6 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
           setupMiniFollowBtn(btn, targetId);
           document.querySelector(`#followList .user-search-item[data-uid="${targetId}"]`)?.remove();
         } else {
-          const [
-            { realdisplayName: tDisplayName, realusername: tUsername, realavatar: tPhotoURL, realdescription: tDescription },
-            { displayName, username, realavatar: photoURL, realdescription: description }
-          ] = await Promise.all([
-            getUserData(targetId),
-            getUserData(auth.currentUser.uid)
-          ])
-
           await runTransaction(db, async (batch) => {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
             const targetUserRef = doc(db, "users", targetId);
@@ -2056,21 +2048,23 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
 
             batch.set(doc(db, "users", targetId, "followers", auth.currentUser.uid), {
               followedAt: serverTimestamp(),
-              displayName: displayName,
-              username: username,
-              name: displayName?.toLowerCase(),
-              photoURL: photoURL,
-              description: description || null,
-              status
+              displayName: currentUserData.displayName,
+              username: currentUserData.username,
+              name: currentUserData.displayName.toLowerCase(),
+              photoURL: currentUserData.photoURL,
+              description: currentUserData.description || null,
+              status,
+              followersCount: currentUserData.followers || 0
             });
 
             batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {
               followedAt: serverTimestamp(),
-              displayName: tDisplayName,
-              username: tUsername,
-              name: tDisplayName?.toLowerCase(),
-              photoURL: tPhotoURL,
-              description: tDescription || null
+              displayName: targetUserData.displayName,
+              username: targetUserData.username,
+              name: targetUserData.displayName.toLowerCase(),
+              photoURL: targetUserData.photoURL,
+              description: targetUserData.description || null,
+              followersCount: targetUserData.followers || 0
             });
 
             batch.update(currentUserRef, {
@@ -2080,8 +2074,8 @@ async function setupMiniFollowBtn(btn, targetId, skibidi) {
               followers: increment(1)
             }); 
 
-            log("green", `followed ${tDisplayName || "them"}`);
-            sendFollowNotification(targetId, username, photoURL);
+            log("green", `followed ${targetUserData.displayName || "them"}`);
+            sendFollowNotification(targetId, currentUserData.username, currentUserData.photoURL);
           });
 
           btn.textContent = "UnFoll";
