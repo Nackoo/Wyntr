@@ -3,7 +3,7 @@ import { formatDate, escapeHTML, parseMentionsToLinks, formatNumber, formatTime,
 import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole, waitForAuth } from "./index.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js";
-import { incrementViews } from "./view.js";
+import { incrementViews } from "./view_users.js";
 
 await waitForAuth();
  

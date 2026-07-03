@@ -73,7 +73,7 @@
     <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
         <button onclick="document.getElementById('archivePerm').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
-        <input style="margin-right:20px;" type="text" placeholder="search user">
+        <input style="margin-right:10px;" type="text" placeholder="search user">
       </header>
 
       <div style="display:flex;gap:10px;margin:25px 0;margin-bottom:15px">
@@ -109,7 +109,7 @@
     <div class="user-box" style="height:100dvh !important;">
       <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
         <button onclick="document.getElementById('viewlikesOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
-        <input style="margin-right:20px;" type="text" placeholder="search user">
+        <input style="margin-right:10px;" type="text" placeholder="search user">
       </header>
       <br>
       <div id="viewlikesList"></div>
@@ -885,7 +885,10 @@
               <h2 style="margin:0;" id="tagId"></h2>
               <h2 style="margin:0;color:grey">tag</h2>
             </div>
-            <p style="color:grey;margin:0;margin-top:5px;font-size:15px;" id="tagTweets"></p>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <p style="color:grey;margin:0;margin-top:5px;font-size:15px;" id="tagTweets"></p>
+              <p style="color:grey;margin:0;margin-top:5px;font-size:15px;text-decoration:underline;cursor:pointer" id="tagContributors"></p>
+            </div>
           </div>
 
           <div id="tagstweet"></div>
@@ -1184,7 +1187,7 @@
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="cancelretweet">
                     <img src="/image/leftArrow.svg">
                   </button>
-                  <h2 style="margin:0;margin-left:Auto">ReWynt</h2>
+                  <h2 style="margin:0;margin-left:Auto">Quote</h2>
                 </div>
               </header>
               <div id="retweetOriginal" style="margin-bottom:10px"></div>

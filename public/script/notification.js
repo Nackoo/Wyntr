@@ -1238,6 +1238,9 @@ export async function sendCommunityCommentNotification(tweetId, commentText, com
   if (!sender) return;
 
   if (authorId === sender.uid) return;
+
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
   const { username : senderName } = await getUserData(sender.uid);
 
   const notificationRef = doc(db, "users", authorId, "notifications", `comment-${tweetId}-${commentId}-${communityId}`);
@@ -1262,6 +1265,9 @@ export async function sendCommentNotification(tweetId, commentText, commentId, t
   const sender = auth.currentUser;
   if (!sender) return;
   if (authorId === sender.uid) return;
+
+  const blocked = await isBlocked(sender.uid);
+  if (blocked) return;
 
   const { username : senderName } = await getUserData(sender.uid);
 

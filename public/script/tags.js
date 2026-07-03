@@ -24,22 +24,58 @@ export async function handleTags(text) {
   if (tags.length > 10) {
     throw new Error("Maximum 10 unique tags allowed");
   }
+  const d = await getUserData(auth.currentUser.uid);
 
   await Promise.all(
     tags.map(async (tagName) => {
       const ref = doc(db, "tags", tagName);
-      const snap = await getDoc(ref);
+      const contributorsRef = doc(db, "tags", tagName, "contributors", auth.currentUser.uid);
+
+      const [snap, contributorsSnap] = await Promise.all([
+        getDoc(ref),
+        getDoc(contributorsRef)
+      ]);
 
       if (snap.exists()) {
-        await updateDoc(ref, {
-          postCount: increment(1),
-        });
+        if (contributorsSnap.exists()) {
+          const update_1 = updateDoc(ref, {
+            postCount: increment(1),
+          });
+          const update_2 = updateDoc(contributorsRef, {
+            contributions: increment(1)
+          });
+          
+          await Promise.all([update_1, update_2]);
+        } else {
+          const update_1 = updateDoc(ref, {
+            postCount: increment(1),
+            contributors: increment(1)
+          });
+          const update_2 = setDoc(contributorsRef, {
+            contributions: 1,
+            photoURL: d.d.photoURL,
+            username: d.username,
+            displayName: d.displayName,
+            name: d.displayName.toLowerCase()
+          });
+          
+          await Promise.all([update_1, update_2]);
+        }
       } else {
-        const d = await getUserData(auth.currentUser.uid);
-        await setDoc(ref, {
+        const update_1 = setDoc(ref, {
           postCount: 1,
-          firstPost: d.username
+          contributors: 1,
+          name: tagName
         });
+        const update_2 = setDoc(contributorsRef, {
+          contributions: 1,
+          photoURL: d.d.photoURL,
+          username: d.username,
+          displayName: d.displayName,
+          name: d.displayName.toLowerCase()
+        });
+
+        await Promise.all([update_1, update_2]);
       }
     })
   );

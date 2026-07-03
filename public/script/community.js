@@ -1474,10 +1474,12 @@ function getMemberQuery(term, fieldName, limitCount) {
     constraints.push(
       where(fieldName, ">=", term),
       where(fieldName, "<=", term + "\uf8ff"),
-      orderBy(fieldName)
     );
   } else {
-    constraints.push(orderBy("role", "desc"));
+    constraints.push(
+      orderBy("contributions", "desc"),
+      orderBy("role", "desc")
+    );
   }
 
   if (memberLastDoc) constraints.push(startAfter(memberLastDoc));

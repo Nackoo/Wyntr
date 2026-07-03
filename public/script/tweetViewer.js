@@ -3,7 +3,7 @@ import { loadComments, renderPoll, getUserData, getCommunityNameById, getSnap, r
 import { formatDate, escapeHTML, applyReadMoreLogic, parseMentionsToLinks, formatNumber, formatTime, log, getDefaultLanguage, isTranslateEnabled, randomString } from "./texts.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js"; 
-import { incrementViews } from "./view.js";
+import { incrementViews } from "./view_users.js";
 import { openCommunity } from "./community.js";
  
 export async function renderTweetViewer(t, tweetId, container, user, comid, isFromMain, isStored) {

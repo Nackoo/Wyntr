@@ -48,23 +48,35 @@ async function view(term = currentTerm) {
         <div class="skeleton-card" style="margin-left:0;margin-right:0;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div>
     `;
 
-    const pathArgs = window.view_communityId 
-        ? ["communities", window.view_communityId, "posts", window.view_tweetId] 
-        : ["tweets", window.view_tweetId];
+    let pathArgs;
+
+    if (window.view_tagId) {
+        pathArgs = ["tags", window.view_tagId, "contributors"];
+    } else {
+        pathArgs = window.view_communityId 
+            ? ["communities", window.view_communityId, "posts", window.view_tweetId] 
+            : ["tweets", window.view_tweetId];
         
-    if (window.view_replyId) {
-        pathArgs.push("comments", window.view_replyId);
+        if (window.view_replyId) {
+            pathArgs.push("comments", window.view_replyId);
+        }
+        window.view_mode == "likes" ?
+            pathArgs.push("likes") : pathArgs.push("views");
     }
-    window.view_mode == "likes" ?
-      pathArgs.push("likes") : pathArgs.push("views");
 
     const baseCollection = collection(db, ...pathArgs);
 
     function buildQuery(searchField = null, searchVal = null) {
-        const constraints = [
-            orderBy("followers", "desc"), 
-            where("status", "!=", "private")
-        ];  
+        const constraints = [];
+
+        if (window.view_tagId) {
+            constraints.push(orderBy("contributions", "desc"));
+        } else {
+            constraints.push(
+                orderBy("followers", "desc"), 
+                where("status", "!=", "private")
+            );  
+        }
 
         if (searchField && searchVal) {
             constraints.push(
@@ -134,44 +146,47 @@ async function view(term = currentTerm) {
                     <span style="font-weight:normal;color:grey;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;font-size:13px;">@${escapeHTML(data.username)}</span>
                 </div>
                 <span style="font-size:14px; color:grey;">
-                    ${window.view_mode == "likes" ? 
-                        `liked ${formatDate(data.likedAt)} ago` :
-                        `viewed ${formatDate(data.viewedAt)} ago`}
+                    ${window.view_tagId ? `${data.contributions} Wynts` : `
+                        ${window.view_mode == "likes" ? 
+                            `liked ${formatDate(data.likedAt)} ago` :
+                            `viewed ${formatDate(data.viewedAt)} ago`}`}
                 </span>
             </div>
-            ${docSnap.id == auth.currentUser.uid ? `
+            ${docSnap.id == auth.currentUser.uid && !window.view_tagId ? `
             <img class="hide-btn" src="/image/eye.svg" style="margin-left:auto; cursor:pointer;height:22px;">`
             : "" }
         </div>`;
 
-        const hideImg = item.querySelector(".hide-btn");
-        if (hideImg) {
-            hideImg.addEventListener("click", async (e) => {
-                e.stopPropagation(); 
-                
-                const confirmed = await confirmDialog(
-                    "hide this user connection?", 
-                    "people browsing this list won't see this entry. This action is irreversible", 
-                    "red"
-                );
-                if (!confirmed) return;
+        if (!window.view_tagId) {
+            const hideImg = item.querySelector(".hide-btn");
+            if (hideImg) {
+                hideImg.addEventListener("click", async (e) => {
+                    e.stopPropagation(); 
+                    
+                    const confirmed = await confirmDialog(
+                        "hide this user connection?", 
+                        "people browsing this list won't see this entry. This action is irreversible", 
+                        "red"
+                    );
+                    if (!confirmed) return;
 
-                try {
-                    const myLikeDocRef = doc(baseCollection, auth.currentUser.uid);
-                    loading.classList.add("show");
-                    await updateDoc(myLikeDocRef, {
-                        status: "private"
-                    });
-                    loading.classList.remove("show");
+                    try {
+                        const myLikeDocRef = doc(baseCollection, auth.currentUser.uid);
+                        loading.classList.add("show");
+                        await updateDoc(myLikeDocRef, {
+                            status: "private"
+                        });
+                        loading.classList.remove("show");
 
-                    item.remove();
-                    if (!list.querySelector(".user-search-item")) {
-                        list.innerHTML = notfound;
+                        item.remove();
+                        if (!list.querySelector(".user-search-item")) {
+                            list.innerHTML = notfound;
+                        }
+                    } catch (err) {
+                        console.error("Failed to update status privacy setting:", err);
                     }
-                } catch (err) {
-                    console.error("Failed to update status privacy setting:", err);
-                }
-            });
+                });
+            }
         }
 
         item.addEventListener("click", () => { 
@@ -243,11 +258,12 @@ export async function incrementViews(tweetId, replyId, communityId) {
     }
 }
 
-export function initViews(tweetId, communityId, replyId, mode) {
+export function initViews(tweetId, communityId, replyId, mode, tagId) {
     window.view_tweetId = tweetId;
     window.view_communityId = communityId;
     window.view_replyId = replyId;
     window.view_mode = mode;
+    window.view_tagId = tagId;
     
     viewLikes();
     document.getElementById("tweetMenuOverlay").classList.add("hidden");

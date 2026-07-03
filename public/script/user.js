@@ -9,6 +9,7 @@ import { openCommunity } from "./community.js";
 import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
 import { discord } from "./moderation.js";
+import { initViews } from "./view_users.js";
 
 await waitForAuth();
 
@@ -838,11 +839,10 @@ export async function openUserSubProfile(uid) {
   usermentionedList.classList.remove("hidden");
 
   document.getElementById("banBtn").classList.add("hidden");
+  document.getElementById("suspendBtn").classList.add("hidden");
 
   document.getElementById("user-name").dataset.uid = uid;
   document.getElementById("copyUserLinkBtn").dataset.uid = uid;
-  document.getElementById("banBtn").dataset.uid = uid;
-  document.getElementById("reportUser").dataset.uid = uid;
   document.querySelectorAll(".status")[1].style.display = "inline";  
   document.getElementById("username").style.display = "inline";
   document.getElementById("ing").style.pointerEvents = "auto";
@@ -1161,7 +1161,7 @@ export async function openUserSubProfile(uid) {
               "user ID": uid,
               "offend": reason,
               "offender": `${adminName} (${auth.currentUser.uid})`,
-              "suspended until": formatUTC8(getSuspendedUntil(duration)),
+              "suspended for": duration,
               "source": `https://wyntr.netlify.app/${uid}`,
               "current warnings": currentWarnings
             }, new Date(), [
@@ -1452,11 +1452,13 @@ window.openTag = async function (tagId) {
   const scrollBox = document.querySelector("#tagSubOverlay .user-box");
   const tagOverlay = document.getElementById("tagSubOverlay");
   const tagtweets = document.getElementById("tagTweets");
+  const tagcontributors = document.getElementById("tagContributors");
 
   tagOverlay.classList.remove("hidden");
   tweetList.innerHTML = skeleton;
   tagName.textContent = tagId;
   tagtweets.textContent = "loading...";
+  tagcontributors.textContent = "";
 
   const tagTweetsRef = collection(db, "tweets");
   const tagRef = doc(db, "tags", tagId);
@@ -1488,9 +1490,14 @@ window.openTag = async function (tagId) {
 
     if (tagSnap.exists()) {
       const data = tagSnap.data();
-      tagtweets.textContent = `${data.postCount} Wynts ${data.firstPost ? `• by @${data.firstPost}` : ""}`;
+      tagtweets.textContent = `${data.postCount} Wynts •`;
+      tagcontributors.textContent = `${data.contributors} participants`;
     } else {
       tagtweets.textContent = "data unavailable";
+    }
+
+    tagcontributors.onclick = () => {
+      initViews(null, null, null, null, tagId);
     }
 
     if (snap.empty) {

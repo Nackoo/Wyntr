@@ -51,9 +51,10 @@ read [Firestore rules](/firestore_rules.txt)
 | likes         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
 | likes         | `followers ↓`, `name ↓`, `status ↓`, `__name__ ↓`                         | Collection  |
 | likes         | `followers ↓`, `status ↓`, `username ↓`, `__name__ ↓`                     | Collection  |
-| members       | `role ↓`, `status ↓`, `__name__ ↓`                                        | Collection  |
-| members       | `username ↑`, `status ↑`, `__name__ ↑`                                    | Collection  |
+| members       | `contributions ↓`, `role ↓`, `__name__ ↓`                                 | Collection  |
+| members       | `contributions ↓`, `role ↓`, `status ↓`, `__name__ ↓`                     | Collection  |
 | members       | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection  |
+| members       | `status ↑`, `username ↑`, `__name__ ↑`                                    | Collection  |
 | views         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
 | views         | `followers ↓`, `name ↓`, `status ↓`, `__name__ ↓`                         | Collection  |
 | views         | `followers ↓`, `status ↓`, `username ↓`, `__name__ ↓`                     | Collection  |
@@ -67,6 +68,8 @@ read [Firestore rules](/firestore_rules.txt)
 | following     | `followersCount ↓`, `status ↓`, `username ↓`, `__name__ ↓`                | Collection  |
 | following     | `followersCount ↓`, `username ↓`, `__name__ ↓`                            | Collection  |
 | following     | `followersCount ↓`, `name ↓`, `__name__ ↓`                                | Collection  |
+| contributors  | `contributions ↓`, `name ↓`, `__name__ ↓`                                 | Collection  |
+| contributors  | `contributions ↓`, `username ↓`, `__name__ ↓`                             | Collection  |
 
 ## supabase policies
 

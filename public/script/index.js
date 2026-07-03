@@ -13,7 +13,7 @@ import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
 import { openCommunity } from "./community.js";
 // import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
 import { openHighlightOverlay } from "./highlight.js";
-import { initViews, incrementViews } from "./view.js";
+import { initViews, incrementViews } from "./view_users.js";
 import { viewArchivePerm } from "./viewArchivePerm.js";
 
 //2541
@@ -586,8 +586,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       }
     }
 
-    let processedText = text;
-
     const mentions = await extractMentions(text);
 
     let mentioned = null;
@@ -632,7 +630,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       const baseData = {
         archived: false,
         mentioned,
-        text: processedText,
+        text,
         originalText: text,
         originalTitle: title,
         title,
@@ -670,6 +668,9 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           tx.update(doc(db, "communities", window.communityID), {
             posts: increment(1),
             lastActivity: serverTimestamp()
+          });
+          tx.update(doc(db, "communities", window.communityID, "members", auth.currentUser.uid), {
+            contributions: increment(3)
           });
           tweetRef = communityPostRef;
 
@@ -1184,13 +1185,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `;
 
           quotedHTML = `
-            ${comment.parentId ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              margin-bottom:10px;
-              ">↳  context available</p>` : 
-            ""}
+            <p style="color: grey;font-size: 14px; margin: 0;margin-bottom:10px;">↳  context available</p>
             <div class="quoted-comment retweet" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
                 <img loading='lazy' class="avatar" src="${avatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
@@ -1261,13 +1256,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `;
 
           quotedHTML = `
-            ${comment.parentId ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              margin-bottom:10px;
-              ">↳  context available</p>` : 
-            ""}
+            <p style="color: grey;font-size: 14px; margin: 0;margin-bottom:10px;">↳  context available</p>
             <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
                 <img loading='lazy' class="avatar" src="${avatar || '/image/default-avatar.jpg'}" onerror="this.src='/image/default-avatar.jpg'" width="30">
@@ -1321,13 +1310,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `;
 
           quotedHTML = `
-            ${comment.parentId ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              margin-bottom:10px;
-              ">↳  context available</p>` : 
-            ""}
+            <p style="color: grey;font-size: 14px; margin: 0;margin-bottom:10px;">↳  context available</p>
             <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}" data-comment-id="${commentId}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
                 <img loading='lazy' class="avatar"  src="${avatar || '/image/default-avatar.jpg'}"  onerror="this.src='/image/default-avatar.jpg'"  width="30">
@@ -1384,13 +1367,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `;
 
           quotedHTML = `
-          ${comment.parentId ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              margin-bottom:10px;
-              ">↳  context available</p>` : 
-            ""}
+          <p style="color: grey;font-size: 14px; margin: 0;margin-bottom:10px;">↳  context available</p>
           <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}"  data-comment-id="${commentId}">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
               <img loading='lazy' class="avatar"  src="${avatar || '/image/default-avatar.jpg'}"  onerror="this.src='/image/default-avatar.jpg'"  width="30">
@@ -1442,13 +1419,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `;
 
           quotedHTML = `
-          ${comment.parentId ? `<p style="
-              color: grey;
-              font-size: 14px;
-              margin: 0;
-              margin-bottom:10px;
-              ">↳  context available</p>` : 
-            ""}
+          <p style="color: grey;font-size: 14px; margin: 0;margin-bottom:10px;">↳  context available</p>
           <div class="quoted-comment" data-community-id="${t.sharedFromCommunity || t.communityId || null}" data-id="${parentId}"  data-comment-id="${commentId}">
             <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
               <img loading='lazy' class="avatar"  src="${avatar || '/image/default-avatar.jpg'}"  onerror="this.src='/image/default-avatar.jpg'"  width="30">
@@ -2426,7 +2397,8 @@ document.body.addEventListener("click", async (e) => {
       viewViews.dataset.id, 
       viewViews.dataset.communityId || null, 
       null,
-      "views"
+      "views",
+      null
     );
   }
 
@@ -2436,7 +2408,8 @@ document.body.addEventListener("click", async (e) => {
       viewlikes.dataset.id,
       viewlikes.dataset.communityId || null,
       null,
-      "likes"
+      "likes",
+      null
     );
   }
 
@@ -3322,7 +3295,8 @@ document.body.addEventListener("click", async (e) => {
       viewViews1.dataset.tweet,
       viewViews1.dataset.communityId || null,
       viewViews1.dataset.comment,
-      "views"
+      "views",
+      null
     );
   }
 
@@ -3332,7 +3306,8 @@ document.body.addEventListener("click", async (e) => {
       viewlikes1.dataset.tweet,
       viewlikes1.dataset.communityId || null,
       viewlikes1.dataset.comment,
-      "likes"
+      "likes",
+      null
     );
   }
 
@@ -4262,8 +4237,6 @@ document.body.addEventListener("click", async (e) => {
             mentioned = Object.values(mentions).filter(Boolean);
           }
 
-          let processedText = commentText;
-
           let donation = 0;
           let donationReceived = 0;
           let sentDonationNotification = false;
@@ -4376,7 +4349,7 @@ document.body.addEventListener("click", async (e) => {
             }
           }
 
-          const detectedLanguage = await detectLanguage(processedText);
+          const detectedLanguage = await detectLanguage(text);
 
           const commentRef = doc(commentsRef);
 
@@ -4395,7 +4368,7 @@ document.body.addEventListener("click", async (e) => {
 
             if (TWEETOWNERSUSPENDED === false) {
               tx.set(commentRef, {
-                text: processedText,
+                text,
                 mentioned,
                 originalText: commentText,
                 communityId: window.communityID || null,
@@ -4475,6 +4448,12 @@ document.body.addEventListener("click", async (e) => {
               });
             }
 
+            if (window.communityID) {
+              updateDoc(doc(db, "communities", window.communityID, "members", auth.currentUser.uid), {
+                contributions: increment(1)
+              });
+            }
+
             const tweetText = tweetData.originalText || tweetData.text;
             const communityName = window.communityID
               ? await getCommunityNameById(window.communityID)
@@ -4495,9 +4474,9 @@ document.body.addEventListener("click", async (e) => {
 
                   if (window.communityID && !window.isOnPrivate) {
                     if (mediaType === "image") {
-                      sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media.url);
+                      sendCommunityCommentMentionNotification(tweetId, uid, text, window.communityID, commentId, communityName, tweetText, media.url);
                     } else {
-                      sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                      sendCommunityCommentMentionNotification(tweetId, uid, text, window.communityID, commentId, communityName, tweetText);
                     }
                   } else if (window.isOnPrivate && window.communityID) {
                       const communitySnap = await getDoc(doc(db, "communities", window.communityID));
@@ -4505,9 +4484,9 @@ document.body.addEventListener("click", async (e) => {
                       if (communitySnap.exists()) {
                         if (communitySnap.data().members.includes(uid)) {
                           if (mediaType === "image") {
-                              sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText, media.url);
+                              sendCommunityCommentMentionNotification(tweetId, uid, text, window.communityID, commentId, communityName, tweetText, media.url);
                           } else {
-                              sendCommunityCommentMentionNotification(tweetId, uid, processedText, window.communityID, commentId, communityName, tweetText);
+                              sendCommunityCommentMentionNotification(tweetId, uid, text, window.communityID, commentId, communityName, tweetText);
                           }
                         } else {
                           info(
@@ -4519,9 +4498,9 @@ document.body.addEventListener("click", async (e) => {
                       }
                   } else {
                     if (mediaType === "image") {
-                      sendCommentMentionNotification(tweetId, uid, processedText, commentId, tweetText, media.url);
+                      sendCommentMentionNotification(tweetId, uid, text, commentId, tweetText, media.url);
                     } else {
-                      sendCommentMentionNotification(tweetId, uid, processedText, commentId, tweetText);
+                      sendCommentMentionNotification(tweetId, uid, text, commentId, tweetText);
                     }
                   }
                 })
@@ -4900,8 +4879,6 @@ document.body.addEventListener("click", async (e) => {
         return;
       }
 
-      let processedText = text;
-
       const mentions = await extractMentions(text);
       let mentioned = null;
       if (!window.communityID) {
@@ -4909,7 +4886,7 @@ document.body.addEventListener("click", async (e) => {
       }
 
       const editUntil = new Date(Date.now() + 15 * 60 * 1000);
-      const detectedLanguage = await detectLanguage(processedText);
+      const detectedLanguage = await detectLanguage(text);
 
       const parentCommentRef = doc(db, ...basePath, commentId);
       const parentCommentSnap = await getDoc(parentCommentRef);
@@ -4927,7 +4904,7 @@ document.body.addEventListener("click", async (e) => {
 
       const payload = {
         mentioned,
-        text: processedText,
+        text,
         originalText: text,
         communityId: window.communityID || null,
         media,
@@ -5034,6 +5011,12 @@ document.body.addEventListener("click", async (e) => {
         } else {
           await updateDoc(parentCommentRef, {
             replyCount: increment(1)
+          });
+        }
+
+        if (window.communityID) {
+          updateDoc(doc(db, "communities", window.communityID, "members", auth.currentUser.uid), {
+            contributions: increment(1)
           });
         }
 
@@ -6764,15 +6747,13 @@ sendRetweet.onclick = async () => {
       }
     }
 
-    let processedText = text;
-
     const isCommentRetweet = !!selectedCommentRetweet;
 
     let originalId = selectedRetweet;
     let commentId = selectedCommentRetweet;
 
     const editUntil = new Date(Date.now() + 15 * 60 * 1000);
-    const detectedLanguage = await detectLanguage(processedText);
+    const detectedLanguage = await detectLanguage(text);
 
     const muteNotif = document.getElementById("rtmute").checked;
     const noPrivateReply = !document.getElementById("rtprivateOK").checked;
@@ -6785,7 +6766,7 @@ sendRetweet.onclick = async () => {
       archived: false,
       sensitiveMedia,
       noPrivateReply,
-      text: processedText,
+      text,
       originalTitle: title,
       originalText: text,
       title,
@@ -6894,6 +6875,9 @@ sendRetweet.onclick = async () => {
           tx.update(doc(db, "communities", window.communityID), {
             posts: increment(1),
             lastActivity: serverTimestamp()
+          });
+          tx.update(doc(db, "communities", window.communityID, "members", auth.currentUser.uid), {
+            contributions: increment(3)
           });
         } else {
           tweetRef = doc(collection(db, "tweets"));

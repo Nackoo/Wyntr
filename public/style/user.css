@@ -2262,4 +2262,7 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   #profileComList .skeleton-skibidi:first-child .skeleton-card {
     margin-top: 0px !important;
   }
+  #tagSubOverlay .skeleton-card:first-child {
+    margin-top: 30px !important;
+  }
 }
