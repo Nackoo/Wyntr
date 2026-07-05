@@ -10,24 +10,82 @@
   <link rel="icon" type="image/png" href="/image/icon.png">
   <title>Wyntr - Login</title>
   <link rel="stylesheet" href="style/login.css">
+  <link rel="stylesheet" href="/style/index.css">
+  <link rel="stylesheet" href="/style/user.css">
 </head>
 
 <body>
   <div id="card">
     <div id="form">
-      <h1>Login</h1>
-      <p style="margin-top:0;text-align:left;line-height:1.5;">Login to continue using Wyntr.</p>
-      <div style="display:flex;gap:8px;align-items:flex-start;">
-        <input type="checkbox" id="tosCheckbox">
-        <span>You agree to Wyntr <a href="tos" target="_blank">Terms of service</a> and our <a href="privacy" target="_blank">Privacy policy</a></span>
-      </div>
-      <br><br>
-      <p id="error" style="color: #db1d23; display: none; margin-top: 10px;">You must agree to above to log in.</p>
-      <button id="loginBtn" class="fill custom-btn btn-11" disabled>Google Login</button>
+      <h1 style="margin:0;">Login</h1>
+      <p>By logging in to Wyntr, you agree to our <a href="tos" target="_blank">Terms of service</a> and our <a href="privacy" target="_blank">Privacy policy</a></p>
+      
+      <p id="loginWpassword">login with password instead</p>
+
+      <button id="loginBtn" class="fill custom-btn btn-11">Google Login</button>
     </div>
 
     <div id="illustration">
       <img src="/image/w.png" alt="">
+    </div>
+  </div>
+
+  <div id="info" class="overlay">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div class="box" style="display:flex;gap:17px;margin-bottom:10px;">
+        <img height="32" style="margin-top:5px;" src="">
+        <div>
+          <h2 style="margin:0;"></h2>
+          <p style="color:grey;margin:7px 0;"></p>
+        </div>
+      </div>
+      <div style="margin-top:auto;display:flex;">
+        <button style="margin-left:auto;height:35px;width:80px;border-radius:12px;" onclick="
+          document.getElementById('info').classList.remove('show');
+          document.body.classList.remove('no-scroll');
+        ">Okay</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="inputDialog" class="overlay">
+    <div class="popup-box" style="display:flex;flex-direction:column;">
+      <div style="margin-bottom:12px;">
+        <h2 style="margin:0;"></h2>
+        <p style="color:grey;margin:6px 0;"></p>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <input
+          id="inputDialogValue"
+          type="text"
+          placeholder="text"
+          style="height:45px;border-radius:10px;padding:0 10px;"
+        />
+      </div>
+
+      <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="inputCancel" style="height:35px;width:80px;border-radius:10px;background:none;border:1px solid grey;color:var(--color);">
+          Cancel
+        </button>
+        <button id="inputOk" style="height:35px;width:90px;border-radius:10px;">
+          Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loadingOverlay">
+    <div class="popup-box">
+      <img height="60" src="/image/loader.svg">
+    </div>
+  </div>
+
+  <div id="log" class="overlay">
+    <div class="popup-box" style="border: 5px solid var(--dark);padding:0;">
+    <div class="popup-box" style="margin:0">
+      <p style="margin: 0px;"></p>
+    </div>
     </div>
   </div>
 

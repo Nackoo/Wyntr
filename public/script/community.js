@@ -9,17 +9,7 @@ import { openUserSubProfile } from "./user.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { updatePostZIndex, updateCbDisplay } from "./main.js";
 import { initArchiveViewer } from "./archive.js";
-
-const skeletonskibidi = `
-  <div class="skeleton-skibidi">
-    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-  </div>
-  <div class="skeleton-skibidi">
-    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-  </div>
-  <div class="skeleton-skibidi">
-    <div class="skeleton-card" style="width:100%;margin:30px -15px;"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line short"></div><div class="skeleton-line long"></div></div></div><div class="skeleton-line medium" style="margin-top:-15px"></div></div>
-  </div>`;
+import { COMMUNITIES_SKELETON, communityoverlay, USERS_SKELETON, TWEETS_SKELETON } from "./element.js"; 
 
 let lastCommunityDoc          = null;
 let hasMoreCommunities        = true;
@@ -187,7 +177,7 @@ export async function loadMyCommunities(reset = false) {
 
   if (reset) {
     myComLastDoc = null;
-    container.innerHTML = skeletonskibidi;
+    container.innerHTML = COMMUNITIES_SKELETON;
   }
 
   let q;
@@ -284,125 +274,7 @@ async function showCreateCommunityOverlay(communityId = null) {
   overlay.className           = "useroverlay"                ;
   overlay.style.pointerEvents = "none"                       ;
 
-  overlay.innerHTML = `
-    <div class="user-box" style="height:100dvh !important;width:100%;max-width:539px;pointer-events:auto;">
-      <header class="flex" style="position:absolute;top:20px;left:0;right:0;margin:0">
-        <button onclick="document.getElementById('createCommunity').classList.add('hidden')" class="close-btn">
-          <img src="/image/x.svg" alt="Close">
-        </button>
-      </header>
-
-      <div class="banner-preview1" style="z-index:1;">
-        <div id="com-banner-preview"></div>
-        <div class="group">
-          <label class="button" id="com-banner-label" for="com-banner-input"><img src="/image/upload.svg"></label>
-        </div>
-      </div>
-
-      <div class="ava-preview1">
-        <div id="com-ava-preview"></div>
-        <label class="button" id="com-ava-label" for="com-ava-input"></label>
-      </div>
-      <br>
-
-      <h2 id="createCom">Create a Community</h2>
-
-      <p style="margin-bottom:10px">Name</p>
-      <input id="communityNameInput" type="text" placeholder="i just lost my dawg" style="border:none;padding:0;color:grey">
-
-      <p style="margin-bottom:10px">Description</p>
-      <input id="communityDescInput" type="text" placeholder="a community on wyntr" style="border:none;padding:0;color:grey">
-
-
-      <hr style="margin:0 -20px;margin-top:15px;">
-      <div id="comTags">
-        <p>Select up to 3 tags</p>
-        <p style="color:grey;font-size:15px;">Choose topics your community is made for</p>
-
-          <div id="communityTagOptions">
-            ${["tech","gaming","entertainment","lifestyle","art","science","social","finance","hobbies"]
-              .map(t => `
-              <div class="tagBox" data-tag="${t}" style="
-                padding:5px 12px;border-radius:8px;cursor:pointer;
-                border:1px solid transparent;font-size:15px;">
-                ${t}
-              </div>
-            `).join("")}
-          </div>
-      </div>
-
-      <hr style="margin:0 -20px;margin-top:15px;">
-      <p>Community mode</p>
-      
-      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
-        <span>Accepting applications</span>
-        <div class="switch-row" style="margin-left:auto">
-          <input id="acceptApplicationCheck" type="checkbox">
-          <label for="acceptApplicationCheck" class="switch-label" aria-hidden="true">
-            <span class="switch-track">
-              <span class="switch-knob" aria-hidden="true"></span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
-        <span>Only admins can Wynt</span>
-        <div class="switch-row" style="margin-left:auto">
-          <input id="onlyAdmins" type="checkbox">
-          <label for="onlyAdmins" class="switch-label" aria-hidden="true">
-            <span class="switch-track">
-              <span class="switch-knob" aria-hidden="true"></span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <div id="followersonly" style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-bottom:10px;color:grey">
-        <span>Only your followers can join</span>
-        <div class="switch-row" style="margin-left:auto">
-          <input id="followersOnly" type="checkbox">
-          <label for="followersOnly" class="switch-label" aria-hidden="true">
-            <span class="switch-track">
-              <span class="switch-knob" aria-hidden="true"></span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:5px;margin:5px 0;color:grey">
-        <span>Private community</span>
-        <div class="switch-row" style="margin-left:auto">
-          <input id="privateCheck" type="checkbox">
-          <label for="privateCheck" class="switch-label" aria-hidden="true">
-            <span class="switch-track">
-              <span class="switch-knob" aria-hidden="true"></span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <hr style="margin:0 -20px;margin-top:15px;">
-
-      <div id="rulesSection">
-        <p style="margin-top:15px;">community Rules</p>
-        <p style="color:grey;font-size:15px;">These rules must comply with the <a href="/user/tos" target="_blank">Wyntr terms of service</a></p>
-
-        <div id="rulesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
-
-        <button id="addRuleBtn" class="link" style="margin-top:15px;">+ Add Rule</button>
-      </div>
-          
-      <div style="display:flex;gap:5px;align-items:Center;margin-top:10px;">
-          <button id="createCommunityBtn" style="padding:10px 25px;border-radius:10px;margin-top:5px;" class="">Create for 300 Wcoins</button>
-          <button id="cancelCreateCommunityBtn" style="background:none;color:var(--color);border:none;margin-left:auto;text-decoration:underline">Cancel</button>
-      </div>
-
-      <input type="file" id="com-banner-input" class="hidden-input" accept="image/*">
-      <button id="com-ava-input" class="hidden-input"></button>
-      <br><br><br><br><br><br><br>
-    </div>
-  `;
+  overlay.innerHTML = communityoverlay;
   document.body.appendChild(overlay);
 
   rules = []; 
@@ -731,7 +603,7 @@ export async function loadCommunities(reset = false) {
   const container = document.getElementById("communityList");
 
   if (reset) {
-    container.innerHTML = skeletonskibidi;
+    container.innerHTML = COMMUNITIES_SKELETON;
     lastCommunityDoc    = null;
     hasMoreCommunities  = true;
   }
@@ -1283,13 +1155,12 @@ let banLastDoc = null;
 let banDone = false;
 let banLoading = false;
 let currentBanCommunity = "";
-const skeletonHTML = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
 
 async function openBansOverlay(communityId, cData) {
   const overlay = document.getElementById("banOverlay");
   const list = document.getElementById("banList");
   const box = overlay.querySelector(".user-box");
-  document.getElementById("banSearch").value = ""; 
+  document.querySelector("#banOverlay input").value = ""; 
 
   overlay.classList.remove("hidden");
   list.innerHTML = "";
@@ -1331,9 +1202,9 @@ async function loadMoreBans(limitCount) {
   banLoading = true;
 
   const list = document.getElementById("banList");
-  const term = document.getElementById("banSearch").value.trim().toLowerCase();
+  const term = document.querySelector("#banOverlay input").value.trim().toLowerCase();
 
-  if (!banLastDoc) list.innerHTML = skeletonHTML;
+  if (!banLastDoc) list.innerHTML = USERS_SKELETON;
 
   const uniqueDocs = new Map();
 
@@ -1414,14 +1285,14 @@ async function loadMoreBans(limitCount) {
 }
 
 let lastBanQuery = "";
-document.getElementById("banSearch").addEventListener("keydown", async (e) => {
+document.querySelector("#banOverlay input").addEventListener("keydown", async (e) => {
   if (e.key !== "Enter") return;
 
   const queryUid = e.target.value.trim();
   if (queryUid === lastBanQuery) return;
   lastBanQuery = queryUid;
 
-  document.getElementById("banList").innerHTML = skeletonHTML;
+  document.getElementById("banList").innerHTML = USERS_SKELETON;
   banLastDoc = null;
   banDone = false;
   banLoading = false;
@@ -1441,7 +1312,7 @@ async function openMembersOverlay(communityId, cData, canModerate) {
   const overlay = document.getElementById("memberOverlay");
   const list = document.getElementById("memberList");
   const box = overlay.querySelector(".user-box");
-  document.getElementById("memberSearch").value = "";
+  document.querySelector("#memberOverlay input").value = "";
 
   overlay.classList.remove("hidden");
   list.innerHTML = "";
@@ -1493,9 +1364,9 @@ async function loadMoreMembers(limitCount) {
   memberLoading = true;
 
   const list = document.getElementById("memberList");
-  const term = document.getElementById("memberSearch").value.trim().toLowerCase();
+  const term = document.querySelector("#memberOverlay input").value.trim().toLowerCase();
 
-  if (!memberLastDoc) list.innerHTML = skeletonHTML;
+  if (!memberLastDoc) list.innerHTML = USERS_SKELETON;
 
   const uniqueDocs = new Map();
 
@@ -1620,14 +1491,14 @@ async function loadMoreMembers(limitCount) {
   memberLoading = false;
 }
 
-document.getElementById("memberSearch").addEventListener("keydown", async (e) => {
+document.querySelector("#memberOverlay input").addEventListener("keydown", async (e) => {
   if (e.key !== "Enter") return;
 
   const queryUid = e.target.value.trim();
   if (queryUid === lastMemberQuery) return;
   lastMemberQuery = queryUid;
 
-  document.getElementById("memberList").innerHTML = skeletonHTML;
+  document.getElementById("memberList").innerHTML = USERS_SKELETON;
   memberLastDoc = null;
   memberDone = false;
   memberLoading = false;
@@ -2276,7 +2147,7 @@ document.getElementById("searchMyCom")?.addEventListener("keydown", async (e) =>
     const term = e.target.value.trim().toLowerCase();
 
     const list = document.getElementById("myCommunities");
-    list.innerHTML = skeletonskibidi;
+    list.innerHTML = COMMUNITIES_SKELETON;
 
     if (!term) {
       loadingComList = true;
@@ -2350,7 +2221,7 @@ document.getElementById("searchCom")?.addEventListener("keydown", async (e) => {
     const term = e.target.value.trim().toLowerCase();
 
     const list = document.getElementById("communityList");
-    list.innerHTML = skeletonskibidi;
+    list.innerHTML = COMMUNITIES_SKELETON;
 
     if (!term) {
       loadingComList = true;
@@ -2435,71 +2306,7 @@ async function loadCommunityTweets(communityId, loadMore = false) {
   const user = auth.currentUser;
 
   if (!loadMore) {
-    container.innerHTML = `
-      <div id="communityloadingbitches">  <div class="skeleton-card">
-        <div class="skeleton-header">
-          <div class="skeleton-avatar"></div>
-          <div class="skeleton-header-lines">
-            <div class="skeleton-line short"></div>
-          </div>
-          <div class="skeleton-dot"></div>
-        </div>
-        <div class="skeleton-body">
-          <div class="skeleton-line long"></div>
-          <div class="skeleton-line short"></div>
-          <div class="skeleton-line medium"></div>
-        </div>
-        <div class="skeleton-footer">
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="invisible skeleton-pill small"></div>
-          <div class="skeleton-pill small last"></div>
-        </div>
-      </div>
-      <div class="skeleton-card">
-        <div class="skeleton-header">
-          <div class="skeleton-avatar"></div>
-          <div class="skeleton-header-lines">
-            <div class="skeleton-line short"></div>
-          </div>
-          <div class="skeleton-dot"></div>
-        </div>
-        <div class="skeleton-body">
-          <div class="skeleton-line medium"></div>
-          <div class="skeleton-line long"></div>
-          <div class="skeleton-line short"></div>
-        </div>
-        <div class="skeleton-footer">
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="invisible skeleton-pill small"></div>
-          <div class="skeleton-pill small last"></div>
-        </div>
-      </div>
-      <div class="skeleton-card">
-        <div class="skeleton-header">
-          <div class="skeleton-avatar"></div>
-          <div class="skeleton-header-lines">
-            <div class="skeleton-line short"></div>
-          </div>
-          <div class="skeleton-dot"></div>
-        </div>
-        <div class="skeleton-body">
-          <div class="skeleton-line short"></div>
-          <div class="skeleton-line long"></div>
-          <div class="skeleton-line medium"></div>
-        </div>
-        <div class="skeleton-footer">
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="skeleton-pill small"></div>
-          <div class="invisible skeleton-pill small"></div>
-          <div class="skeleton-pill small last"></div>
-        </div>
-      </div>
-    </div>`;
+    container.innerHTML = `<div id="communityloadingbitches">${TWEETS_SKELETON}</div>`;
     lastVisibleCommunityTweet = null;
     noMoreCommunityTweets = false;
 
@@ -2760,7 +2567,7 @@ async function openCommunityOverlay(uid, reset) {
 
   if (reset) {
     comLastDoc = null;
-    container.innerHTML = skeletonskibidi;
+    container.innerHTML = COMMUNITIES_SKELETON;
 
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
@@ -2893,9 +2700,7 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
       return;
     }
 
-    list.innerHTML = `
-<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>
-    `;
+    list.innerHTML = COMMUNITIES_SKELETON;
 
     if (!term) {
       loadingUserCom = true;

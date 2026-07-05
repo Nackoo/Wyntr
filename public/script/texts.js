@@ -567,70 +567,6 @@ function escapeHTML(str) {
   }[char]));
 }
 
-const ist = document.getElementById("isT");
-const lp = document.getElementById("lp");
-const langSelect = document.getElementById("language-select");
-
-const isT = localStorage.getItem("isTranslateEnabled") || false;
-
-if (isT != "false" && isT != false) {
-  ist.checked = true;
-} else {
-  ist.checked = false;
-}
-
-if (isT === "true") {
-  lp.style.display = "block";
-} else {
-  lp.style.display = "none";
-}
-
-ist.addEventListener("change", () => {
-  const enabled = ist.checked;
-  localStorage.setItem("isTranslateEnabled", enabled.toString());
-  
-  if (enabled) {
-    lp.style.display = "block";
-  } else {
-    lp.style.display = "none";
-  }
-});
-
-const savedLang = localStorage.getItem("languagePreference") || "en";
-langSelect.value = savedLang;
-
-langSelect.addEventListener("change", () => {
-  const langCode = langSelect.value;
-  localStorage.setItem("languagePreference", langCode);
-  console.log("Language preference set to:", langCode);
-});
-
-const setd = document.getElementById("setD");
-let hasclicked = false;
-const b = document.getElementById("B");
-const c = document.getElementById("C");
-
-if (window.innerWidth > 700) {
-  b.style.display = "block";
-  setd.style.transform  = "rotate(-90deg)";
-  hasclicked = true;
-  c.style.display = "none";
-}
-
-setd.onclick = () => { 
-  if (!hasclicked) {
-    b.style.display = "block";
-    setd.style.transform  = "rotate(-90deg)";
-    hasclicked = true;
-    c.style.display = "none";
-  } else {
-    b.style.display = "none";
-    setd.style.transform  = "rotate(-180deg)";
-    hasclicked = false;
-    c.style.display = "block";
-  }
-}
-
 function randomString(length) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -729,6 +665,21 @@ export function isOlderThanBlankDays(createdAtTimestamp, days) {
   // ([num] days * 24 hours * 60 mins * 60 secs * 1000 ms)
   const blankDaysInMs = days * 24 * 60 * 60 * 1000;
   return (now - postDate) > blankDaysInMs;
+}
+
+export function getSuspendedUntil(duration) {
+  const now = Date.now();
+
+  const map = {
+    "1d": 24 * 60 * 60 * 1000,
+    "3d": 3 * 24 * 60 * 60 * 1000,
+    "2w": 14 * 24 * 60 * 60 * 1000,
+    "1mo": 30 * 24 * 60 * 60 * 1000
+  };
+
+  if (duration === "permanent") return null;
+
+  return Timestamp.fromMillis(now + map[duration]);
 }
 
 export { randomString, inputDialog, confirmDialog, log, info, tokenize, formatDate, linkify, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime }

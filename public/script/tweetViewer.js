@@ -1137,6 +1137,7 @@ document.body.addEventListener("click", async (e) => {
       e.target.closest(".like-btn") || 
       e.target.closest(".viewbtn") || 
       e.target.closest(".menubtn") || 
+      e.target.closest(".cmenubtn") ||
       e.target.closest(".retweet-btn") || 
       e.target.closest(".tweet-menu") || 
       e.target.closest(".attachment") || 
@@ -1151,6 +1152,7 @@ document.body.addEventListener("click", async (e) => {
       ) ||
       e.target.closest("#appendEdit .tweet") || 
       e.target.closest(".spoilerr") || 
+      e.target.closest(".quoted-comment.retweet") ||
       e.target.closest(".communityLink") || 
       e.target.closest("#replyComment") || 
       e.target.closest("video") || 

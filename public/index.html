@@ -40,7 +40,7 @@
     <div class="user-box" style="height:100dvh !important;">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);
         backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-        <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+        <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
           <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="hidebookmark()">
             <img src="/image/leftArrow.svg">
           </button>
@@ -48,23 +48,6 @@
         </div>
       </header>
       <div id="bookmarkList"></div>
-      <br><br><br><br><br><br>
-    </div>
-  </div>
-
-  <div id="profileCom" class="useroverlay hidden">
-    <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);
-        backdrop-filter:blur(10px);border-bottom:var(--border)">
-        <button onclick="document.getElementById('profileCom').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:100%;padding:12px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
-            <input style="margin:0 10px;" type="text" placeholder="search anything">
-          </div>
-        </div>
-      </header>
-      <br>
-      <div id="profileComList"></div>
       <br><br><br><br><br><br>
     </div>
   </div>
@@ -101,42 +84,6 @@
       </div>
 
       <div id="archivePermList"></div>
-      <br><br><br><br><br><br>
-    </div>
-  </div>
-
-  <div id="viewlikesOverlay" class="useroverlay hidden">
-    <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
-        <button onclick="document.getElementById('viewlikesOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
-        <input style="margin-right:10px;" type="text" placeholder="search user">
-      </header>
-      <br>
-      <div id="viewlikesList"></div>
-      <br><br><br><br><br><br>
-    </div>
-  </div>
-
-  <div id="blockOverlay" class="useroverlay hidden">
-    <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
-        <button onclick="document.getElementById('blockOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
-        <input style="margin-right:20px;" type="text" placeholder="search mutes">
-      </header>
-      <br>
-      <div id="blockList"></div>
-      <br><br><br><br><br><br>
-    </div>
-  </div>
-
-  <div id="archiveOverlay" class="useroverlay hidden">
-    <div class="user-box" style="height:100dvh !important;">
-      <header style="margin:0 -20px;display: flex; gap: 5px;padding:12px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin-bottom:5px;">
-        <button onclick="document.getElementById('archiveOverlay').classList.add('hidden')" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;padding:0;"><img src="/image/leftArrow.svg"></button>
-        <input style="margin-right:20px;" type="text" placeholder="search archives">
-      </header>
-      <br>
-      <div id="archiveList"></div>
       <br><br><br><br><br><br>
     </div>
   </div>
@@ -540,11 +487,6 @@
           </div>
 
           <div class="container1">
-            <span>Username</span>
-            <input style="border:none;padding:0;" type="text" id="username-edit">
-          </div>
-
-          <div class="container1">
             <span>Description</span>
             <textarea style="border:none;padding:0;" id="description-edit"></textarea>
           </div>
@@ -556,207 +498,210 @@
 
       <div id="profileSubOverlay" class="useroverlay hidden">
       <div class="user-box" style="height:100dvh !important;">
-          <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;margin-bottom:14px;">
-              <button style="padding:0;padding-right:-10px;" class="close-btn" id="hideProfile">
-                <img src="/image/leftArrow.svg">
-              </button>
-              <h2 style="margin:0;margin-left:Auto">More</h2><img src="/image/settings-filled.svg" height="27">
-            </div>
-          </header>
-          <div id="sek">
-            <div id="prizebox1" style="margin: 0px 0px 25px; display: none; border-top: var(--border); padding-right: 20px; padding-left: 20px;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button id="prize" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;background:white">claim</button> </div><div style="border:var(--border);padding:25px 15px;padding-top:15px;background:var(--normal);margin:0;">
-              <h2 style="margin-top:0;margin-bottom:15px;">Account</h2>
-              <div style="display:flex;gap:5px;">
-                <div style="display:flex;align-items:center;gap:5px;">
-                  <img src="/image/coin.svg"> <span id="my-balance">0</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:5px;">
-                  <img src="/image/fire.svg"> <span id="my-streak">0</span>
-                </div>
-              </div>
-              <button id="logout"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2"></path></svg><span>logout</span></button>
-            </div>
-            <button class="settingsbtns" id="bookmarkBtn" onclick="document.getElementById('bookmarkOverlay').classList.remove('hidden')">
-              <img style="height:25px;" src="/image/bookmark.svg">
-              <span style="color:var(--color)">Bookmarks</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+        <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
+            <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;margin-bottom:14px;">
+            <button style="padding:0;padding-right:-10px;" class="close-btn" id="hideProfile">
+              <img src="/image/leftArrow.svg">
             </button>
-            <button class="settingsbtns" id="shopBtn" onclick="document.getElementById('premiumOverlay1').classList.remove('hidden')">
-              <img style="height:25px;" src="/image/shop.svg">
-              <span style="color:var(--color);">Shop</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>   
-            <button class="settingsbtns" id="openArchive">
-              <img style="height:25px;" src="/image/archive.svg">
-              <span style="color:var(--color)">Archives</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>     
-            <button class="settingsbtns" id="openBlocks">
-              <img style="height:25px;" src="/image/ban.svg">
-              <span style="color:var(--color)">People you muted</span>
-              <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
-            </button>  
+            <h2 style="margin:0;margin-left:Auto">More</h2><img src="/image/settings-filled.svg" height="27">
           </div>
+        </header>
+        <div id="sek">
+          <div id="prizebox1" style="margin: 0px 0px 25px; display: none; border-top: var(--border); padding-right: 20px; padding-left: 20px;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button id="prize" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;background:white">claim</button> </div><div style="border:var(--border);padding:25px 15px;padding-top:15px;background:var(--normal);margin:0;">
+            <h2 style="margin-top:0;margin-bottom:15px;">Account</h2>
+            <div style="display:flex;gap:5px;">
+              <div style="display:flex;align-items:center;gap:5px;">
+                <img src="/image/coin.svg"> <span id="my-balance">0</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <img src="/image/fire.svg"> <span id="my-streak">0</span>
+              </div>
+            </div>
+          </div>
+          <button id="logout"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2"></path></svg><span>logout</span></button> 
+          <h2 id="otherlist" style="margin:0;margin:10px 0;margin-left:17px;color:grey">Your lists</h2>
+          <button class="settingsbtns" id="bookmarkBtn" onclick="document.getElementById('bookmarkOverlay').classList.remove('hidden')">
+            <img style="height:25px;" src="/image/bookmark.svg">
+            <span style="color:var(--color)">Bookmarks</span>
+            <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+          </button>
+          <button class="settingsbtns" id="shopBtn" onclick="document.getElementById('premiumOverlay1').classList.remove('hidden')">
+            <img style="height:25px;" src="/image/shop.svg">
+            <span style="color:var(--color);">Shop</span>
+            <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+          </button>   
+          <button class="settingsbtns" id="openArchive">
+            <img style="height:25px;" src="/image/archive.svg">
+            <span style="color:var(--color)">Archives</span>
+            <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+          </button>     
+          <button class="settingsbtns" id="openBlocks">
+            <img style="height:25px;" src="/image/ban.svg">
+            <span style="color:var(--color)">People you muted</span>
+            <svg style="margin-left:auto;color:var(--color);transform:rotate(180deg)" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"></path></svg>
+          </button> 
+        </div>
 
-          <div style="border:var(--border);padding:20px 15px;background:var(--normal);margin:0 -20px" id="settingsbox">
-            <div style="display:flex;align-items:center;">
-              <h2 style="margin-top:0;margin-bottom:15px;">Settings</h2>
-              <button class="close-btn" id="setD" style="margin-left: auto; margin-bottom: 15px; transform: rotate(-90deg); padding: 0px;"><img src="/image/leftArrow.svg" height="25"></button>
+        <div style="border:var(--border);padding:20px 15px;background:var(--normal);margin:0 -20px" id="settingsbox">
+          <h2 style="margin-top:0;margin-bottom:15px;color:grey">Settings</h2>
+
+            <h3 style="margin:0;margin-top:10px">Invite permission</h3>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span style="color:grey">Allow invites from everyone</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="inviteEveryone" type="checkbox">
+                <label for="inviteEveryone" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
             </div>
 
-            <span id="C" style="color: grey; font-size: 16px; margin-top: -10px; display: none;">Expand settings to see more</span>
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span style="color:grey">Only from people i follow</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="inviteFollow" type="checkbox">
+                <label for="inviteFollow" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span style="color:grey">No invites</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="inviteNo" type="checkbox">
+                <label for="inviteNo" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <h3 style="margin:20px 0;margin-top:15px;">privacy</h3>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span>Make following list public</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="seeFollows" type="checkbox">
+                <label for="seeFollows" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who you follow.</p>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span>Make Followers List Public</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="seeFollowers" type="checkbox">
+                <label for="seeFollowers" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who follows you.</p>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span>Show Likes on Public Lists</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="privateLikes" type="checkbox">
+                <label for="privateLikes" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p style="color:grey;margin:0;margin-bottom:20px;">When off, your likes are hidden from public view.</p>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span>Share Interaction Data with Authors</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="privateView" type="checkbox">
+                <label for="privateView" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p style="color:grey;margin:0;margin-bottom:20px;">If off, authors won't see you in their analytics.</p>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span>Make Joined Communities Public</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="seeCom" type="checkbox">
+                <label for="seeCom" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p style="color:grey;margin:0;margin-bottom:20px;">When off, your joined communities are hidden from your profile.</p>
+
+            <h3 style="margin:0;margin-top:10px">Others</h3>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
+              <span style="color:grey">Disable some confirmation popup</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="discon" type="checkbox">
+                <label for="discon" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
+              <span style="color:grey">show translations for posts outside your language</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="isT" type="checkbox">
+                <label for="isT" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div id="lp" style="display: none;">
+              <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
+                <option value="en">English</option>
+                <option value="id">Bahasa Indonesia</option>
+                <option value="zh">中文 (Chinese)</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="es">Español</option>
+              </select>
+            </div>
+
+            <div style="display:flex;align-items:center;margin-bottom: 15px;margin-top:20px;">
+              <h3 style="margin:0;">About your account</h3>
+              <button class="close-btn" id="setD" style="margin-left: auto;  transform: rotate(-90deg); padding: 0px;"><img src="/image/leftArrow.svg" height="25"></button>
+            </div>
 
             <div id="B" style="display: block;">
-
-              <h3 style="margin:0;margin-top:10px">Invite permission</h3>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Allow invites from everyone</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="inviteEveryone" type="checkbox">
-                  <label for="inviteEveryone" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
+              <div style="display:flex;gap:10px">
+                <button style="border-radius:10px;padding:10px;background:#db1d23;color:white" id="save-password-btn">add/change password for this account</button>
+                <button id="change-username" style="border-radius:10px;padding:10px;">change username</button>
               </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Only from people i follow</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="inviteFollow" type="checkbox">
-                  <label for="inviteFollow" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">No invites</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="inviteNo" type="checkbox">
-                  <label for="inviteNo" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <h3 style="margin:20px 0;margin-top:15px;">privacy</h3>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span>Make following list public</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeFollows" type="checkbox">
-                  <label for="seeFollows" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who you follow.</p>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span>Make Followers List Public</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeFollowers" type="checkbox">
-                  <label for="seeFollowers" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p style="color:grey;margin:0;margin-bottom:20px;">When off, only you can see who follows you.</p>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span>Show Likes on Public Lists</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="privateLikes" type="checkbox">
-                  <label for="privateLikes" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p style="color:grey;margin:0;margin-bottom:20px;">When off, your likes are hidden from public view.</p>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span>Share Interaction Data with Authors</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="privateView" type="checkbox">
-                  <label for="privateView" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p style="color:grey;margin:0;margin-bottom:20px;">If off, authors won't see you in their analytics.</p>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span>Make Joined Communities Public</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="seeCom" type="checkbox">
-                  <label for="seeCom" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p style="color:grey;margin:0;margin-bottom:20px;">When off, your joined communities are hidden from your profile.</p>
-
-              <h3 style="margin:0;margin-top:10px">Others</h3>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
-                <span style="color:grey">Disable some confirmation popup</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="discon" type="checkbox">
-                  <label for="discon" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
-                <span style="color:grey">show translations for posts outside your language</span>
-                <div class="switch-row" style="margin-left:auto">
-                  <input id="isT" type="checkbox">
-                  <label for="isT" class="switch-label" aria-hidden="true">
-                    <span class="switch-track">
-                      <span class="switch-knob" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div id="lp" style="display: none;">
-                
-                <select id="language-select" style="margin-top:8px; width:100%; padding: 12px 8px; border-radius:12px;border:var(--border);background:var(--normal);color:var(--text);">
-                  <option value="en">English</option>
-                  <option value="id">Bahasa Indonesia</option>
-                  <option value="zh">中文 (Chinese)</option>
-                  <option value="ja">日本語</option>
-                  <option value="ko">한국어</option>
-                  <option value="de">Deutsch</option>
-                  <option value="fr">Français</option>
-                  <option value="es">Español</option>
-                </select>
-              </div>
-
-              <!--hr style="margin:0 -13px;margin-top:17px;margin-bottom:10px;"-->
             </div>
+
+            <!--hr style="margin:0 -13px;margin-top:17px;margin-bottom:10px;"-->
           </div>
 
           <div id="sek1">
@@ -831,6 +776,7 @@
           </header>
           <div class="tab-container" style="margin-top:10px">
             <button class="tab1 active" data-target="tweetsView">Explore</button>
+            <button class="tab1" data-target="tagsView">Hashtags</button>
             <button class="tab1" data-target="topicsView">Topics</button>
           </div>
 
@@ -838,6 +784,9 @@
             <div id="displaySkeletons"></div>
             <div id="displayUsers"></div>
             <div id="displayTweets"></div>
+          </div>
+
+          <div id="tagsView" class="tab-content">
           </div>
 
           <div id="topicsView" class="tab-content hidden">
@@ -856,7 +805,7 @@
         <div class="user-box" style="height:100dvh !important;">
           <br>
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:25px;margin-top:-30px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="hidenotif()">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -873,15 +822,11 @@
 
       <div id="tagSubOverlay" class="useroverlay hidden suboverlay">
         <div class="user-box" style="height: 100dvh !important">
-          <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
-              <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('tagSubOverlay').classList.add('hidden');">
+          <div style="padding: 17px;border-bottom:var(--border);margin:0 -20px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <button style="padding:0;padding-right:-10px;margin-left:-5px" class="close-btn" onclick="document.getElementById('tagSubOverlay').classList.add('hidden');">
                 <img src="/image/leftArrow.svg">
               </button>
-            </div>
-          </header>
-          <div style="padding: 20px;border-bottom:var(--border);margin:-20px;margin-bottom:20px;">
-            <div style="display:flex;align-items:center;gap:7px;">
               <h2 style="margin:0;" id="tagId"></h2>
               <h2 style="margin:0;color:grey">tag</h2>
             </div>
@@ -1009,6 +954,7 @@
         </div>
       </div>
 
+      <!-- DO NOT USE CREATE_OVERLAY() ON HERE -->
       <div class="useroverlay hidden" id="communityArchiveOverlay" style="z-index:7">
         <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
@@ -1023,6 +969,7 @@
         </div>
       </div>
 
+      <!-- DO NOT USE CREATE_OVERLAY() ON HERE -->
       <div class="useroverlay hidden" id="banOverlay" style="z-index:7">
         <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
@@ -1037,6 +984,7 @@
         </div>
       </div>
 
+      <!-- DO NOT USE CREATE_OVERLAY() ON HERE -->
       <div class="useroverlay hidden" id="memberOverlay" style="z-index:7">
         <div class="user-box" style="height:100dvh !important;">
           <header style="margin:0 -20px;padding:0 20px;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);padding-left:10px;">    
@@ -1161,7 +1109,7 @@
         <div id="editOverlay" class="overlay hidden">
           <div class="comment-box" style="padding-top: 0 !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('editOverlay').classList.add('hidden')">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -1183,7 +1131,7 @@
           <div id="retweetOverlay" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="cancelretweet">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1237,7 +1185,7 @@
           <div id="quoteViewer" class="useroverlay hidden">
             <div class="user-box" style="height:100dvh !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;"> 
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;"> 
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('quoteViewer').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1271,7 +1219,7 @@
             <div class="user-box" style="height:100dvh !important;">
               <br>
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;margin-top:-24px;">
-                <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button onclick="resetCommentSearch()" style="background:none;margin-left:10px;margin-right:5px;margin-left:0px;"><img src="/image/leftArrow.svg"></button>
                   <input style="margin-left:-10px;" type="text" placeholder="search replies under this post">
                 </div>
@@ -1309,7 +1257,7 @@
           <div id="commentOverlay" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="closeComment">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1358,7 +1306,7 @@
           <div id="replyOverlay" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important;">
               <header class="flex" style="position:sticky;;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('replyOverlay').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1413,7 +1361,7 @@
           <div id="tweetOverlay" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important;">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" id="canceltweet">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1467,7 +1415,7 @@
           <div id="tweetOption" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="
                     document.getElementById('tweetOption').classList.add('hidden');
                   ">
@@ -1546,7 +1494,7 @@
           <div id="retweetOption" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('retweetOption').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1628,7 +1576,7 @@
           <div id="commentOption" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('commentOption').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1680,7 +1628,7 @@
           <div id="replyOption" class="overlay hidden">
             <div class="comment-box" style="padding-top:0 !important">
               <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-                  <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+                  <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
                   <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('replyOption').classList.add('hidden')">
                     <img src="/image/leftArrow.svg">
                   </button>
@@ -1733,7 +1681,7 @@
       <div id="premiumOverlay1" class="useroverlay hidden">
         <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="closePremium">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -1801,7 +1749,7 @@
       <div id="bookmarkFolderOverlay" class="useroverlay hidden">
         <div class="user-box" style="height:100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('bookmarkFolderOverlay').classList.add('hidden')">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -1818,7 +1766,7 @@
       <div id="highlightFolderOverlay" class="useroverlay hidden">
         <div class="user-box" style="height:100dvh !important">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" onclick="document.getElementById('highlightFolderOverlay').classList.add('hidden')">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -1835,7 +1783,7 @@
       <div id="communityOverlay" class="useroverlay hidden">
         <div class="user-box" style="height:100dvh !important;">
           <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-              <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+              <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
               <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com">
                 <img src="/image/leftArrow.svg">
               </button>
@@ -1937,7 +1885,7 @@
     <div id="skibidicome" style="z-index:7" class="useroverlay hidden">
     <div class="user-box" style="height:100dvh !important">
       <header class="flex" style="position:sticky;background:rgba(7, 7, 9, 0.8);backdrop-filter:blur(10px);border-bottom:var(--border);margin:0 -20px;padding: 0;margin-bottom:20px;">
-        <div style="display:flex;margin:16px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
+        <div style="display:flex;margin:12px 0;align-items:center;width:100%;gap:10px;padding-left:7px;padding-right:20px;">
           <button style="padding:0;padding-right:-10px;" class="close-btn" id="close-com-rule">
             <img src="/image/leftArrow.svg">
           </button>
@@ -2126,6 +2074,7 @@
 
   <div id="community-hover-card" class="hidden"></div>
 
+  <script type="module" src="/script/element.js"></script>
   <script type="module" src="/script/main.js"></script>
   <script type="module" src="/script/index.js"></script>
   <script type="module" src="/script/bookmark.js"></script>

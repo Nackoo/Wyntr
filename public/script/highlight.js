@@ -2,6 +2,7 @@ import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, 
 import { renderTweet } from './index.js';
 import { formatDate, inputDialog, log, confirmDialog } from "./texts.js";
 import { base91ToImageSrc, uploadMedia } from './attachments.js';
+import { TWEETS_SKELETON } from './element.js';
 
 const loading1 = document.getElementById("loadingOverlay");
 
@@ -21,72 +22,6 @@ function setBtnVisible(btn, visible) {
   if (!btn) return;
   btn.style.display = visible ? 'block' : 'none';
 }
-
-const skeleton = `
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line medium"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-`
 
 let lastFolderId = null;
 
@@ -113,7 +48,7 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
     tweetOverlay.classList.remove('hidden');
   } else {
     if (initial && lastFolderId != folderId) {
-      tweetList.innerHTML = skeleton;
+      tweetList.innerHTML = TWEETS_SKELETON;
       folderLastDoc = null;
       folderNoMore = false;
       currentFolderId = folderId;

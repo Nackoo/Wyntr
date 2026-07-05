@@ -1,6 +1,7 @@
 import { db, auth, deleteDoc, collection, doc, getDoc, getDocs, orderBy, limit, startAfter, query, setDoc, increment, updateDoc, addDoc, serverTimestamp, runTransaction, onSnapshot } from './firebase.js';
 import { renderTweet } from './index.js';
 import { formatDate, inputDialog, log, confirmDialog } from "./texts.js";
+import { TWEETS_SKELETON, BOOKMARKS_SKELETON } from './element.js';
 
 const loading1 = document.getElementById("loadingOverlay");
 
@@ -76,17 +77,7 @@ async function loadBookmarks(initial = false) {
 
   loading = true;
   if (initial) {
-    bookmarkList.innerHTML = `
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-      </div>
-      <div class="skeleton-skibidi">
-        <div class="skeleton-card" style="width:100%;margin-right:0;margin-left:0"><div class="skeleton-header"><div class="skeleton-header-lines" style="margin:0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div></div></div>
-      </div>
-    `;
+    bookmarkList.innerHTML = BOOKMARKS_SKELETON;
     lastDoc = null;
     noMore = false;
   }
@@ -138,72 +129,6 @@ async function loadBookmarks(initial = false) {
   loading = false;
 }
 
-const skeleton = `
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line medium"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card" style="margin-right:0;margin-left:0">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-`
-
 let lastFolderId = null;
 
 // tweets inside folder
@@ -220,7 +145,7 @@ async function loadFolderTweets(folderId, initial = true) {
     tweetOverlay.classList.remove('hidden');
   } else {
     if (initial) {
-      tweetList.innerHTML = skeleton;
+      tweetList.innerHTML = TWEETS_SKELETON;
       folderLastDoc = null;
       folderNoMore = false;
       currentFolderId = folderId;

@@ -954,8 +954,9 @@ img[src="/image/three-dots.svg"]:hover {
 
 .tag-search-item {
   cursor: pointer;
+  border-bottom: var(--border);
   margin: 0 -20px;
-  padding: 0 20px !important;
+  padding: 15px 20px;
 }
 
 .user-search-item:hover,

@@ -2,7 +2,7 @@ import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth
 import { renderTweet, getUserData, loadComments, currentUserRole, waitForAuth } from './index.js';
 import { sendFollowNotification } from "./notification.js";
 import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
-import { tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate } from "./texts.js";
+import { escapeHTML, tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate, getSuspendedUntil } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js"; 
@@ -10,17 +10,9 @@ import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
 import { discord } from "./moderation.js";
 import { initViews } from "./view_users.js";
+import { TWEETS_SKELETON, NO_ACCESS, USERS_SKELETON, BOOKMARKS_SKELETON } from "./element.js";
 
 await waitForAuth();
-
-const noaccess = `
-  <div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;">
-    <div style="max-width:400px;text-align:left;">
-      <h2 style="margin:0;">No permission</h2>
-      <p style="color:grey;margin:7px 0;">This user chose to not show this list publicly.</p>
-    </div>
-  </div>
-`;
 
 const loading            = document.getElementById("loadingOverlay");
 const searchBtn          = document.querySelector('.smallbar img[src="/image/search.svg"]');
@@ -29,7 +21,6 @@ const userSubOverlay     = document.getElementById("userSubOverlay");
 const searchInput        = userOverlay.querySelector("input[type='text']");
 const usersView          = document.getElementById("usersView");
 const tweetsView         = document.getElementById("tweetsView");
-const tagName            = document.getElementById("tagId");
 const deleteReasonSubmit = document.getElementById("deleteReasonSubmit");
 
 const displayUsers       = document.getElementById("displayUsers");
@@ -49,99 +40,117 @@ let followLastDoc        = null;
 
 const FOLLOW_PAGE_SIZE   = 10;
 
-export const skeleton = `
-  <div class="skeleton-card" style="margin-top:50px">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line medium"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-  <div class="skeleton-card">
-    <div class="skeleton-header">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-header-lines">
-        <div class="skeleton-line short"></div>
-      </div>
-      <div class="skeleton-dot"></div>
-    </div>
-    <div class="skeleton-body">
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line medium"></div>
-    </div>
-    <div class="skeleton-footer">
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="skeleton-pill small"></div>
-      <div class="invisible skeleton-pill small"></div>
-      <div class="skeleton-pill small last"></div>
-    </div>
-  </div>
-`;
-
-function getSuspendedUntil(duration) {
-  const now = Date.now();
-
-  const map = {
-    "1d": 24 * 60 * 60 * 1000,
-    "3d": 3 * 24 * 60 * 60 * 1000,
-    "2w": 14 * 24 * 60 * 60 * 1000,
-    "1mo": 30 * 24 * 60 * 60 * 1000
-  };
-
-  if (duration === "permanent") return null;
-
-  return Timestamp.fromMillis(now + map[duration]);
-}
-
 searchBtn.addEventListener("click", () => {
   userOverlay.classList.remove("hidden");
   document.querySelectorAll(".tab1").forEach(t => t.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
-  const tweetsTab = document.querySelector('.tab1[data-target="tweetsView"]');
-  tweetsTab.classList.add("active");
-  tweetsView.classList.remove("hidden");
+  document.querySelector('.tab1[data-target="tweetsView"]').click();
 });
+
+const tagsView = document.getElementById("tagsView");
+let TAGS_LOADED = false;
+let isFetching = false;
+let hasMore = true;
+let lastDoc = null;
+let currentSearchTerm = "";
+
+document.querySelector('.tab1[data-target="tagsView"]').addEventListener("click", async () => {
+  if (TAGS_LOADED) return;
+  
+  tagsView.innerHTML = BOOKMARKS_SKELETON;
+  currentSearchTerm = "";
+  await searchTags("", false); 
+  
+  TAGS_LOADED = true;
+});
+
+async function searchTags(term = "", isNextPage = false) {
+  if (isFetching || (!hasMore && isNextPage)) return;
+  isFetching = true;
+
+  if (!isNextPage) {
+    currentSearchTerm = term;
+    lastDoc = null;
+    hasMore = true;
+    if (TAGS_LOADED) tagsView.innerHTML = BOOKMARKS_SKELETON;
+  }
+
+  try {
+    const constraints = [collection(db, "tags")];
+
+    if (term) {
+      const lowerTerm = term.toLowerCase();
+      constraints.push(
+        where("name", ">=", lowerTerm),
+        where("name", "<=", lowerTerm + "\uf8ff")
+      );
+    } else {
+      constraints.push(orderBy("lastUpdated", "desc"));
+    }
+
+    if (isNextPage && lastDoc) {
+      constraints.push(startAfter(lastDoc));
+    }
+    constraints.push(limit(10));
+
+    const q = query(...constraints);
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      hasMore = false;
+      if (!isNextPage) {
+        tagsView.innerHTML = `
+          <div class="notfound" style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:30px;padding-bottom:25px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No tags found</h2><p style="color:grey;margin:7px 0;">This tag doesn't exist. Be the first one to use it.</p></div></div>
+        `;
+      }
+      isFetching = false;
+      return;
+    }
+
+    if (!isNextPage) {
+      tagsView.innerHTML = "";
+    }
+    lastDoc = snap.docs[snap.docs.length - 1];
+
+    if (snap.docs.length < 10) {
+      hasMore = false;
+    }
+
+    for (const docSnap of snap.docs) {
+      if (tagsView.querySelector(`#tag-${docSnap.id}`)) continue;
+
+      const data = docSnap.data();
+      const item = document.createElement("div");
+      item.className = "tag-search-item";
+      item.id = `tag-${docSnap.id}`;
+
+      item.innerHTML = `
+        <h3 style="margin:0">
+          <span style="color:grey;font-size:inherit">#</span>
+          ${docSnap.id}
+        </h3>
+        <div style="display:flex;color:grey;font-size:14px">
+          ${data.postCount} Wynts • ${data.contributors} participants
+        </div>`;
+
+      item.addEventListener("click", (e) => {
+        window.openTag(docSnap.id);
+      });
+
+      tagsView.appendChild(item);
+    }
+  } catch (error) {
+    console.error("Error fetching tags:", error);
+  } finally {
+    isFetching = false;
+  }
+
+  return true;
+}
 
 searchsvg.addEventListener("click", async () =>  {
   if (hasLoaded) return;
-  displayskeletons.innerHTML = skeleton;
+  displayskeletons.innerHTML = TWEETS_SKELETON;
       
   const [a, b] = await Promise.all([
     fetchUsers(null),
@@ -149,7 +158,6 @@ searchsvg.addEventListener("click", async () =>  {
   ]);
   b.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
 
-  displayskeletons.innerHTML = "";
   hasLoaded = true;
 })
 
@@ -344,11 +352,16 @@ searchInput.addEventListener("keydown", async (e) => {
 
     const activeTab = document.querySelector(".tab1.active")?.dataset.target;
 
+    if (activeTab === "tagsView") {
+      tagsView.innerHTML = BOOKMARKS_SKELETON;
+      await searchTags(term, false); 
+    }
+
     if (activeTab === "tweetsView") {
       if (term == "" && hasLoaded) return;
 
       hasLoaded = false;
-      displayskeletons.innerHTML = skeleton;
+      displayskeletons.innerHTML = TWEETS_SKELETON;
 
       const noresults = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:60px;">
         <div style="max-width:400px;text-align:left;">
@@ -389,22 +402,28 @@ searchInput.addEventListener("keydown", async (e) => {
 let loadingMoreTweets = false;
 
 document.querySelector("#userOverlay .user-box").addEventListener("scroll", async function () {
-  const term = searchInput.value.trim();
-
-  if (!term || loadingMoreTweets) return;
+  const activeTab = document.querySelector(".tab1.active").dataset.target;
 
   const nearBottom =
-    this.scrollTop + this.clientHeight >= this.scrollHeight - 50;
+      this.scrollTop + this.clientHeight >= this.scrollHeight - 50;
 
-  if (!nearBottom) return;
+  if (activeTab == "tweetsView") {
+    const term = searchInput.value.trim();
 
-  loadingMoreTweets = true;
+    if (!term || loadingMoreTweets || !nearBottom) return;
 
-  try {
-    const tweets = await searchTweets(term, true, window.isTag);
-    tweets.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
-  } finally {
-    loadingMoreTweets = false;
+    loadingMoreTweets = true;
+
+    try {
+      const tweets = await searchTweets(term, true, window.isTag);
+      tweets.forEach(t => renderTweet(t, t.id, auth.currentUser, "append", displayTweets));
+    } finally {
+      loadingMoreTweets = false;
+    }
+  } else if (activeTab == "tagsView") {
+    if (nearBottom && !isFetching && hasMore) {
+      await searchTags(currentSearchTerm, true);
+    }
   }
 });
 
@@ -482,7 +501,7 @@ const USER_PAGE_SIZE = 5;
 
 async function loadTweets(uid, term = "") {
   if (!userLastVisibleDoc) {
-    list.innerHTML = skeleton;
+    list.innerHTML = TWEETS_SKELETON;
   }
 
   const tweetsRef = collection(db, "tweets");
@@ -606,6 +625,7 @@ async function fetchUsers(term = "") {
     });
     
     if (!displayUsers.querySelector(`#user-${docSnap.id}`)) {
+      displayskeletons.innerHTML = "";
       displayUsers.appendChild(item);
     } 
 
@@ -616,14 +636,6 @@ async function fetchUsers(term = "") {
   }
   
   return true;
-}
-
-function escapeHTML(str) {
-  return str?.replace(/[&<>]/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;'
-  } [c])) || "";
 }
 
 async function getIfUserfollows(uid) { 
@@ -745,14 +757,14 @@ async function loadUserHighlights(uid, initial = false) {
   const highlightRef = collection(db, "users", uid, "highlights");
   let q = query(
     highlightRef,
-    orderBy("createdAt", "desc"),
+    orderBy("lastUpdated", "desc"),
     limit(5)
   );
 
   if (userHighlightLastDoc) {
     q = query(
       highlightRef,
-      orderBy("createdAt", "desc"),
+      orderBy("lastUpdated", "desc"),
       startAfter(userHighlightLastDoc),
       limit(5)
     );
@@ -1249,7 +1261,6 @@ export async function openUserSubProfile(uid) {
   if (userEffectEl) {
     userEffectEl.style.setProperty("--user-effect-bg", "none");
     userEffectEl.style.setProperty("--user-effect-filter", "brightness(1)");
-    userEffectEl.style.setProperty("--user-effect-opacity", "1");
 
     let background = "";
 
@@ -1262,7 +1273,7 @@ export async function openUserSubProfile(uid) {
     }
 
     userEffectEl.style.setProperty("--user-effect-bg", background ? `url('${background}')` : "none");
-    userEffectEl.style.setProperty("--user-effect-opacity", "0.5");
+    userEffectEl.style.setProperty("--user-effect-opacity", "0.3");
   }
 
   if (d.createdAt?.toDate) {
@@ -1445,119 +1456,6 @@ async function renderPinned(d, uid) {
 
 window.openUserSubProfile = openUserSubProfile;
 
-window.openTag = async function (tagId) {
-  document.getElementById("searchsvg").click();
-
-  const tweetList = document.getElementById("tagstweet");
-  const scrollBox = document.querySelector("#tagSubOverlay .user-box");
-  const tagOverlay = document.getElementById("tagSubOverlay");
-  const tagtweets = document.getElementById("tagTweets");
-  const tagcontributors = document.getElementById("tagContributors");
-
-  tagOverlay.classList.remove("hidden");
-  tweetList.innerHTML = skeleton;
-  tagName.textContent = tagId;
-  tagtweets.textContent = "loading...";
-  tagcontributors.textContent = "";
-
-  const tagTweetsRef = collection(db, "tweets");
-  const tagRef = doc(db, "tags", tagId);
-
-  const BATCH_SIZE = 5;
-  let lastDoc = null;
-  let isLoading = false;
-  let reachedEnd = false;
-
-  async function loadBatch() {
-    if (isLoading || reachedEnd) return;
-    isLoading = true;
-
-    const queryConstraints = [
-      tagTweetsRef,
-      orderBy("createdAt", "desc"),
-      where("archived", "!=", true),
-      where("tags", "array-contains", tagId),
-      limit(BATCH_SIZE)
-    ];
-
-    if (lastDoc) queryConstraints.push(startAfter(lastDoc));
-    const q = query(...queryConstraints);
-
-    const [snap, tagSnap] = await Promise.all([
-      getDocs(q),
-      getDoc(tagRef)
-    ])
-
-    if (tagSnap.exists()) {
-      const data = tagSnap.data();
-      tagtweets.textContent = `${data.postCount} Wynts •`;
-      tagcontributors.textContent = `${data.contributors} participants`;
-    } else {
-      tagtweets.textContent = "data unavailable";
-    }
-
-    tagcontributors.onclick = () => {
-      initViews(null, null, null, null, tagId);
-    }
-
-    if (snap.empty) {
-      reachedEnd = true;
-      isLoading = false;
-      if (!tweetList.querySelector(".tweet")) {
-        tweetList.innerHTML = `<div style="width:100%;display:flex;justify-content:center;align-items:center;margin-top:70px;"><div style="max-width:400px;text-align:left;"><h2 style="margin:0;">No Wynts — yet</h2><p style="color:grey;margin:7px 0;">seems like nobody uses this tag. Invite people to use them.</p></div></div>`;
-      }
-      return;
-    }
-
-    lastDoc = snap.docs[snap.docs.length - 1];
-
-    snap.docs.forEach(async (docSnap) => {
-      const tweetId = docSnap.id;
-
-      const tweetDoc = await getDoc(doc(db, "tweets", tweetId));
-      if (tweetDoc.exists()) {
-        tweetList.querySelectorAll(".skeleton-card").forEach(e => {e.remove()});
-        renderTweet(tweetDoc.data(), tweetId, auth.currentUser, "append", tweetList);
-      }
-    });
-
-    isLoading = false;
-  }
-
-  scrollBox.addEventListener("scroll", async () => {
-    const nearBottom =
-      scrollBox.scrollTop + scrollBox.clientHeight >= scrollBox.scrollHeight - 40;
-
-    if (nearBottom) {
-      await loadBatch();
-    }
-  });
-
-  await loadBatch();
-};
-
-const followOverlay = document.createElement("div");
-followOverlay.id = "followOverlay";
-followOverlay.className = "useroverlay hidden";
-followOverlay.innerHTML = `
-  <div class="user-box" style="height:100dvh !important;">
-    <header style="margin:0 -20px;padding:0 20px;background:rgba(0, 0, 0, 0.9);backdrop-filter: blur(10px);border-bottom:var(--border)">
-      <button onclick="document.getElementById('followOverlay').classList.add('hidden')" class="close-btn" style="position:absolute;top:13px;left:0;"><img src="/image/leftArrow.svg"></button>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:100%;padding:12px;display:flex;align-items:center;gap:10px;margin-right:-20px;">
-          <input style="margin:0 10px;" type="text" placeholder="search anything">
-        </div>
-      </div>
-    </header>
-    <br>
-    <div id="followList"></div>
-    <br><br><br><br><br><br>
-  </div>`;
-document.body.appendChild(followOverlay);
-window.followOverlay = followOverlay;
-
-const skeleton1 = `<div style="margin:0 -20px"><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div><div class="skeleton-card"><div class="skeleton-header"><div class="skeleton-avatar"></div><div class="skeleton-header-lines"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div></div></div>`;
-
 async function openFollowOverlay(userId, isMe) {
   window.followOverlayUid = userId;
   const overlay = document.getElementById("followOverlay");
@@ -1606,16 +1504,16 @@ async function openFollowOverlay(userId, isMe) {
     }
 
     if (window.cannotSeeFollows === true && window.type == "following") {
-      listEl.innerHTML = noaccess;
+      listEl.innerHTML = NO_ACCESS;
       return;
     }
     if (window.cannotSeeFollowers === true && window.type == "followers") {
-      listEl.innerHTML = noaccess;
+      listEl.innerHTML = NO_ACCESS;
       return;
     }
 
     if (!isNextPage && !listEl.querySelector(".user-search-item")) {
-      listEl.innerHTML = skeleton1;
+      listEl.innerHTML = USERS_SKELETON;
     }
 
     function buildFollowSearchQuery(field, searchVal) {
@@ -1771,7 +1669,7 @@ async function openFollowOverlay(userId, isMe) {
     }
 
     if (!followLastDoc) {
-      document.getElementById("followList").innerHTML = skeleton1;
+      document.getElementById("followList").innerHTML = USERS_SKELETON;
     }
 
     if (!followLastDoc) {
@@ -1780,12 +1678,12 @@ async function openFollowOverlay(userId, isMe) {
       const userData = userSnap.data();
 
       if (userData.cannotSeeFollows === true && window.type == "following" && userId !== auth.currentUser.uid) {
-        document.getElementById("followList").innerHTML = noaccess;
+        document.getElementById("followList").innerHTML = NO_ACCESS;
         if (userData.cannotSeeFollows) window.cannotSeeFollows = true;
         return;
       }
       if (userData.cannotSeeFollowers && window.type == "followers" && userId !== auth.currentUser.uid) {
-        document.getElementById("followList").innerHTML = noaccess;
+        document.getElementById("followList").innerHTML = NO_ACCESS;
         if (userData.cannotSeeFollowers) window.cannotSeeFollowers = true;
         return;
       }
@@ -1961,7 +1859,7 @@ async function setupMiniFollowBtn(btn, targetId) {
 
     btn.textContent = isFollowingSnap.exists() ? "UnFoll" : "Follow";
 
-    if (window.followOverlayUid == auth.currentUser.uid) {
+    if (window.followOverlayUid == auth.currentUser.uid && window.type === "following") {
       btn.style.cssText = isFollowingSnap.exists() ? "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
     } else {
       btn.style.cssText = isFollowingSnap.exists() ? "display:none" : "padding:10px;background:white;color:black;margin-left:auto;height:35px;";
@@ -2075,7 +1973,7 @@ async function setupMiniFollowBtn(btn, targetId) {
 
           btn.textContent = "UnFoll";
 
-          if (window.followOverlayUid == auth.currentUser.uid) {
+          if (window.followOverlayUid == auth.currentUser.uid && window.type === "following") {
             btn.style.cssText = "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;"
           } else {
             btn.style.cssText = "display:none";
@@ -2168,7 +2066,7 @@ const MENTIONED_PAGE_SIZE = 5;
 
 async function loadUserMentionedTweets(uid, term = "") {
   if (!mentionedLastVisibleDoc) {
-    usermentionedList.innerHTML = skeleton;
+    usermentionedList.innerHTML = TWEETS_SKELETON;
   }
 
   const mentionsRef = collection(db, "tweets");

@@ -282,16 +282,14 @@
   border: 1px solid var(--color);
   color: var(--color);
   padding: 10px;
-  margin: 25px 0;
-  margin-bottom: 0;
+  margin: 20px 17px;
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: calc(100vw - 34px);
   justify-content: center;
-  border-radius: 15px;
+  border-radius: 12px;
   box-sizing:border-box;
-  margin-top: 30px;
 }
 
 #logout svg {
@@ -1135,6 +1133,9 @@ input[type="checkbox"] {
 @media (min-width: 700px) {
   .settingsbtns {
     height: 55px !important;
+  }
+  #otherlist {
+    display: none;
   }
 }
 
@@ -2264,5 +2265,12 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   }
   #tagSubOverlay .skeleton-card:first-child {
     margin-top: 30px !important;
+  }
+}
+
+#tagsView .skeleton-skibidi:first-child .skeleton-card {
+  margin-top: 10px;
+  @media (min-width: 700px) {
+    margin-top: 15px;
   }
 }

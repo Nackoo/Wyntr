@@ -4,7 +4,7 @@ import { youListActive } from "./nonsense.js"
 import { parseMentionsToLinks, formatNumber, tokenize } from "./texts.js"
 import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
-import { skeleton } from "./user.js";
+import { TWEETS_SKELETON } from "./element.js";
 
 const myBanner = document.getElementById("my-banner");
 const loading = document.getElementById("loadingOverlay");
@@ -153,14 +153,14 @@ async function loadUserHighlights(uid, initial = false) {
   const highlightRef = collection(db, "users", uid, "highlights");
   let q = query(
     highlightRef,
-    orderBy("createdAt", "desc"),
+    orderBy("lastUpdated", "desc"),
     limit(5)
   );
 
   if (userHighlightLastDoc) {
     q = query(
       highlightRef,
-      orderBy("createdAt", "desc"),
+      orderBy("lastUpdated", "desc"),
       startAfter(userHighlightLastDoc),
       limit(5)
     );
@@ -348,7 +348,7 @@ searchbar.addEventListener("keydown", async (e) => {
 
 async function loadTweets(uid, term = "") {
   if (!userLastVisibleDoc) {
-    list.innerHTML = skeleton;
+    list.innerHTML = TWEETS_SKELETON
   }
 
   const tweetsRef = collection(db, "tweets");
@@ -465,7 +465,7 @@ document.querySelectorAll(".tab2").forEach(tab => {
 
 async function loadUserMentionedTweets(uid, term = "") {
   if (!mentionedLastVisibleDoc) {
-    usermentionedList.innerHTML = skeleton;
+    usermentionedList.innerHTML = TWEETS_SKELETON
   }
 
   const mentionsRef = collection(db, "tweets");
