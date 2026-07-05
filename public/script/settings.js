@@ -442,13 +442,13 @@ const changeusername = document.getElementById("change-username");
 changeusername.addEventListener("click", async () => {
   let username = await inputDialog("type a new username", "username can only contain lowercase letters from a-z, numbers from 0-9, ., _, -, no spaces, and no longer than 20 characters", null, "", false, true);
 
-  if (!username) return info("x", "failed", "Username cannot be empty");
-
   const newUsername = username
     .toLowerCase()
     .replace(/\s+/g, "")             
     .replace(/[^a-z0-9._-]/g, "")     
     .slice(0, 20); 
+
+  if (newUsername == "") return info("x", "invalid", "username cannot be empty");
   if (username != newUsername) {
     if (!(await confirmDialog(
       `your username is "${newUsername}"`,

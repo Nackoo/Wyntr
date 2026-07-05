@@ -254,6 +254,7 @@ onAuthStateChanged(auth, async (user) => {
         }
       }
       currentUserRole = data.role || "user";
+      if (data.role == "admin") log("green", "logged in as admin");
       if (data.displayName) displayName = data.displayName;
       if (data.photoURL) photoURL = data.photoURL;
       if (data.username) username = `@${data.username}`;
