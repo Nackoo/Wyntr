@@ -401,7 +401,7 @@ export function updateAllCounters() {
     const overlay = el.closest(".overlay");
     const counter = overlay?.querySelector(".char-counter");
     const max = maxLengths[id] || 1000;
-    if (counter) counter.textContent = `${el.value.length}/${max}`;
+    if (counter) counter.textContent = `${max - el.value.length}`;
   });
 }
 
@@ -450,7 +450,7 @@ document.body.addEventListener("input", (e) => {
   const overlay = t.closest(".overlay");
   const counter = overlay?.querySelector(".char-counter");
   if (counter) {
-    counter.textContent = `${t.value.length}/${max}`;
+    counter.textContent = `${max - t.value.length}`;
   }
 });
 
@@ -472,7 +472,7 @@ document.body.addEventListener("paste", (e) => {
   const overlay = t.closest(".overlay");
   const counter = overlay?.querySelector(".char-counter");
   if (counter) {
-    counter.textContent = `${t.value.length}/${max}`;
+    counter.textContent = `${max - t.value.length}`;
   }
 });
 

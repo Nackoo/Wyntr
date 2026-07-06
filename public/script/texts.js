@@ -682,4 +682,13 @@ export function getSuspendedUntil(duration) {
   return Timestamp.fromMillis(now + map[duration]);
 }
 
+export function dev(text) {
+  if (localStorage.getItem("developerMode") == "true") {
+    document.getElementById("replyLog").textContent = text;
+    document.getElementById("commentLog").textContent = text;
+    document.getElementById("wyntLog").textContent = text;
+    document.getElementById("quoteLog").textContent = text;
+  }
+}
+
 export { randomString, inputDialog, confirmDialog, log, info, tokenize, formatDate, linkify, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime }

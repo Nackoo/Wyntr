@@ -2014,7 +2014,11 @@ button[onclick="document.getElementById('userMenuOverlay').classList.remove('hid
 #pollOptionsRetweet,
 #pollOptionsComment {
   margin: 0 -15px;
-  margin-bottom:20px;
+  margin-bottom:35px;
+}
+
+#pollOptionsComment {
+  margin-bottom: 15px
 }
 
 #pollDuration, 
@@ -2273,4 +2277,14 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   @media (min-width: 700px) {
     margin-top: 15px;
   }
+}
+
+#commentLog,
+#replyLog,
+#wyntLog,
+#quoteLog {
+  margin-bottom: 12px;
+  margin-top: -15px;
+  color: #F8BB4C;
+  font-size: 15px;
 }

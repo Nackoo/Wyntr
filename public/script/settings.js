@@ -438,6 +438,20 @@ setd.onclick = () => {
   }
 }
 
+const devmodecheckbox = document.getElementById("devmode");
+const devmode = localStorage.getItem("developerMode") || false;
+
+if (devmode != "false" && devmode != false) {
+  devmodecheckbox.checked = true;
+} else {
+  devmodecheckbox.checked = false;
+}
+
+devmodecheckbox.addEventListener("change", () => {
+  const enabled = devmodecheckbox.checked;
+  localStorage.setItem("developerMode", enabled.toString());
+});
+
 const changeusername = document.getElementById("change-username");
 changeusername.addEventListener("click", async () => {
   let username = await inputDialog("type a new username", "username can only contain lowercase letters from a-z, numbers from 0-9, ., _, -, no spaces, and no longer than 20 characters", null, "", false, true);
@@ -470,7 +484,7 @@ changeusername.addEventListener("click", async () => {
       )
     );
 
-    if (!querySnapshot.empty && querySnapshot.docs[0].id !== uid) return info("x", "failed", "This username is already taken");
+    if (!querySnapshot.empty && querySnapshot.docs[0].id !== auth.currentUser.uid) return info("x", "failed", "This username is already taken");
 
     await updateDoc(doc(db, "users", auth.currentUser.uid), {
       username: newUsername

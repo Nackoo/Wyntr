@@ -1,4 +1,5 @@
-import { db, collection, query, getDocs, where } from "./firebase.js";
+import { db, collection, query, getDocs, where, limit } from "./firebase.js";
+import { dev } from "./texts.js";
 
 export async function extractMentions(text) {
   const map = {};
@@ -14,16 +15,24 @@ export async function extractMentions(text) {
     uniqueHandles = uniqueHandles.slice(0, 10);
   }
 
-  for (const handle of uniqueHandles) {
-    map[handle] = null;
+  dev("handling mentions");
+  const promises = uniqueHandles.map(async (handle) => {
+    map[handle] = null; 
 
-    const q = query(collection(db, "users"), where("username", "==", handle));
+    const q = query(
+      collection(db, "users"), 
+      where("username", "==", handle),
+      limit(1)
+    );
+
     const snap = await getDocs(q);
 
     snap.forEach((docSnap) => {
       map[handle] = docSnap.id;
     });
-  }
+  });
+
+  await Promise.all(promises);
 
   return map;
 }

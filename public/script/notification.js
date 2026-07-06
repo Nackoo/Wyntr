@@ -1596,6 +1596,9 @@ export async function sendFollowNotification(targetUserId, username, avatar) {
 }
 
 export async function sendCommunityDonationNotification(tweetId, donationAmount, donationReceived, commentText = "", communityId, commentId, communityName, tweetText, media = null) {
+  const sender = auth.currentUser;
+  if (!sender) return;
+  
   const tweetSnap = await getDoc(doc(db, "communities", communityId, "posts", tweetId));
   if (!tweetSnap.exists()) return;
 

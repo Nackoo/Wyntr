@@ -98,7 +98,8 @@ service cloud.firestore {
         );
         allow update: if request.auth != null && ((
           request.auth.uid == userId && 
-          request.writeFields.hasOnly(["status"])) ||
+          request.writeFields.hasOnly(["status"]) ||
+          request.writeFields.hasOnly(["contributions"])) ||
           request.writeFields.hasOnly(["role"]) ||
           isCommunityModerator(communityId)
         );

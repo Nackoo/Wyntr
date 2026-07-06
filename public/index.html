@@ -118,7 +118,7 @@
   </div>
 
   <div id="main" style="display:flex;position:relative;display:flex;justify-content:center;">
-    <div style="flex-grow:1;max-width:260px;">
+    <div style="flex-grow:1;max-width:260px;margin-right:auto">
       <div class="smallbar">
         <div id="iconpng">
           <img style="margin-left:12px;margin-top:5px;margin-bottom:10px;height:35px;width:auto" src="/image/w.png">
@@ -650,7 +650,7 @@
             </div>
             <p style="color:grey;margin:0;margin-bottom:20px;">When off, your joined communities are hidden from your profile.</p>
 
-            <h3 style="margin:0;margin-top:10px">Others</h3>
+            <h3 style="margin:0;margin-top:10px">Accessibility</h3>
 
             <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:10px;">
               <span style="color:grey">Disable some confirmation popup</span>
@@ -687,6 +687,18 @@
                 <option value="fr">Français</option>
                 <option value="es">Español</option>
               </select>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
+              <span style="color:grey">developer mode</span>
+              <div class="switch-row" style="margin-left:auto">
+                <input id="devmode" type="checkbox">
+                <label for="devmode" class="switch-label" aria-hidden="true">
+                  <span class="switch-track">
+                    <span class="switch-knob" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div style="display:flex;align-items:center;margin-bottom: 15px;margin-top:20px;">
@@ -1163,6 +1175,7 @@
                 
                 <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOptionRetweet">Add more</button>
               </div>
+              <p id="quoteLog"></p>
               <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox1">
                 <input type="checkbox" style="width:15px;" id="shareToFollowers1">
                 also post to main timeline
@@ -1286,6 +1299,7 @@
                 <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOptionComment">Add more</button>
               </div>
               <div class="flex" id="comment-status" style="margin-top:0px"></div>
+              <p id="commentLog"></p>
               <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button id="sendComment" style="border-radius:12px;padding:10px 20px;;">Post</button>
                 <label class="custom-file-btn" for="commentMediaInput"><img src="/image/upload.svg"></label>
@@ -1295,7 +1309,7 @@
                  <label for="includePollComment" style="font-size:16px;">
                   <svg fill="var(--color)" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 11h7v2H7zm0-4h10.97v2H7zm0 8h13v2H7zM4 4h2v16H4z"></path></svg>
                 </label>
-                <div class=char-counter>0/1000</div>
+                <div class=char-counter>1000</div>
                 <input type="checkbox" style="display:none" id="includePollComment">
                 <img src="/image/settings.svg" style="margin-left:auto;cursor:pointer" id="commentOptions">
               </div>
@@ -1321,6 +1335,7 @@
               <div class="attachment" id="replyPreview"></div>
               <div class="attachment" id="commentPreview"></div>
               <div id="reply-status" class="flex" style="margin-top:-20px;"></div>
+              <p id="replyLog"></p>
               <div class="flex skibidi" style="margin:0 -20px;padding:0 20px;width:100%;padding-top: 20px;border-top:var(--border)">
                 <button style="border-radius:12px;padding:10px 20px;;" id="sendReply">Post</button>
                 <label class="custom-file-btn" for="replyMediaInput"><img src="/image/upload.svg"></label>
@@ -1392,6 +1407,7 @@
                 
                 <button type="button" style="font-size: 15px; text-decoration: underline; margin: 0px 15px 10px; display: inline-block; color: grey;" class="link" id="addPollOption">Add more</button>
               </div>
+              <p id="wyntLog"></p>
               <div style="gap:5px;color:grey;margin-top:5px;display:none;" id="communityActiveCheckbox">
                 <input type="checkbox" style="width:15px;" id="shareToFollowers">
                 also post to main timeline
@@ -1900,7 +1916,7 @@
     </div>
     </div>
 
-    <div id="whofollow" style="width:260px;">
+    <div id="whofollow" style="width:260px;margin-right:auto">
       <div id="nanat1" style="margin-left:15px;position:fixed;top:22px;height:100vh;overflow-y:auto;margin-top:-20px;padding: 20px 0;padding-bottom:35px;">
         <div id="prizebox" style="width: 280px; height: fit-content; border-radius: 15px; margin: 0px 0px 25px;display: none;"> <h2 style="font-size:21px;margin-top:20px;">Claim daily reward</h2><p style="margin:0;margin-bottom:20px;margin-top:-5px;font-size:15px;">collect Wcoins and buy premium, gifts, and many other things.</p> <button onclick="document.getElementById('prize').click()" style="border-radius:12px;height:37px;box-sizing:border-box;width:100%;display:flex;gap:5px;align-items:center;justify-content:center;color:black;font-size:16px;">claim</button> </div>
         <div style="width: 320px; height: fit-content; margin-bottom: 20px; padding-bottom: 10px; display: none; border-bottom: 1px solid grey; margin-left: -20px;" id="comRule">

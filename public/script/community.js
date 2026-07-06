@@ -1,7 +1,7 @@
 import { auth, db, doc, getDoc, updateDoc, collection, setDoc, arrayUnion, increment, getDocs, query, orderBy, limit, arrayRemove, deleteDoc, where, startAfter, runTransaction, Timestamp, serverTimestamp } from "./firebase.js";
 import { fileToBase64 } from "./settings.js";
 import { sendadminDismissedNotification, sendCommunityJoinRequest, sendCommunityWarningNotification, sendAdminNotification, sendInviteNotification } from "./notification.js";
-import { renderTweet, getUserData, loadComments, getCommunityNameById } from "./index.js";
+import { renderTweet, getUserData, loadComments } from "./index.js";
 import { discord } from "./moderation.js";
 import { tokenize, escapeHTML, formatDate, formatNumber, parseMentionsToLinks, info, log, inputDialog, confirmDialog, formatUTC8 } from "./texts.js";
 import { quickImageNSFWCheck, logNSFWResult, dataUrlToBase91, base91ToImageSrc, uploadMedia, compressImageTo480 } from "./attachments.js";
@@ -2788,3 +2788,25 @@ document.querySelector("#profileCom input")?.addEventListener("keydown", async (
       list.appendChild(wrapper);
     }
 });
+
+const communityNameCache = new Map();
+
+export async function getCommunityNameById(communityId) {
+  if (!communityId) return "unknown";
+  if (communityNameCache.has(communityId)) {
+    return communityNameCache.get(communityId);
+  }
+  try {
+    const comRef = doc(db, "communities", communityId);
+    const comSnap = await getDoc(comRef);
+    let name = "unknown";
+    if (comSnap.exists()) {
+      name = comSnap.data().name || "unknown";
+    }
+    communityNameCache.set(communityId, name);
+    return name;
+  } catch (err) {
+    console.error("Error fetching community name:", err);
+    return "unknown";
+  }
+}

@@ -1,9 +1,10 @@
 import { auth, db, doc, getDoc, setDoc, increment, updateDoc, Timestamp } from "./firebase.js";
 import { formatDate, escapeHTML, parseMentionsToLinks, formatNumber, formatTime, getDefaultLanguage, isTranslateEnabled, randomString } from "./texts.js";
-import { loadComments, getUserData, getCommunityNameById, getSnap, renderPoll, renderPoll1, currentUserRole, waitForAuth } from "./index.js";
+import { loadComments, getUserData, getSnap, renderPoll, renderPoll1, currentUserRole, waitForAuth } from "./index.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js";
 import { incrementViews } from "./view_users.js";
+import { getCommunityNameById } from "./community.js";
 
 await waitForAuth();
  

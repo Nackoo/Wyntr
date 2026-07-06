@@ -1,6 +1,6 @@
-import { db, doc, collection, auth, runTransaction, increment, getDoc, updateDoc, setDoc, orderBy, startAfter, where, limit, getDocs, query, Timestamp } from "./firebase.js";
+import { db, doc, collection, auth, runTransaction, increment, getDoc, updateDoc, setDoc, orderBy, startAfter, where, limit, getDocs, query } from "./firebase.js";
 import { getUserData, renderTweet } from "./index.js";
-import { log } from "./texts.js";
+import { log, dev } from "./texts.js";
 import { TWEETS_SKELETON } from "./element.js";
 import { initViews } from "./view_users.js";
 
@@ -26,8 +26,10 @@ export async function handleTags(text) {
   if (tags.length > 10) {
     throw new Error("Maximum 10 unique tags allowed");
   }
+  dev("handling tags: reading auth")
   const d = await getUserData(auth.currentUser.uid);
 
+  dev("handling tags")
   await Promise.all(
     tags.map(async (tagName) => {
       const ref = doc(db, "tags", tagName);
@@ -42,7 +44,7 @@ export async function handleTags(text) {
         if (contributorsSnap.exists()) {
           const update_1 = updateDoc(ref, {
             postCount: increment(1),
-            lastUpdated: Timestamp
+            lastUpdated: new Date()
           });
           const update_2 = updateDoc(contributorsRef, {
             contributions: increment(1)
@@ -53,7 +55,7 @@ export async function handleTags(text) {
           const update_1 = updateDoc(ref, {
             postCount: increment(1),
             contributors: increment(1),
-            lastUpdated: Timestamp
+            lastUpdated: new Date()
           });
           const update_2 = setDoc(contributorsRef, {
             contributions: 1,
@@ -70,7 +72,7 @@ export async function handleTags(text) {
           postCount: 1,
           contributors: 1,
           name: tagName,
-          lastUpdated: Timestamp
+          lastUpdated: new Date()
         });
         const update_2 = setDoc(contributorsRef, {
           contributions: 1,

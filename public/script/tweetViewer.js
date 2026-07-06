@@ -1,10 +1,10 @@
 import { auth, db, doc, getDoc, getDocs, collection, query, orderBy, setDoc, updateDoc, increment, Timestamp } from "./firebase.js";
-import { loadComments, renderPoll, getUserData, getCommunityNameById, getSnap, renderPoll1, currentUserRole } from "./index.js";
+import { loadComments, renderPoll, getUserData, getSnap, renderPoll1, currentUserRole } from "./index.js";
 import { formatDate, escapeHTML, applyReadMoreLogic, parseMentionsToLinks, formatNumber, formatTime, log, getDefaultLanguage, isTranslateEnabled, randomString } from "./texts.js";
 import { getSupabaseVideo, base91ToImageSrc } from "./attachments.js";
 import { showOriginal } from "./main.js"; 
 import { incrementViews } from "./view_users.js";
-import { openCommunity } from "./community.js";
+import { openCommunity, getCommunityNameById } from "./community.js";
  
 export async function renderTweetViewer(t, tweetId, container, user, comid, isFromMain, isStored) {
   document.getElementById("commentList").classList.add("hidden");

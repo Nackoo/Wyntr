@@ -1364,4 +1364,132 @@ document.getElementById("retweetMedia-TWEETID").addEventListener("change", (e) =
   handleMediaInput(e, document.getElementById("retweetPreview-TWEETID"));
 });
 
+document.getElementById("tweetSS").addEventListener("click", async () => {
+  if (window.isOnPrivate) {
+    return log("red", "screenshotting is disabled in private communities");
+  }
+
+  loading.classList.add("show");
+
+  try {
+    const target = document.getElementById("appendTweet");
+    await document.fonts.ready;
+
+    const originalCanvas = await html2canvas(target, {
+      backgroundColor: "#000000",
+      scale: Math.min(window.devicePixelRatio, 2),
+      useCORS: true,
+      allowTaint: false,
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
+
+    const topPadding = 80;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = originalCanvas.width;
+    canvas.height = originalCanvas.height + topPadding;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "grey";
+    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
+
+    ctx.drawImage(originalCanvas, 0, topPadding);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        loading.classList.remove("show");
+        log("red", "failed to create blob");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "screenshot.jpg";
+      link.click();
+
+      URL.revokeObjectURL(url);
+      loading.classList.remove("show");
+      log("green", "screenshoted");
+    }, "image/jpeg", 0.92);
+
+  } catch (err) {
+    console.error(err);
+    loading.classList.remove("show");
+    log("red", "failed to create screenshot");
+  }
+});
+
+document.getElementById("commentSS").addEventListener("click", async () => {
+  if (window.isOnPrivate) return log("red", "screenshotting is disabled in private communities");
+  if (window.isPrivateReply) return log("red", "screenshotting is disabled in private replies");
+  loading.classList.add("show");
+
+  try {
+    const target = document.getElementById("appendComment");
+    await document.fonts.ready;
+
+    const originalCanvas = await html2canvas(target, {
+      backgroundColor: "#000000",
+      scale: Math.min(window.devicePixelRatio, 2),
+      useCORS: true,
+      allowTaint: false,
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
+
+    const topPadding = 80;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = originalCanvas.width;
+    canvas.height = originalCanvas.height + topPadding;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "grey";
+    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
+
+    ctx.drawImage(originalCanvas, 0, topPadding);
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        loading.classList.remove("show");
+        log("red", "failed to create blob");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "screenshot.jpg";
+      link.click();
+
+      URL.revokeObjectURL(url);
+      loading.classList.remove("show");
+      log("green", "screenshoted");
+    }, "image/jpeg", 0.92);
+
+  } catch (err) {
+    console.error(err);
+    loading.classList.remove("show");
+    log("red", "failed to create screenshot");
+  }
+});
+
 export {dataUrlToBase91, base91ToImageSrc, uploadToSupabase, compressImageTo480, showImagePreview, readFileAsBase64, getSupabaseVideo, downloadFile, makeCollage, quickImageNSFWCheck, logNSFWResult }

@@ -1,86 +1,25 @@
-import { auth, db, increment, onAuthStateChanged, collection, addDoc, query, orderBy, limit, startAfter, where, onSnapshot, runTransaction, doc, setDoc, deleteDoc, getDoc, getDocs, updateDoc, serverTimestamp, deleteField, Timestamp, writeBatch } from "./firebase.js";
+import { auth, db, increment, onAuthStateChanged, collection, query, orderBy, limit, startAfter, where, onSnapshot, runTransaction, doc, setDoc, getDoc, getDocs, updateDoc, serverTimestamp, deleteField, Timestamp, writeBatch } from "./firebase.js";
 import { extractMentions } from './mention.js';
 import { handleTags } from './tags.js';
 import { listenForSystemNotifications, sendPinNotification, sendCommunityPinNotification, sendCommentNotification, sendCommunityCommentNotification, listenForUnreadNotifications, loadNotifications, sendMentionNotification, sendCommunityMentionNotification, sendRetweetNotification, sendCommunityRetweetNotification, sendDonationNotification, sendCommunityDonationNotification,sendReplyMentionNotification, sendCommunityReplyMentionNotification, sendReplyNotification, sendReplyRetweetNotification, sendCommentMentionNotification, sendCommunityCommentMentionNotification, sendTweetWarningNotification, sendCommunityReplyNotification, sendCommunityReplyRetweetNotification, sendCommentWarningNotification, sendCommunityPinNotification1, sendCommunityTweetDeleteNotification, sendHideNotification, sendCommunityReplyDeleteNotification } from './notification.js';
 import { supabase } from "./firebase.js";
 import { uploadToSupabase, compressImageTo480, downloadFile, makeCollage, getSupabaseVideo, base91ToImageSrc, extractVideoFrame } from "./attachments.js";
-import { comment, viewer } from "./nonsense.js"
+import { comment  } from "./nonsense.js"
 import { viewTweet } from "./tweetViewer.js";
-import { tokenize, formatDate, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime, info, log, confirmDialog, getDefaultLanguage, detectLanguage, isTranslateEnabled, randomString, formatUTC8, truncateHTML, isOlderThanBlankDays, inputDialog } from "./texts.js";
+import { tokenize, formatDate, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime, info, log, confirmDialog, getDefaultLanguage, detectLanguage, isTranslateEnabled, randomString, formatUTC8, isOlderThanBlankDays, inputDialog, dev } from "./texts.js";
 import { updateCommentUI, discord } from "./moderation.js";
 import { openBookmarkOverlay } from "./bookmark.js";
 import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
-import { openCommunity } from "./community.js";
+import { openCommunity, getCommunityNameById } from "./community.js";
 // import { loadFollowingFromCache, saveFollowingToCache, startFollowingListener } from "./followingCache.js";
 import { openHighlightOverlay } from "./highlight.js";
 import { initViews, incrementViews } from "./view_users.js";
 import { viewArchivePerm } from "./viewArchivePerm.js";
+import { TWEETS_SKELETON } from "./element.js";
 
 //2541
 
 const loading = document.getElementById("loadingOverlay");
-const communityNameCache = new Map();
-
-export async function getCommunityNameById(communityId) {
-  if (!communityId) return "unknown";
-  if (communityNameCache.has(communityId)) {
-    return communityNameCache.get(communityId);
-  }
-  try {
-    const comRef = doc(db, "communities", communityId);
-    const comSnap = await getDoc(comRef);
-    let name = "unknown";
-    if (comSnap.exists()) {
-      name = comSnap.data().name || "unknown";
-    }
-    communityNameCache.set(communityId, name);
-    return name;
-  } catch (err) {
-    console.error("Error fetching community name:", err);
-    return "unknown";
-  }
-}
-
-/*
-export async function loadFollowing(uid) {
-  const cached = await loadFollowingFromCache();
-  if (cached) {
-    window.currentUserFollowing = cached.followingSet;
-    window.followingUserCache = cached.profileMap;
-    startFollowingListener(uid);
-    document.dispatchEvent(new Event("following-cache-ready"));
-    return;
-  }
-  
-  const q = query(
-    collection(db, "users", uid, "following"), 
-    orderBy("followedAt", "desc"), 
-    limit(100)
-  );
-  const snap = await getDocs(q);
-
-  const followingSet = new Set();
-  const profileMap = new Map();
-  const fetchPromises = snap.docs.map(async docSnap => {
-
-    const followedUid = docSnap.id;
-    followingSet.add(followedUid);
-    const profile = await getUserData(followedUid);
-    profileMap.set(followedUid, {
-      uid: followedUid,
-      ...profile
-    });
-  });
-
-  await Promise.all(fetchPromises);
-  window.currentUserFollowing = followingSet;
-  window.followingUserCache = profileMap;
-
-  await saveFollowingToCache(followingSet, profileMap);
-  startFollowingListener(uid);
-  document.dispatchEvent(new Event("following-cache-ready"));
-}
-*/
 
 async function initNotifications() {
   if (!("Notification" in window)) return;
@@ -167,7 +106,7 @@ export async function getUserData(uid) {
 let loadingMore = false;
 window.currentUserFollowing = new Set();
 export let currentUserRole = "user";
-async function initMainFeatures(user) {
+async function initMainFeatures() {
   loadTweets(true);
   loadNotifications(true);
   // loadFollowing(user.uid);
@@ -183,15 +122,14 @@ function shouldRunFeatures(pathname) {
   return true;
 }
 
-function monitorUrlChanges(user) {
+function monitorUrlChanges() {
   let lastPath = window.location.pathname;
   setInterval(() => {
     const current = window.location.pathname;
     if (current !== lastPath) {
       lastPath = current;
       if (shouldRunFeatures(current)) {
-        initMainFeatures(user);
-        screenLoaded = true;
+        initMainFeatures();
       }
     }
   }, 500);
@@ -227,15 +165,13 @@ onAuthStateChanged(auth, async (user) => {
 
     const path = window.location.pathname;
     if (shouldRunFeatures(path)) {
-      initMainFeatures(user);
+      initMainFeatures();
     }
-    monitorUrlChanges(user);
+    monitorUrlChanges();
 
     const avatarEl = document.querySelector(".account-avatar");
     const nameEl = document.querySelector(".account-name");
     const usernameEl = document.querySelector(".account-username");
-
-    const random = randomString(12);
 
     let displayName = user.displayName || "Anonymous";
     let photoURL = "/image/default-avatar.jpg";
@@ -452,6 +388,7 @@ document.getElementById("post").addEventListener("click", async () => {
   document.getElementById("commentViewer").classList.add("hidden");
   const {avatar: myAvatar2} = await getUserData(auth.currentUser.uid);
   document.getElementById('tweetAvatar').src = myAvatar2;
+  dev("");
 });
 
 document.getElementById("postBtn").addEventListener("click", async () => {
@@ -472,6 +409,8 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   }
 
   const userRef = doc(db, "users", user.uid);
+
+  dev("reading auth");
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
@@ -497,6 +436,8 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   }
 
   const text = document.getElementById("tweetInput").value.trim();
+
+  dev("detecting language");
   const detectedLanguage = await detectLanguage(text);
   const title = document.getElementById("tweetTitle").value.trim().slice(0, 100) || null;
   const fileInput = document.getElementById("mediaInput");
@@ -567,6 +508,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           return;
         }
 
+        dev("uploading video");
         const upload = await uploadToSupabase(file, user.uid, isPremium);
         mediaURL = upload.url;
         mediaType = "video";
@@ -605,8 +547,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         }
       }
     }
-
-    const tagMatches = text.match(/#(\w+)/g) || [];
 
     let permission = "everyone";
     if (document.getElementById("replyPermissionMentioned").checked === true) {
@@ -656,6 +596,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         sensitiveMedia
       };
 
+      dev("running a transaction");
       await runTransaction(db, async (tx) => {
         if (window.communityID) {
           const communityPostRef = doc(
@@ -703,9 +644,13 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         }
       });
 
-      const communityName = window.communityID
-        ? await getCommunityNameById(window.communityID)
-        : null;
+      let communitySnap;
+      if (window.communityID) {
+        dev("reading community");
+        communitySnap = await getDoc(doc(db, "communities", window.communityID));
+      }
+      const communityName = communitySnap?.exists() ?
+        communitySnap.data().name : null;
 
       await Promise.all(
         Object.values(mentions).filter(Boolean).map(async (uid) => {
@@ -727,8 +672,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           }
 
           if (window.isOnPrivate && window.communityID != null) {
-            const communitySnap = await getDoc(doc(db, "communities", window.communityID));
-
             if (communitySnap.exists()) {
               if (communitySnap.data().members.includes(uid)) {
                 if (mediaType === "image") {
@@ -755,6 +698,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       const isPremium = premiumExpiry && premiumExpiry > now;
       let cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
+      dev("updating documents");
       await runTransaction(db, async (tx) => {
         if ((window.communityID && shareToFollowers) || !window.communityID) {
           tx.update(userRef, {
@@ -777,6 +721,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       document.getElementById("mute").checked = false;
       document.getElementById("sensitive").checked = false;
       log("green", "Wynt posted");
+      dev("");
     } catch (error) {
       console.error("Tweet failed:", error);
       info("x", "Wynt failed:", error)
@@ -959,8 +904,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
             displayName: rtDisplayName,
             username: rtUsername,
             avatar: rtAvatar,
-            IQ,
-            premium
           } = await getUserData(rt.uid);
         }
       } catch (err) {
@@ -1147,8 +1090,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           `}
         </div>
       `;
-
-      const expandquoted = randomString(15);
 
       if (d.banned === true && currentUserRole != "admin") {
         quotedHTML = `
@@ -1568,8 +1509,6 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
         }
         pollHTML2 = renderPoll(rt, t.retweetOf || t.originalId, myVoteIndex);
       }
-
-      const expandretweet = randomString(15);
 
       const retweetinfo = `
         <div class="flex">
@@ -3855,7 +3794,7 @@ if (confirmGift) {
     giftOverlay.classList.add("hidden");
     giftAmountInput.value = "";
     const commentStatus = document.getElementById("comment-status");
-    commentStatus.innerHTML = `<div class="donation-preview" style="display:flex;align-items:center;gap:5px;color:#0485b7;font-size:15px;"><img loading='lazy' src="/image/gift.svg"> You will donate <span style="color:#f91880;font-size:15px;font-weight:bold;">${formatNumber(Math.floor(pendingDonation * 0.8))}</span> Wcoins with this reply</div>`;
+    commentStatus.innerHTML = `<div class="donation-preview" style="display:flex;align-items:center;gap:5px;color:#0485b7;font-size:15px;margin-bottom:10px;"><img loading='lazy' src="/image/gift.svg"> You will donate <span style="color:#f91880;font-size:15px;font-weight:bold;">${formatNumber(Math.floor(pendingDonation * 0.8))}</span> Wcoins with this reply</div>`;
   };
 }
 document.body.addEventListener("click", async (e) => {
@@ -3993,6 +3932,8 @@ document.body.addEventListener("click", async (e) => {
       </div>
     `;
     const tweetId = commentBtn.dataset.id;
+
+    dev("");
     document.getElementById("commentOverlay").classList.remove("hidden");
     document.getElementById("commentInput").focus();
     pendingDonation = 0;
@@ -4044,7 +3985,7 @@ document.body.addEventListener("click", async (e) => {
       editHTML4 = `        
         <img src="/image/editicon.svg" class="editedatt" title="edited at ${formatTime(tweetData.edited)}. click me">`
     }
-    const { username, avatar: avatar1, displayName, IQ: sIQ, premium } = await getUserData(tweetData.uid);
+    const { username, avatar: avatar1, displayName } = await getUserData(tweetData.uid);
 
     let mediaHTML = "";
     const containsSpoiler = tweetData.sensitiveMedia === true;
@@ -4125,7 +4066,6 @@ document.body.addEventListener("click", async (e) => {
     }}
 
     document.getElementById("sendComment").onclick = async () => {
-
       const sendBtn = document.getElementById("sendComment");
       sendBtn.disabled = true;
       sendBtn.classList.add("disabled");
@@ -4166,6 +4106,8 @@ document.body.addEventListener("click", async (e) => {
 
         const user = auth.currentUser;
         const userRef = doc(db, "users", user.uid);
+
+        dev("reading your auth");
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data();
 
@@ -4202,6 +4144,8 @@ document.body.addEventListener("click", async (e) => {
           }
 
           mediaType = "video";
+
+          dev("uploading video");
           media = await uploadToSupabase(file, user.uid, isPremium);
           if (!media.url) {
             log("red", "Video upload failed")
@@ -4210,6 +4154,8 @@ document.body.addEventListener("click", async (e) => {
 
           mediaPath = media.path;
           const cooldownDuration = isPremium ? 50 * 60 * 1000 : 2 * 60 * 60 * 1000;
+
+          dev("updating your auth");
           await updateDoc(userRef, {
             commentVideoCooldown: Timestamp.fromDate(new Date(Date.now() + cooldownDuration)),
           });
@@ -4260,6 +4206,7 @@ document.body.addEventListener("click", async (e) => {
           let isPrivate = false;
           let tweetSnap;
 
+          dev("getting Wynt document");
           if (window.communityID) {
             tweetSnap = await getDoc(doc(db, "communities", window.communityID, "posts", tweetId));
           } else {
@@ -4270,6 +4217,8 @@ document.body.addEventListener("click", async (e) => {
           let isBlocked = false;
           if (tweetData.uid != auth.currentUser.uid) {
             const blockRef = doc(db, "users", tweetOwnerId, "blocks", auth.currentUser.uid);
+
+            dev("checking author's blocks");
             const blockSnap = await getDoc(blockRef);
             if (blockSnap.exists()) {
               const blockData = blockSnap.data();
@@ -4301,6 +4250,7 @@ document.body.addEventListener("click", async (e) => {
               );
             }
 
+            dev("checking for private comment from auth");
             const privateSnap = await getDocs(privateQuery);
 
             if (privateSnap.empty) {
@@ -4350,6 +4300,9 @@ document.body.addEventListener("click", async (e) => {
             }
           }
 
+          const text = commentText;
+
+          dev("detecting language");
           const detectedLanguage = await detectLanguage(text);
 
           const commentRef = doc(commentsRef);
@@ -4358,6 +4311,8 @@ document.body.addEventListener("click", async (e) => {
           await runTransaction(db, async (tx) => {
             if (tweetData.uid != auth.currentUser.uid) {
               const tweetUserRef = doc(db, "users", tweetData.uid);
+
+              dev("reading Wynt's author account");
               const tweetUserSnap = await tx.get(tweetUserRef);
               let tweetUserData;
               if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -4412,14 +4367,25 @@ document.body.addEventListener("click", async (e) => {
 
               try {
                 await runTransaction(db, async (tx) => {
-                  const userSnap = await tx.get(userRef1);
+
+                  dev("reading auths");
+                  const [userSnap, ownerSnap] = await Promise.all([
+                    tx.get(userRef1),
+                    tx.get(ownerRef)
+                  ]);
+
                   if (!userSnap.exists()) {
                     throw new Error("user isn't logged in");
+                  }
+                  if (!ownerSnap.exists()) {
+                    throw new Error("Wynt author doesn't exist");
                   }
                   const donorBalance = userSnap.data().balance || 0;
                   if (donorBalance < pendingDonation) {
                     throw new Error("Insufficient balance");
                   }
+
+                  dev("updating documents");
                   tx.update(userRef1, {
                     balance: increment(-pendingDonation)
                   });
@@ -4456,9 +4422,6 @@ document.body.addEventListener("click", async (e) => {
             }
 
             const tweetText = tweetData.originalText || tweetData.text;
-            const communityName = window.communityID
-              ? await getCommunityNameById(window.communityID)
-              : null;
 
             const invalidMentions = Object.values(mentions).filter(
               (uid) => uid && uid !== auth.currentUser.uid && uid !== tweetData.uid
@@ -4468,7 +4431,16 @@ document.body.addEventListener("click", async (e) => {
               info("x", "Error", "reply sent, but.. since you set it as private reply, users weren't mentioned.");
             }
 
+            let communitySnap;
+            if (window.communityID) {
+              dev("reading community");
+              communitySnap = await getDoc(doc(db, "communities", window.communityID));
+            }
+            const communityName = communitySnap?.exists() ?
+              communitySnap.data() : null;
+
             if (!isPrivate) {
+              dev("sending mention(s)");
               await Promise.all(
                 Object.values(mentions).filter(Boolean).map(async (uid) => {
                   if (uid === tweetData.uid) return;
@@ -4480,8 +4452,6 @@ document.body.addEventListener("click", async (e) => {
                       sendCommunityCommentMentionNotification(tweetId, uid, text, window.communityID, commentId, communityName, tweetText);
                     }
                   } else if (window.isOnPrivate && window.communityID) {
-                      const communitySnap = await getDoc(doc(db, "communities", window.communityID));
-
                       if (communitySnap.exists()) {
                         if (communitySnap.data().members.includes(uid)) {
                           if (mediaType === "image") {
@@ -4526,7 +4496,7 @@ document.body.addEventListener("click", async (e) => {
                       await extractVideoFrame(tweetData.media, 0.1) :
                       tweetData.media;
 
-                    sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid, tweetData.media);
+                    sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid, thumbnail);
                   } else {
                     sendCommentNotification(tweetId, commentText, commentId, tweetText, tweetData.uid);
                   }
@@ -4567,6 +4537,7 @@ document.body.addEventListener("click", async (e) => {
               incrementViews(tweetId, null, null);
             }
             log("green", "reply posted");
+            dev("");
           }
         }
       } catch (err) {
@@ -4641,6 +4612,7 @@ document.body.addEventListener("click", async (e) => {
   </div>
 </div>
   `
+  dev("");
   document.getElementById("replyOverlay").classList.remove("hidden");
   document.getElementById("replyInput").focus();
   window.communityID_reply = null;
@@ -4813,6 +4785,8 @@ document.body.addEventListener("click", async (e) => {
         : ["tweets", tweetId, "comments"];
 
       const userRef = doc(db, "users", auth.currentUser.uid);
+
+      dev("reading auth");
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
 
@@ -4846,6 +4820,7 @@ document.body.addEventListener("click", async (e) => {
           return;
         }
 
+        dev("uploading video");
         const upload = await uploadToSupabase(file, auth.currentUser.uid, isPremium);
         media = {
           url: upload.url,
@@ -4854,6 +4829,8 @@ document.body.addEventListener("click", async (e) => {
 
         mediaType = "video";
         mediaPath = upload.path;
+
+        dev("updating auth");
         await updateDoc(userRef, {
           lastVideoReply: serverTimestamp()
         });
@@ -4887,9 +4864,13 @@ document.body.addEventListener("click", async (e) => {
       }
 
       const editUntil = new Date(Date.now() + 15 * 60 * 1000);
+
+      dev("detecting language");
       const detectedLanguage = await detectLanguage(text);
 
       const parentCommentRef = doc(db, ...basePath, commentId);
+
+      dev("reading parent comment");
       const parentCommentSnap = await getDoc(parentCommentRef);
 
       const commentData = parentCommentSnap.data();
@@ -4932,6 +4913,8 @@ document.body.addEventListener("click", async (e) => {
       await runTransaction(db, async (tx) => {
         if (commentData.uid != auth.currentUser.uid) {
           const tweetUserRef = doc(db, "users", commentData.uid);
+
+          dev("reading parent author");
           const tweetUserSnap = await tx.get(tweetUserRef);
           let tweetUserData;
           if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -4941,6 +4924,7 @@ document.body.addEventListener("click", async (e) => {
           }
         }
 
+        dev("posting reply");
         if (TWEETOWNERSUSPENDED === false) {
           tx.set(replyRef, payload);
         }
@@ -4950,9 +4934,16 @@ document.body.addEventListener("click", async (e) => {
         info("x", "Insufficient permission", "This post author is temporarily suspended from using this platform. Please try again later");
       }
 
+      let cSnap;
+      if (window.communityID){
+        dev("reading community");
+        cSnap = await getDoc(doc(db, "communities", window.communityID));
+      }
+      const communityName = cSnap?.exists() ?
+        cSnap.data().name : null;
+
       if (commentData.muteNotif != true && TWEETOWNERSUSPENDED === false) {
         if (window.communityID) {
-          const communityName = await getCommunityNameById(window.communityID);
           if (commentData.mediaType === "image" || commentData.mediaType === "video") {
             const thumbnail = commentData.mediaType === "video" ?
               await extractVideoFrame(commentData.media.url, 0.1) :
@@ -4979,6 +4970,8 @@ document.body.addEventListener("click", async (e) => {
         let greatParentRef, greatParentData, greatParentSnap;
         if (commentData.parentId != null) {
           greatParentRef = doc(db, ...basePath, commentData.parentId);
+
+          dev("reading parent's parent");
           greatParentSnap = await getDoc(greatParentRef);
           greatParentData = greatParentSnap.data();
         }
@@ -4987,10 +4980,14 @@ document.body.addEventListener("click", async (e) => {
         if (commentData.parentId === null) {
           if (window.communityID) {
             tweetRef1 = doc(db, "communities", window.communityID, "posts", tweetId);
+
+            dev("reading Wynt");
             tweetSnap1 = await getDoc(tweetRef1);
             tweetData1 = tweetSnap1.data();
           } else {
             tweetRef1 = doc(db, "tweets", tweetId);
+
+            dev("reading Wynt");
             tweetSnap1 = await getDoc(tweetRef1);
             tweetData1 = tweetSnap1.data();
           }
@@ -5000,6 +4997,7 @@ document.body.addEventListener("click", async (e) => {
         }
 
         if (auth.currentUser.uid === ownerUid && commentData.ownerReplied == null) {
+          dev("updating reply and parent reply");
           await runTransaction(db, async (tx) => {
             tx.update(parentCommentRef, {
               replyCount: increment(1),
@@ -5010,6 +5008,7 @@ document.body.addEventListener("click", async (e) => {
             })
           });
         } else {
+          dev("updating parent reply");
           await updateDoc(parentCommentRef, {
             replyCount: increment(1)
           });
@@ -5020,10 +5019,6 @@ document.body.addEventListener("click", async (e) => {
             contributions: increment(1)
           });
         }
-
-        const communityName = window.communityID
-          ? await getCommunityNameById(window.communityID)
-          : null;
 
         const invalidMentions = Object.values(mentions).filter(
           (uid) => uid && uid !== auth.currentUser.uid && uid !== commentData.uid
@@ -5045,14 +5040,13 @@ document.body.addEventListener("click", async (e) => {
                   sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
                 }
               } else if (window.isOnPrivate && window.communityID) {
-                const userDoc = await getDoc(doc(db, "users", uid));
-                const userCommunities = userDoc.data().communities || [];
-
-                if (userCommunities.includes(window.communityID)) {
-                  if (mediaType === "image") {
-                    sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId, media.url);
-                  } else {
-                    sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                if (cSnap.exists()) {
+                  if (cSnap.data().members.includes(uid)) {
+                    if (mediaType === "image") {
+                      sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId, media.url);
+                    } else {
+                      sendCommunityReplyMentionNotification(tweetId, commentId, uid, text, window.communityID, communityName, tweetText, replyId);
+                    }
                   }
                 }
               } else {
@@ -5077,7 +5071,8 @@ document.body.addEventListener("click", async (e) => {
       document.getElementById("rmute").checked = false;
       document.getElementById("rsensitive").checked = false;
       if (TWEETOWNERSUSPENDED === false) {
-        log("green", "reply posted")
+        log("green", "reply posted");
+        dev("");
         if (window.communityID) {
           incrementViews(tweetId, commentId, window.communityID);
         } else {
@@ -6320,11 +6315,14 @@ document.body.addEventListener("click", async (e) => {
   const retweetBtn = e.target.closest(".retweet-btn");
   if (!retweetBtn) return;
   e.preventDefault();
+
   selectedRetweet = retweetBtn.dataset.id;
   selectedCommentRetweet = retweetBtn.dataset.commentId || null;
   communityId = retweetBtn.dataset.communityId || null;
+
   const uid = auth.currentUser?.uid;
   if (!uid) return log("red", "user isn't logged in");
+
   document.getElementById("retweetOverlay").classList.remove("hidden");
   let innerHTML = "";
   innerHTML = `
@@ -6339,7 +6337,9 @@ document.body.addEventListener("click", async (e) => {
       </div>
     </div>
     </div>
-`
+`;
+
+  dev("");
   document.getElementById("retweetOriginal").innerHTML = innerHTML;
   const { avatar } = await getUserData(auth.currentUser.uid);
   document.getElementById("retweetAvatar").src = avatar || "/image/default-avatar.jpg";
@@ -6392,15 +6392,11 @@ document.body.addEventListener("click", async (e) => {
       let username1 = "unknown";
       let avatar1 = "/image/default-avatar.jpg";
       let displayName1 = "Unnamed";
-      let commIQ = 0;
-      let premium1 = null;
       try {
         const u = await getUserData(c.uid);
         username1 = u.username || "unknown";
         avatar1 = u.avatar || "/image/default-avatar.jpg";
         displayName1 = u.displayName || "Unnamed";
-        commIQ = u.IQ || 0;
-        premium1 = u.premium;
       } catch (err) {
         console.warn("Couldn't fetch comment author:", err);
       }
@@ -6591,7 +6587,7 @@ document.body.addEventListener("click", async (e) => {
 const sendRetweet = document.getElementById("sendRetweet");
 sendRetweet.onclick = async () => {
   sendRetweet.disabled = true;
-  sendRetweet.classList.add('disabled');
+  sendRetweet.classList.add("disabled");
 
   function reset() {
     sendRetweet.disabled = false;
@@ -6643,6 +6639,8 @@ sendRetweet.onclick = async () => {
   }
 
   const userRef = doc(db, "users", user.uid);
+
+  dev("reading auth");
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
     const data = userSnap.data();
@@ -6705,6 +6703,7 @@ sendRetweet.onclick = async () => {
           return;
         }
 
+        dev("uploading video");
         const upload = await uploadToSupabase(file, uid, isPremium);
         media = upload.url;
         mediaType = "video";
@@ -6754,6 +6753,8 @@ sendRetweet.onclick = async () => {
     let commentId = selectedCommentRetweet;
 
     const editUntil = new Date(Date.now() + 15 * 60 * 1000);
+
+    dev("detecting language")
     const detectedLanguage = await detectLanguage(text);
 
     const muteNotif = document.getElementById("rtmute").checked;
@@ -6790,6 +6791,8 @@ sendRetweet.onclick = async () => {
     };
 
     let postref, postsnap;
+
+    dev("reading quoted post");
     if (isCommentRetweet) {
       if (window.communityID) {
         postref = doc(db, "communities", window.communityID, "posts", originalId, "comments", commentId);
@@ -6824,6 +6827,8 @@ sendRetweet.onclick = async () => {
     await runTransaction(db, async (tx) => {
       if (postdata.uid != auth.currentUser.uid) {
         const tweetUserRef = doc(db, "users", postdata.uid);
+
+        dev("reading quoted post's author");
         const tweetUserSnap = await tx.get(tweetUserRef);
         let tweetUserData;
         if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -6833,6 +6838,7 @@ sendRetweet.onclick = async () => {
         }
       }
 
+      dev("posting quote");
       if (TWEETOWNERSUSPENDED === false) {
         if (window.communityID) {
           let communityPayload = {
@@ -6903,10 +6909,17 @@ sendRetweet.onclick = async () => {
       const tweetText = data1.originalText || data1.text;
       const notifyId = (window.communityID && !postedToMain) ? communityPostRef.id : tweetRef.id;
 
+      let communitySnap;
+      if (window.communityID) {
+        dev("reading community");
+        communitySnap = await getDoc(doc(db, "communities", window.communityID));
+      }
+      const communityName = communitySnap?.exists() ?
+        communitySnap.data().name : null;
+
       if (data1.muteNotif != true && !noNotify) {
         if (isCommentRetweet) {
           if (window.communityID) {
-            const communityName = await getCommunityNameById(window.communityID);
             if (data1.mediaType === "image" || data1.mediaType === "video") {
               const thumbnail = data1.mediaType === "video" ?
                 await extractVideoFrame(data1.media.url, 0.1) :
@@ -6929,7 +6942,6 @@ sendRetweet.onclick = async () => {
           }
         } else {
           if (window.communityID) {
-            const communityName = await getCommunityNameById(window.communityID);
             if (data1.mediaType === "image" || data1.mediaType === "video") {
               const thumbnail = data1.mediaType === "video" ?
                 await extractVideoFrame(data1.media.url, 0.1) :
@@ -6952,10 +6964,6 @@ sendRetweet.onclick = async () => {
           }
         }
       }
-
-      const communityName = window.communityID
-        ? await getCommunityNameById(window.communityID)
-        : null;
 
       await Promise.all(
         Object.values(mentions).filter(Boolean).map(async (uid) => {
@@ -6984,8 +6992,6 @@ sendRetweet.onclick = async () => {
           }
 
           if (window.communityID && window.isOnPrivate) {
-            const communitySnap = await getDoc(doc(db, "communities", window.communityID));
-
             if (communitySnap.exists()) {
               if (communitySnap.data().members.includes(uid)) {
                 if (data1.mediaType === "image" || data1.mediaType === "video") {
@@ -7018,6 +7024,7 @@ sendRetweet.onclick = async () => {
       const isPremium = premiumExpiry && premiumExpiry > now;
       const cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
+      dev("updating documents")
       await runTransaction(db, async (tx) => {
         if ((window.communityID && postedToMain) || !window.communityID) {
           tx.update(userRef, {
@@ -7319,134 +7326,6 @@ document.body.addEventListener("click", async (e) => {
   }
 });
 
-document.getElementById("tweetSS").addEventListener("click", async () => {
-  if (window.isOnPrivate) {
-    return log("red", "screenshotting is disabled in private communities");
-  }
-
-  loading.classList.add("show");
-
-  try {
-    const target = document.getElementById("appendTweet");
-    await document.fonts.ready;
-
-    const originalCanvas = await html2canvas(target, {
-      backgroundColor: "#000000",
-      scale: Math.min(window.devicePixelRatio, 2),
-      useCORS: true,
-      allowTaint: false,
-      scrollX: 0,
-      scrollY: -window.scrollY
-    });
-
-    const topPadding = 80;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = originalCanvas.width;
-    canvas.height = originalCanvas.height + topPadding;
-
-    const ctx = canvas.getContext("2d");
-
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "grey";
-    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
-
-    ctx.drawImage(originalCanvas, 0, topPadding);
-
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        loading.classList.remove("show");
-        log("red", "failed to create blob");
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = "screenshot.jpg";
-      link.click();
-
-      URL.revokeObjectURL(url);
-      loading.classList.remove("show");
-      log("green", "screenshoted");
-    }, "image/jpeg", 0.92);
-
-  } catch (err) {
-    console.error(err);
-    loading.classList.remove("show");
-    log("red", "failed to create screenshot");
-  }
-});
-
-document.getElementById("commentSS").addEventListener("click", async () => {
-  if (window.isOnPrivate) return log("red", "screenshotting is disabled in private communities");
-  if (window.isPrivateReply) return log("red", "screenshotting is disabled in private replies");
-  loading.classList.add("show");
-
-  try {
-    const target = document.getElementById("appendComment");
-    await document.fonts.ready;
-
-    const originalCanvas = await html2canvas(target, {
-      backgroundColor: "#000000",
-      scale: Math.min(window.devicePixelRatio, 2),
-      useCORS: true,
-      allowTaint: false,
-      scrollX: 0,
-      scrollY: -window.scrollY
-    });
-
-    const topPadding = 80;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = originalCanvas.width;
-    canvas.height = originalCanvas.height + topPadding;
-
-    const ctx = canvas.getContext("2d");
-
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "grey";
-    ctx.font = `${Math.round(16 * Math.min(window.devicePixelRatio, 2))}px Inter, sans-serif`;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText("wyntr.netlify.app", canvas.width - 30, topPadding / 2);
-
-    ctx.drawImage(originalCanvas, 0, topPadding);
-
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        loading.classList.remove("show");
-        log("red", "failed to create blob");
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = "screenshot.jpg";
-      link.click();
-
-      URL.revokeObjectURL(url);
-      loading.classList.remove("show");
-      log("green", "screenshoted");
-    }, "image/jpeg", 0.92);
-
-  } catch (err) {
-    console.error(err);
-    loading.classList.remove("show");
-    log("red", "failed to create screenshot");
-  }
-});
-
 let quoteState = {
   lastDoc: null,
   loading: false,
@@ -7475,71 +7354,7 @@ document.body.addEventListener("click", async (e) => {
   const list = overlay.querySelector("#quoteList");
 
   overlay.classList.remove("hidden");
-  list.innerHTML = `
-                  <div class="skeleton-card">
-                    <div class="skeleton-header">
-                      <div class="skeleton-avatar"></div>
-                      <div class="skeleton-header-lines">
-                        <div class="skeleton-line short"></div>
-                      </div>
-                      <div class="skeleton-dot"></div>
-                    </div>
-                    <div class="skeleton-body">
-                      <div class="skeleton-line long"></div>
-                      <div class="skeleton-line short"></div>
-                      <div class="skeleton-line medium"></div>
-                    </div>
-                    <div class="skeleton-footer">
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="invisible skeleton-pill small"></div>
-                      <div class="skeleton-pill small last"></div>
-                    </div>
-                  </div>
-                  <div class="skeleton-card">
-                    <div class="skeleton-header">
-                      <div class="skeleton-avatar"></div>
-                      <div class="skeleton-header-lines">
-                        <div class="skeleton-line short"></div>
-                      </div>
-                      <div class="skeleton-dot"></div>
-                    </div>
-                    <div class="skeleton-body">
-                      <div class="skeleton-line medium"></div>
-                      <div class="skeleton-line long"></div>
-                      <div class="skeleton-line short"></div>
-                    </div>
-                    <div class="skeleton-footer">
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="invisible skeleton-pill small"></div>
-                      <div class="skeleton-pill small last"></div>
-                    </div>
-                  </div>
-                  <div class="skeleton-card">
-                    <div class="skeleton-header">
-                      <div class="skeleton-avatar"></div>
-                      <div class="skeleton-header-lines">
-                        <div class="skeleton-line short"></div>
-                      </div>
-                      <div class="skeleton-dot"></div>
-                    </div>
-                    <div class="skeleton-body">
-                      <div class="skeleton-line short"></div>
-                      <div class="skeleton-line long"></div>
-                      <div class="skeleton-line medium"></div>
-                    </div>
-                    <div class="skeleton-footer">
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="skeleton-pill small"></div>
-                      <div class="invisible skeleton-pill small"></div>
-                      <div class="skeleton-pill small last"></div>
-                    </div>
-                  </div>
-  `;
+  list.innerHTML = TWEETS_SKELETON;
 
   await loadMoreQuotes();
 });
