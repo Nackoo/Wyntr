@@ -2288,3 +2288,8 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
   color: #F8BB4C;
   font-size: 15px;
 }
+
+#TweetList .skeleton-card,
+#hTweetList .skeleton-card {
+  margin: 30px 0px !important;
+}
