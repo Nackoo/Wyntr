@@ -468,6 +468,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
       tx.set(memberRef, {
         uid: user.uid,
         joinedAt: new Date(),
+        contributions: 1,
         photoURL: userData.photoURL,
         username: userData.username,
         displayName: userData.displayName,
@@ -746,6 +747,7 @@ async function joinCommunity(communityId) {
     transaction.set(memberRef, {
       uid: user.uid,
       joinedAt: new Date(),
+      contributions: 1,
       photoURL: userData.photoURL,
       username: userData.username,
       displayName: userData.displayName,
@@ -1348,8 +1350,8 @@ function getMemberQuery(term, fieldName, limitCount) {
     );
   } else {
     constraints.push(
-      orderBy("contributions", "desc"),
-      orderBy("role", "desc")
+      orderBy("role", "desc"),
+      orderBy("contributions", "desc")
     );
   }
 

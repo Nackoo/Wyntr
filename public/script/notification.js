@@ -656,6 +656,7 @@ if (notification.type === "communityJoinRequest") {
           joinedAt: new Date(),
           username: userData.username,
           photoURL: userData.photoURL,
+          contributions: 1,
           displayName: userData.displayName,
           description: userData.description || "wsg homie?",
           name: userData.displayName.toLowerCase(),

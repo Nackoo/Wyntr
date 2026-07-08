@@ -51,8 +51,8 @@ read [Firestore rules](/firestore_rules.txt)
 | likes         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
 | likes         | `followers ↓`, `name ↓`, `status ↓`, `__name__ ↓`                         | Collection  |
 | likes         | `followers ↓`, `status ↓`, `username ↓`, `__name__ ↓`                     | Collection  |
-| members       | `contributions ↓`, `role ↓`, `__name__ ↓`                                 | Collection  |
-| members       | `contributions ↓`, `role ↓`, `status ↓`, `__name__ ↓`                     | Collection  |
+| members       | `role ↓`, `contributions ↓`, `__name__ ↓`                                 | Collection  |
+| members       | `role ↓`, `contributions ↓`, `status ↓`, `__name__ ↓`                     | Collection  |
 | members       | `name ↑`, `status ↑`, `__name__ ↑`                                        | Collection  |
 | members       | `status ↑`, `username ↑`, `__name__ ↑`                                    | Collection  |
 | views         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
