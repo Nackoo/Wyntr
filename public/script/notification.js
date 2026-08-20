@@ -85,7 +85,7 @@ function createNotificationElement(notification) {
   } else if (notification.type === "reply") {
     content = `
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
-  ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
+  ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
     <span style="color:#04aa63;">@${notification.senderName}</span> replied to your reply <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>
@@ -98,7 +98,7 @@ function createNotificationElement(notification) {
   } else if (notification.type === "community-reply") {
     content = `
 <div style="display:flex;gap:12px;line-height:1.9;align-items:flex-start !important;">
-  ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media.url)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
+  ${notification.media ? `<img loading="lazy" src="${base91ToImageSrc(notification.media)}" onerror="this.src='/image/default-avatar.jpg'" style="min-width:40px; min-height:40px; max-width:40px; max-height:40px; border-radius:10px; object-fit:cover; align-self:flex-start;margin-top:8px;margin-right:5px;">` : messagesvg}
   <div>
     <span style="color:#04aa63;">@${notification.senderName}</span> replied to your reply in <b>${notification.communityName}</b>, post <b>"${escapeHTML(textClamp(notification.tweetTextt))}"</b><br>
       <span style="color:grey;">"${escapeHTML(textClamp(notification.text))}"</span><br>

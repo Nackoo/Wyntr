@@ -105,7 +105,14 @@ function inputDialog(title, desc, extraElement, inputValue, red) {
         chooseEmojiBtn.onclick = () => {
           createEmojiOverlay(chooseEmojiBtn);
         };
+      } else if (extraElement.includes("<img src=/image/eye.svg id=viewPW>")) {
+        input.type = "password";
+        document.getElementById("viewPW").onclick = () => {
+          input.type == "password" ? input.type = "text" : input.type = "password";
+        }
       }
+    } else {
+      input.type = "text";
     }
 
     if (inputValue) {

@@ -2293,3 +2293,8 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 #hTweetList .skeleton-card {
   margin: 30px 0px !important;
 }
+
+#extra {
+  display: flex;
+  align-items: center;
+}

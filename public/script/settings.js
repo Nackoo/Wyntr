@@ -501,10 +501,10 @@ changeusername.addEventListener("click", async () => {
 
 const setPasswordBtn = document.getElementById("save-password-btn");
 setPasswordBtn.addEventListener("click", async () => {
-  const password = await inputDialog("set a new password", "password must be at least 8 characters")
+  const password = await inputDialog("set a new password", "password must be at least 8 characters", "<img src=/image/eye.svg id=viewPW>")
   if (password.length < 8) return log("red", "password must be at least 8 characters");
 
-  const confirm = await inputDialog("re-type your new password", "password must match")
+  const confirm = await inputDialog("re-type your new password", "password must match", "<img src=/image/eye.svg id=viewPW>")
   if (password !== confirm) return log("red", "passwords don't match");
 
   const user = auth.currentUser;
@@ -519,7 +519,7 @@ setPasswordBtn.addEventListener("click", async () => {
       await linkWithCredential(user, cred);
     } catch (err) {
       if (err.code === "auth/provider-already-linked") {
-        const oldPassword = await inputDialog("confirm your current password", "confirm your current password to update your passowrd");
+        const oldPassword = await inputDialog("confirm your current password", "confirm your current password to update your password", "<img src=/image/eye.svg id=viewPW>");
         const reauthCred = EmailAuthProvider.credential(user.email, oldPassword);
         await reauthenticateWithCredential(user, reauthCred);
         await updatePassword(user, password);

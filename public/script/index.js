@@ -2392,6 +2392,21 @@ document.body.addEventListener("click", async (e) => {
       await updateDoc(ref, {
         archived: true
       });
+
+      const snap = await getDoc(ref);
+      const data = snap.data();
+      const link = communityId ?
+        `https://wyntr.netlify.app/community/${communityId}/wynt/${tweetId}` :
+        `https://wyntr.netlify.app/wynt/${tweetId}`
+
+      discord("Wynt archived", "grey", {
+        "text": data.text,
+        "posted at": formatUTC8(data.createdAt),
+        "source": link
+      }, new Date(), [
+        data.media || null
+      ], "user");
+
       log("green", "Wynt archived");
     }
     loading.classList.remove("show");
@@ -4437,7 +4452,7 @@ document.body.addEventListener("click", async (e) => {
               communitySnap = await getDoc(doc(db, "communities", window.communityID));
             }
             const communityName = communitySnap?.exists() ?
-              communitySnap.data() : null;
+              communitySnap.data().name : "unknown community";
 
             if (!isPrivate) {
               dev("sending mention(s)");
@@ -5928,7 +5943,7 @@ document.body.addEventListener("click", async (e) => {
 
           transaction.set(likeDocRef, {
             likedAt: new Date(),
-            followers: userData.followers,
+            followers: userData.followers || 0,
             photoURL: userData.photoURL || "/image/default-avatar.jpg",
             displayName: userData.displayName || "Unknown",
             username: userData.username || "Unknown",
@@ -6046,7 +6061,7 @@ document.body.addEventListener("click", async (e) => {
 
           transaction.set(likeRef, {
             likedAt: new Date(),
-            followers: userData.followers,
+            followers: userData.followers || 0,
             photoURL: userData.photoURL || "/image/default-avatar.jpg",
             username: userData.username || "Unknown",
             displayName: userData.displayName || "Unknown",

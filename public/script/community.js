@@ -383,7 +383,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
   const balance  = userData?.balance || 0    ;
 
   if (typeof editingId !== "string" || !editingId) {
-    if (balance < 300) return log("red", "Not enough Wcoins (need 300)");
+    if (balance < 300) return log("red", "Not enough credits (need 300)");
   }
 
   const btn    = document.getElementById("createCommunityBtn");
@@ -433,7 +433,7 @@ document.getElementById("createCommunityBtn").onclick = async () => {
     const followersOnly = document.getElementById("followersOnly")?.checked || false;
 
     if (localStorage.getItem("disableConfirmation") != "true") {
-      if (!(await confirmDialog("Create community?", "A non-refundable 300 Wcoins from your balance will be deducted"))) {
+      if (!(await confirmDialog("Create community?", "A non-refundable 300 credits from your balance will be deducted"))) {
         btn.disabled = false;
         btn.classList.remove("disabled");
         return;

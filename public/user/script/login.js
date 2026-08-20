@@ -22,7 +22,7 @@ const userLoginBtn = document.getElementById("loginWpassword");
 userLoginBtn.addEventListener("click", async () => {
   const username = await inputDialog("type your username", "type your username");
   if (!username) return;
-  const password = await inputDialog("type your password", "type your password");
+  const password = await inputDialog("type your password", "type your password", "<img src=/image/eye.svg id=viewPW>");
   if (!password) return;
 
   userLoginBtn.disabled = true;
@@ -64,7 +64,7 @@ function info(image, title, desc) {
   info.querySelector("h2").textContent = title;
 }
 
-function inputDialog(title, desc) {
+function inputDialog(title, desc, extraElement) {
   return new Promise(resolve => {
     setTimeout(() => {
       document.body.classList.add("no-scroll");
@@ -72,6 +72,20 @@ function inputDialog(title, desc) {
 
     const modal = document.getElementById("inputDialog");
     const input = document.getElementById("inputDialogValue");
+
+    document.getElementById("extra").innerHTML = "";
+    if (extraElement) {
+      document.getElementById("extra").innerHTML = extraElement;
+
+      if (extraElement.includes("<img src=/image/eye.svg id=viewPW>")) {
+        input.type = "password";
+        document.getElementById("viewPW").onclick = () => {
+          input.type == "password" ? input.type = "text" : input.type = "password";
+        }
+      }
+    } else {
+      input.type = "text";
+    }
 
     modal.classList.add("show");
     modal.querySelector("h2").textContent = title;
