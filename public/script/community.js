@@ -136,8 +136,9 @@ function rebuildIndexes() {
   rules = newRules;
 }
 
+let isCommunityLoaded = false;
 document.querySelectorAll(".tab5").forEach(tab5 => {
-  tab5.addEventListener("click", () => {
+  tab5.addEventListener("click", async () => {
     document.querySelectorAll(".tab5").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
     tab5.classList.add("active");
@@ -151,10 +152,11 @@ document.querySelectorAll(".tab5").forEach(tab5 => {
       loadingComList = false;
       searchcom.classList.remove("hidden");
       searchMyCom.classList.add("hidden");
-    } else if (tabTarget == "myCommunities") {
+    } else if (tabTarget == "myCommunities" && !isCommunityLoaded) {
       loadingMyCom = true;
-      loadMyCommunities();
+      await loadMyCommunities();
       loadingMyCom = false;
+      isCommunityLoaded = true;
       searchcom.classList.add("hidden");
       searchMyCom.classList.remove("hidden");
     }
@@ -1973,20 +1975,24 @@ window.openComMenu = async function (communityId) {
                 if (!userData.invitePermission || userData.invitePermission === "everyone") {
                   await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
                   log("green", "user invited");
+                  btn.remove();
                 } else if (userData.invitePermission === "follow") {
                   if (!followingSnap.exists()) {
                     log("red", "user grants no permission");
                   } else {
                     await sendInviteNotification(docSnap.id, window.communityID, comData.name, comData.avatar);
                     log("green", "user invited");
+                    btn.remove();
                   }
                 } else if (userData.invitePermission === "no") {
                   log("red", "user grants no permission");
                 }
               }
 
-              btn.disabled = false;
-              btn.classList.remove("disabled");
+              if (btn) {
+                btn.disabled = false;
+                btn.classList.remove("disabled");
+              }
             };
           }
         }
@@ -2120,6 +2126,7 @@ if (document.readyState === "loading") {
 async function init() {
   document.getElementById("comsvg").addEventListener("click", async () => {
     document.querySelector(`.tab5[data-target="myCommunities"]`).click();
+    document.getElementById("searchCom").classList.add("hidden");
   });
   const user = await waitForAuth();
   if (!user) return info("x", "Unauthorized", "user is not logged in");

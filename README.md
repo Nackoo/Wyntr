@@ -48,6 +48,7 @@ read [Firestore rules](/firestore_rules.txt)
 | tweets        | `searchTokens []`, `archived ↑`, `createdAt ↓`, `__name__ ↓`              | Collection  |
 | tweets        | `mentionedSearchTokens []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`     | Collection  |
 | tweets        | `tags []`, `createdAt ↓`, `archived ↓`, `__name__ ↓`                      | Collection  |
+| tweets        | `uid ↑`, `archived ↑`, `__name__ ↑`                                        | Collection  |
 | likes         | `followers ↓`, `status ↓`, `__name__ ↓`                                   | Collection  |
 | likes         | `followers ↓`, `name ↓`, `status ↓`, `__name__ ↓`                         | Collection  |
 | likes         | `followers ↓`, `status ↓`, `username ↓`, `__name__ ↓`                     | Collection  |

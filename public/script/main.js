@@ -359,6 +359,12 @@ document.querySelectorAll(".tab").forEach(tab => {
     const targetEl = document.getElementById(target);
     targetEl.classList.remove("hidden");
 
+    if (target === "following1") {
+      window.isOnFollowing = true;
+    } else {
+      window.isOnFollowing = false;
+    }
+
     if (target === "following1" && !followingLoadedOnce) {
       await loadFollowingTweets(true);
       followingLoadedOnce = true;

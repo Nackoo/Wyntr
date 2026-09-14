@@ -20,7 +20,6 @@ const myDescription = document.querySelector("#my-description");
 const myName = document.querySelector("#my-name");
 const myUsername = document.querySelector("#my-username");
 const displayNameInput = document.getElementById("name-edit");
-const statusInput = document.getElementById("status-edit");
 const loading = document.getElementById("loadingOverlay");
 
 function escapeHTML(text) {
@@ -100,9 +99,6 @@ document.getElementById('openMe').addEventListener("click", async () => {
 
   const avatarURL = base91ToImageSrc(data.photoURL) || auth.currentUser.photoURL;
   const avaPreview = document.getElementById("ava-preview");
-  const status = data.status || "i'm cold";
-
-  statusInput.value = status;
 
   if (avatarURL) {
     avaPreview.style.background = `url('${avatarURL}') no-repeat center / cover`;
@@ -114,6 +110,7 @@ document.getElementById('openMe').addEventListener("click", async () => {
 
   const name = data.displayName || auth.currentUser.displayName;
   document.getElementById("name-edit").value = name;
+  document.getElementById("my-username-yeah").textContent = data.username
 
   const description = data.description || "wsg homie?";
   document.getElementById("description-edit").value = description;
@@ -122,11 +119,6 @@ document.getElementById('openMe').addEventListener("click", async () => {
 displayNameInput.addEventListener("input", () => {
   displayNameInput.value = displayNameInput.value
     .slice(0, 15);
-})
-
-statusInput.addEventListener("input", () => {
-  statusInput.value = statusInput.value
-    .slice(0, 128);
 })
 
 descriptionInput.addEventListener("input", () => {
@@ -166,7 +158,6 @@ saveButton.addEventListener("click", async () => {
   saveButton.classList.add('disabled');
   const uid = auth.currentUser.uid;
   const newDisplayName = escapeHTML(displayNameInput.value.trim().slice(0, 15));
-  const newStatus = escapeHTML(statusInput.value.trim().slice(0, 128));
   const newDescription = descriptionInput.value.trim().slice(0, 160);
 
   const newBanner = bannerInput.files[0]
@@ -211,8 +202,7 @@ saveButton.addEventListener("click", async () => {
     description: processedDescription,
     descriptionMentions: mentions,
     banner: newbanner,
-    photoURL: newavatar,
-    status: newStatus,
+    photoURL: newavatar
   }, { merge: true });
 
   profileSubOverlay.classList.add("hidden");
@@ -220,7 +210,6 @@ saveButton.addEventListener("click", async () => {
   saveButton.classList.remove('disabled');
 
   myDescription.innerHTML = await parseMentionsToLinks(processedDescription, mentions);
-  document.getElementById("my-status").textContent = newStatus;
 
   myName.textContent = newDisplayName;
 
@@ -438,20 +427,6 @@ setd.onclick = () => {
   }
 }
 
-const devmodecheckbox = document.getElementById("devmode");
-const devmode = localStorage.getItem("developerMode") || false;
-
-if (devmode != "false" && devmode != false) {
-  devmodecheckbox.checked = true;
-} else {
-  devmodecheckbox.checked = false;
-}
-
-devmodecheckbox.addEventListener("change", () => {
-  const enabled = devmodecheckbox.checked;
-  localStorage.setItem("developerMode", enabled.toString());
-});
-
 const changeusername = document.getElementById("change-username");
 changeusername.addEventListener("click", async () => {
   let username = await inputDialog("type a new username", "username can only contain lowercase letters from a-z, numbers from 0-9, ., _, -, no spaces, and no longer than 20 characters", null, "", false, true);
@@ -489,7 +464,8 @@ changeusername.addEventListener("click", async () => {
     await updateDoc(doc(db, "users", auth.currentUser.uid), {
       username: newUsername
     });
-
+    
+    document.getElementById("my-username-yeah").textContent = newUsername;
     info("check", "username changed successfully", `your username is now "${newUsername}"`);
     window.currentUsername = newUsername;
   } finally {

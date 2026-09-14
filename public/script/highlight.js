@@ -111,6 +111,7 @@ export async function loadFolderTweets(folderId, initial = true, userID) {
       const tweetSnap = await getDoc(tweetRef);
 
       if (tweetSnap.exists()) {
+        if (tweetSnap.data().archived && tweetSnap.data().uid != auth.currentUser.uid) return;
         tweetList.querySelectorAll(`.skeleton-card`).forEach(el => el.remove()); 
 
         if (data.communityId) {

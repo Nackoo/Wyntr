@@ -509,7 +509,7 @@ async function compressVideoTo480(file) {
   }
 }
 
-function showCompressionOverlay(show) {
+function showCompressionOverlay(show, label = "Compressing...") {
   let overlay = document.getElementById("compression-overlay");
 
   if (!overlay) {
@@ -618,20 +618,30 @@ function showCompressionOverlay(show) {
     const title = document.getElementById("compression-title");
 
     if (bar) bar.style.width = "0%";
-    if (title) title.textContent = "Compressing... 0%";
+    if (title) title.textContent = `${label} 0%`;
   }
 }
 
 window.showCompressionOverlay = showCompressionOverlay;
 
-function updateCompressionProgress(ratio) {
-  const percent = Math.round(ratio * 100);
+function updateCompressionProgress(ratio, label = "Compressing...") {
+  const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
 
   const bar = document.getElementById("compression-progress");
   const title = document.getElementById("compression-title");
 
   if (bar) bar.style.width = percent + "%";
-  if (title) title.textContent = `Compressing... ${percent}%`;
+  if (title) title.textContent = `${label} ${percent}%`;
+}
+
+function yieldToMainThread() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
 }
 
 async function uploadToSupabase(file, uid, isPremium) {
@@ -727,54 +737,67 @@ async function compressImageTo480(input) {
   const MAX_BASE91 = 1024 * 1024;
   const BASE91_RATIO = 16 / 13;
   const MAX_BINARY = Math.floor(MAX_BASE91 / BASE91_RATIO);
+  const imageLabel = "Compressing image...";
 
-  const readFile = (file) =>
-    new Promise(res => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.readAsDataURL(file);
-    });
+  showCompressionOverlay(true, imageLabel);
+  updateCompressionProgress(0, imageLabel);
 
-  const source =
-    typeof input === "string"
-      ? (
-          input.startsWith("data:")
-            ? input
-            : base91ToImageSrc(input)
-        )
-      : await readFile(input);
+  try {
+    const readFile = (file) =>
+      new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.readAsDataURL(file);
+      });
 
-  const img = new Image();
-  img.src = source;
-  await img.decode();
+    const source =
+      typeof input === "string"
+        ? (
+            input.startsWith("data:")
+              ? input
+              : base91ToImageSrc(input)
+          )
+        : await readFile(input);
 
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.src = source;
+    await img.decode();
 
-  let scale = 1;
-  let quality = 0.85;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
 
-  for (let i = 0; i < 50; i++) {
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
+    let scale = 1;
+    let quality = 0.85;
+    const maxPasses = 50;
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < maxPasses; i++) {
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
 
-    const blob = await canvasToWebP(canvas, quality);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    if (blob.size <= MAX_BINARY) {
-      const bytes = new Uint8Array(await blob.arrayBuffer());
-      return base91.encode(bytes);
+      const blob = await canvasToWebP(canvas, quality);
+      updateCompressionProgress((i + 1) / maxPasses, imageLabel);
+
+      if (blob.size <= MAX_BINARY) {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        updateCompressionProgress(1, imageLabel);
+        return base91.encode(bytes);
+      }
+
+      if (quality > 0.5) {
+        quality -= 0.08;
+      } else {
+        scale *= 0.85;
+      }
+
+      await yieldToMainThread();
     }
 
-    if (quality > 0.5) {
-      quality -= 0.08;
-    } else {
-      scale *= 0.85;
-    }
+    throw new Error("Cannot compress under base91 1MB limit");
+  } finally {
+    showCompressionOverlay(false, imageLabel);
   }
-
-  throw new Error("Cannot compress under base91 1MB limit");
 }
 
 let lastURL = null;
@@ -932,43 +955,51 @@ async function downloadFile(url, filename) {
 }
 
 document.getElementById("commentMediaInput").addEventListener("change", (e) => {
-  handleMediaInput(e, document.getElementById("commentPreview"));
+  try {
+    handleMediaInput(e, document.getElementById("commentPreview"));
+  } catch {
+    log("red", "image failed to decode, please try again");
+  }
 });
 
 function setupPasteImageHandler(textareaId, mediaInputId, previewId) {
-  const textarea = document.getElementById(textareaId);
-  const mediaInput = document.getElementById(mediaInputId);
-  const previewEl = document.getElementById(previewId);
+  try {
+    const textarea = document.getElementById(textareaId);
+    const mediaInput = document.getElementById(mediaInputId);
+    const previewEl = document.getElementById(previewId);
 
-  textarea.addEventListener("paste", async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+    textarea.addEventListener("paste", async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-    const pastedImages = [];
+      const pastedImages = [];
 
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) pastedImages.push(file);
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) pastedImages.push(file);
+        }
       }
-    }
 
-    if (!pastedImages.length) return;
+      if (!pastedImages.length) return;
 
-    e.preventDefault();
+      e.preventDefault();
 
-    const dt = new DataTransfer();
+      const dt = new DataTransfer();
 
-    Array.from(mediaInput.files || []).forEach(f => dt.items.add(f));
-    pastedImages.forEach(f => dt.items.add(f));
+      Array.from(mediaInput.files || []).forEach(f => dt.items.add(f));
+      pastedImages.forEach(f => dt.items.add(f));
 
-    mediaInput.files = dt.files;
+      mediaInput.files = dt.files;
 
-    await handleMediaInput(
-      { target: mediaInput },
-      previewEl
-    );
-  });
+      await handleMediaInput(
+        { target: mediaInput },
+        previewEl
+      );
+    });
+  } catch {
+    log("red", "image failed to decode, please try again");
+  }
 }
 
 setupPasteImageHandler(
@@ -1058,29 +1089,33 @@ function setupDragAndDrop({ box, overlay, input, preview }) {
   });
 
   dropBox.addEventListener("drop", async e => {
-    if (!dragActive || !isOverlayVisible()) return;
-    if (!e.dataTransfer?.files?.length) return;
+    try {
+      if (!dragActive || !isOverlayVisible()) return;
+      if (!e.dataTransfer?.files?.length) return;
 
-    e.preventDefault();
-    dragActive = false;
-    dropOverlay.classList.add("hidden");
+      e.preventDefault();
+      dragActive = false;
+      dropOverlay.classList.add("hidden");
 
-    const dt = new DataTransfer();
+      const dt = new DataTransfer();
 
-    Array.from(mediaInput.files || []).forEach(f =>
-      dt.items.add(f)
-    );
+      Array.from(mediaInput.files || []).forEach(f =>
+        dt.items.add(f)
+      );
 
-    Array.from(e.dataTransfer.files).forEach(f =>
-      dt.items.add(f)
-    );
+      Array.from(e.dataTransfer.files).forEach(f =>
+        dt.items.add(f)
+      );
 
-    mediaInput.files = dt.files;
+      mediaInput.files = dt.files;
 
-    await handleMediaInput(
-      { target: mediaInput },
-      previewEl
-    );
+      await handleMediaInput(
+        { target: mediaInput },
+        previewEl
+      );
+    } catch {
+      log("red", "image failed to decode, please try again");
+    }
   });
 }
 
@@ -1353,15 +1388,27 @@ export async function extractVideoFrame(videoUrl, timeInSeconds = 0.1) {
 }
 
 document.getElementById("mediaInput").addEventListener("change", (e) => {
-  handleMediaInput(e, document.getElementById("tweetPreview"));
+  try {
+    handleMediaInput(e, document.getElementById("tweetPreview"));
+  } catch {
+    log("red", "image failed to decode, please try again");
+  }
 });
 
 document.getElementById("replyMediaInput").addEventListener("change", (e) => {
-  handleMediaInput(e, document.getElementById("replyPreview"));
+  try {
+    handleMediaInput(e, document.getElementById("replyPreview"));
+  } catch {
+    log("red", "image failed to decode, please try again");
+  }
 });
 
 document.getElementById("retweetMedia-TWEETID").addEventListener("change", (e) => {
-  handleMediaInput(e, document.getElementById("retweetPreview-TWEETID"));
+  try {
+    handleMediaInput(e, document.getElementById("retweetPreview-TWEETID"));
+  } catch {
+    log("red", "image failed to decode, please try again");
+  }
 });
 
 document.getElementById("tweetSS").addEventListener("click", async () => {

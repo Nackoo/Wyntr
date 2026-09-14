@@ -6,7 +6,7 @@ import { supabase } from "./firebase.js";
 import { uploadToSupabase, compressImageTo480, downloadFile, makeCollage, getSupabaseVideo, base91ToImageSrc, extractVideoFrame } from "./attachments.js";
 import { comment  } from "./nonsense.js"
 import { viewTweet } from "./tweetViewer.js";
-import { tokenize, formatDate, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime, info, log, confirmDialog, getDefaultLanguage, detectLanguage, isTranslateEnabled, randomString, formatUTC8, isOlderThanBlankDays, inputDialog, dev } from "./texts.js";
+import { tokenize, formatDate, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime, info, log, confirmDialog, getDefaultLanguage, detectLanguage, isTranslateEnabled, randomString, formatUTC8, isOlderThanBlankDays, inputDialog } from "./texts.js";
 import { updateCommentUI, discord } from "./moderation.js";
 import { openBookmarkOverlay } from "./bookmark.js";
 import { updateAllCounters, applyLimits, showOriginal } from "./main.js";
@@ -16,6 +16,8 @@ import { openHighlightOverlay } from "./highlight.js";
 import { initViews, incrementViews } from "./view_users.js";
 import { viewArchivePerm } from "./viewArchivePerm.js";
 import { TWEETS_SKELETON } from "./element.js";
+import { initializeUserCache } from "./cache.js";
+import { loadFollowingTweets } from "./followingTweets.js";
 
 //2541
 
@@ -157,6 +159,7 @@ async function checkBans(user) {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    document.querySelector(".tab[data-target='following1']").disabled = true;
     await waitForAuth();
     checkBans(user);
     const ref = doc(db, "users", user.uid);
@@ -194,6 +197,7 @@ onAuthStateChanged(auth, async (user) => {
       if (data.displayName) displayName = data.displayName;
       if (data.photoURL) photoURL = data.photoURL;
       if (data.username) username = `@${data.username}`;
+      document.querySelector(".tab[data-target='following1']").disabled = false;
     } else {
       currentUserRole = "user";
     }
@@ -354,6 +358,8 @@ onAuthStateChanged(auth, async (user) => {
         }
       }
     }
+    const cache = await initializeUserCache(user, data);
+    const foll = cache.followings;
   } else {
     window.location.href = "/user/login";
   }
@@ -388,7 +394,6 @@ document.getElementById("post").addEventListener("click", async () => {
   document.getElementById("commentViewer").classList.add("hidden");
   const {avatar: myAvatar2} = await getUserData(auth.currentUser.uid);
   document.getElementById('tweetAvatar').src = myAvatar2;
-  dev("");
 });
 
 document.getElementById("postBtn").addEventListener("click", async () => {
@@ -410,7 +415,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
 
   const userRef = doc(db, "users", user.uid);
 
-  dev("reading auth");
+  console.log("reading auth");
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
@@ -437,8 +442,15 @@ document.getElementById("postBtn").addEventListener("click", async () => {
 
   const text = document.getElementById("tweetInput").value.trim();
 
-  dev("detecting language");
-  const detectedLanguage = await detectLanguage(text);
+  console.log("detecting language");
+
+  let detectedLanguage = "english";
+  try {
+    detectedLanguage = await detectLanguage(text);
+  } catch {
+    console.log("detecting language failed, but no problem");
+  }
+
   const title = document.getElementById("tweetTitle").value.trim().slice(0, 100) || null;
   const fileInput = document.getElementById("mediaInput");
   const files = Array.from(fileInput.files);
@@ -508,7 +520,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
           return;
         }
 
-        dev("uploading video");
+        console.log("uploading video");
         const upload = await uploadToSupabase(file, user.uid, isPremium);
         mediaURL = upload.url;
         mediaType = "video";
@@ -596,7 +608,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
         sensitiveMedia
       };
 
-      dev("running a transaction");
+      console.log("running a transaction");
       await runTransaction(db, async (tx) => {
         if (window.communityID) {
           const communityPostRef = doc(
@@ -646,7 +658,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
 
       let communitySnap;
       if (window.communityID) {
-        dev("reading community");
+        console.log("reading community");
         communitySnap = await getDoc(doc(db, "communities", window.communityID));
       }
       const communityName = communitySnap?.exists() ?
@@ -698,7 +710,7 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       const isPremium = premiumExpiry && premiumExpiry > now;
       let cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
-      dev("updating documents");
+      console.log("updating documents");
       await runTransaction(db, async (tx) => {
         if ((window.communityID && shareToFollowers) || !window.communityID) {
           tx.update(userRef, {
@@ -721,7 +733,6 @@ document.getElementById("postBtn").addEventListener("click", async () => {
       document.getElementById("mute").checked = false;
       document.getElementById("sensitive").checked = false;
       log("green", "Wynt posted");
-      dev("");
     } catch (error) {
       console.error("Tweet failed:", error);
       info("x", "Wynt failed:", error)
@@ -3698,7 +3709,11 @@ window.addEventListener("scroll", async () => {
   const atBottom = scrollTop + viewportHeight >= scrollHeight - 150;
 
   if (atBottom) {
-    await loadTweets(false, "down", 10);
+    if (window.isOnFollowing) {
+      loadFollowingTweets()
+    } else {
+      loadTweets(false, "down", 10);
+    }
   }
 });
 
@@ -3948,7 +3963,6 @@ document.body.addEventListener("click", async (e) => {
     `;
     const tweetId = commentBtn.dataset.id;
 
-    dev("");
     document.getElementById("commentOverlay").classList.remove("hidden");
     document.getElementById("commentInput").focus();
     pendingDonation = 0;
@@ -4122,7 +4136,7 @@ document.body.addEventListener("click", async (e) => {
         const user = auth.currentUser;
         const userRef = doc(db, "users", user.uid);
 
-        dev("reading your auth");
+        console.log("reading your auth");
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data();
 
@@ -4160,7 +4174,7 @@ document.body.addEventListener("click", async (e) => {
 
           mediaType = "video";
 
-          dev("uploading video");
+          console.log("uploading video");
           media = await uploadToSupabase(file, user.uid, isPremium);
           if (!media.url) {
             log("red", "Video upload failed")
@@ -4170,7 +4184,7 @@ document.body.addEventListener("click", async (e) => {
           mediaPath = media.path;
           const cooldownDuration = isPremium ? 50 * 60 * 1000 : 2 * 60 * 60 * 1000;
 
-          dev("updating your auth");
+          console.log("updating your auth");
           await updateDoc(userRef, {
             commentVideoCooldown: Timestamp.fromDate(new Date(Date.now() + cooldownDuration)),
           });
@@ -4221,7 +4235,7 @@ document.body.addEventListener("click", async (e) => {
           let isPrivate = false;
           let tweetSnap;
 
-          dev("getting Wynt document");
+          console.log("getting Wynt document");
           if (window.communityID) {
             tweetSnap = await getDoc(doc(db, "communities", window.communityID, "posts", tweetId));
           } else {
@@ -4233,7 +4247,7 @@ document.body.addEventListener("click", async (e) => {
           if (tweetData.uid != auth.currentUser.uid) {
             const blockRef = doc(db, "users", tweetOwnerId, "blocks", auth.currentUser.uid);
 
-            dev("checking author's blocks");
+            console.log("checking author's blocks");
             const blockSnap = await getDoc(blockRef);
             if (blockSnap.exists()) {
               const blockData = blockSnap.data();
@@ -4265,7 +4279,7 @@ document.body.addEventListener("click", async (e) => {
               );
             }
 
-            dev("checking for private comment from auth");
+            console.log("checking for private comment from auth");
             const privateSnap = await getDocs(privateQuery);
 
             if (privateSnap.empty) {
@@ -4317,8 +4331,13 @@ document.body.addEventListener("click", async (e) => {
 
           const text = commentText;
 
-          dev("detecting language");
-          const detectedLanguage = await detectLanguage(text);
+          console.log("detecting language");
+          let detectedLanguage = "english";
+          try {
+            detectedLanguage = await detectLanguage(text);
+          } catch {
+            console.log("detecting language failed, but no problem");
+          }
 
           const commentRef = doc(commentsRef);
 
@@ -4327,7 +4346,7 @@ document.body.addEventListener("click", async (e) => {
             if (tweetData.uid != auth.currentUser.uid) {
               const tweetUserRef = doc(db, "users", tweetData.uid);
 
-              dev("reading Wynt's author account");
+              console.log("reading Wynt's author account");
               const tweetUserSnap = await tx.get(tweetUserRef);
               let tweetUserData;
               if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -4383,7 +4402,7 @@ document.body.addEventListener("click", async (e) => {
               try {
                 await runTransaction(db, async (tx) => {
 
-                  dev("reading auths");
+                  console.log("reading auths");
                   const [userSnap, ownerSnap] = await Promise.all([
                     tx.get(userRef1),
                     tx.get(ownerRef)
@@ -4400,7 +4419,7 @@ document.body.addEventListener("click", async (e) => {
                     throw new Error("Insufficient balance");
                   }
 
-                  dev("updating documents");
+                  console.log("updating documents");
                   tx.update(userRef1, {
                     balance: increment(-pendingDonation)
                   });
@@ -4448,14 +4467,14 @@ document.body.addEventListener("click", async (e) => {
 
             let communitySnap;
             if (window.communityID) {
-              dev("reading community");
+              console.log("reading community");
               communitySnap = await getDoc(doc(db, "communities", window.communityID));
             }
             const communityName = communitySnap?.exists() ?
               communitySnap.data().name : "unknown community";
 
             if (!isPrivate) {
-              dev("sending mention(s)");
+              console.log("sending mention(s)");
               await Promise.all(
                 Object.values(mentions).filter(Boolean).map(async (uid) => {
                   if (uid === tweetData.uid) return;
@@ -4552,7 +4571,6 @@ document.body.addEventListener("click", async (e) => {
               incrementViews(tweetId, null, null);
             }
             log("green", "reply posted");
-            dev("");
           }
         }
       } catch (err) {
@@ -4627,7 +4645,6 @@ document.body.addEventListener("click", async (e) => {
   </div>
 </div>
   `
-  dev("");
   document.getElementById("replyOverlay").classList.remove("hidden");
   document.getElementById("replyInput").focus();
   window.communityID_reply = null;
@@ -4801,7 +4818,7 @@ document.body.addEventListener("click", async (e) => {
 
       const userRef = doc(db, "users", auth.currentUser.uid);
 
-      dev("reading auth");
+      console.log("reading auth");
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
 
@@ -4835,7 +4852,7 @@ document.body.addEventListener("click", async (e) => {
           return;
         }
 
-        dev("uploading video");
+        console.log("uploading video");
         const upload = await uploadToSupabase(file, auth.currentUser.uid, isPremium);
         media = {
           url: upload.url,
@@ -4845,7 +4862,7 @@ document.body.addEventListener("click", async (e) => {
         mediaType = "video";
         mediaPath = upload.path;
 
-        dev("updating auth");
+        console.log("updating auth");
         await updateDoc(userRef, {
           lastVideoReply: serverTimestamp()
         });
@@ -4880,12 +4897,17 @@ document.body.addEventListener("click", async (e) => {
 
       const editUntil = new Date(Date.now() + 15 * 60 * 1000);
 
-      dev("detecting language");
-      const detectedLanguage = await detectLanguage(text);
+      console.log("detecting language");
+      let detectedLanguage = "english";
+      try {
+        detectedLanguage = await detectLanguage(text);
+      } catch {
+        console.log("detecting language failed, but no problem");
+      }
 
       const parentCommentRef = doc(db, ...basePath, commentId);
 
-      dev("reading parent comment");
+      console.log("reading parent comment");
       const parentCommentSnap = await getDoc(parentCommentRef);
 
       const commentData = parentCommentSnap.data();
@@ -4929,7 +4951,7 @@ document.body.addEventListener("click", async (e) => {
         if (commentData.uid != auth.currentUser.uid) {
           const tweetUserRef = doc(db, "users", commentData.uid);
 
-          dev("reading parent author");
+          console.log("reading parent author");
           const tweetUserSnap = await tx.get(tweetUserRef);
           let tweetUserData;
           if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -4939,7 +4961,7 @@ document.body.addEventListener("click", async (e) => {
           }
         }
 
-        dev("posting reply");
+        console.log("posting reply");
         if (TWEETOWNERSUSPENDED === false) {
           tx.set(replyRef, payload);
         }
@@ -4951,7 +4973,7 @@ document.body.addEventListener("click", async (e) => {
 
       let cSnap;
       if (window.communityID){
-        dev("reading community");
+        console.log("reading community");
         cSnap = await getDoc(doc(db, "communities", window.communityID));
       }
       const communityName = cSnap?.exists() ?
@@ -4986,7 +5008,7 @@ document.body.addEventListener("click", async (e) => {
         if (commentData.parentId != null) {
           greatParentRef = doc(db, ...basePath, commentData.parentId);
 
-          dev("reading parent's parent");
+          console.log("reading parent's parent");
           greatParentSnap = await getDoc(greatParentRef);
           greatParentData = greatParentSnap.data();
         }
@@ -4996,13 +5018,13 @@ document.body.addEventListener("click", async (e) => {
           if (window.communityID) {
             tweetRef1 = doc(db, "communities", window.communityID, "posts", tweetId);
 
-            dev("reading Wynt");
+            console.log("reading Wynt");
             tweetSnap1 = await getDoc(tweetRef1);
             tweetData1 = tweetSnap1.data();
           } else {
             tweetRef1 = doc(db, "tweets", tweetId);
 
-            dev("reading Wynt");
+            console.log("reading Wynt");
             tweetSnap1 = await getDoc(tweetRef1);
             tweetData1 = tweetSnap1.data();
           }
@@ -5012,7 +5034,7 @@ document.body.addEventListener("click", async (e) => {
         }
 
         if (auth.currentUser.uid === ownerUid && commentData.ownerReplied == null) {
-          dev("updating reply and parent reply");
+          console.log("updating reply and parent reply");
           await runTransaction(db, async (tx) => {
             tx.update(parentCommentRef, {
               replyCount: increment(1),
@@ -5023,7 +5045,7 @@ document.body.addEventListener("click", async (e) => {
             })
           });
         } else {
-          dev("updating parent reply");
+          console.log("updating parent reply");
           await updateDoc(parentCommentRef, {
             replyCount: increment(1)
           });
@@ -5087,7 +5109,6 @@ document.body.addEventListener("click", async (e) => {
       document.getElementById("rsensitive").checked = false;
       if (TWEETOWNERSUSPENDED === false) {
         log("green", "reply posted");
-        dev("");
         if (window.communityID) {
           incrementViews(tweetId, commentId, window.communityID);
         } else {
@@ -6056,7 +6077,7 @@ document.body.addEventListener("click", async (e) => {
           const name = userData.displayName ?
             userData.displayName.toLowerCase() :
             "Unknown";
-          const status = userData.privateLikes && postSnap.data().uid != auth.currentUser.uid ?
+          const status = userData.privateLikes || false && postSnap.data().uid != auth.currentUser.uid ?
             "private" : "public";
 
           transaction.set(likeRef, {
@@ -6354,7 +6375,6 @@ document.body.addEventListener("click", async (e) => {
     </div>
 `;
 
-  dev("");
   document.getElementById("retweetOriginal").innerHTML = innerHTML;
   const { avatar } = await getUserData(auth.currentUser.uid);
   document.getElementById("retweetAvatar").src = avatar || "/image/default-avatar.jpg";
@@ -6655,7 +6675,7 @@ sendRetweet.onclick = async () => {
 
   const userRef = doc(db, "users", user.uid);
 
-  dev("reading auth");
+  console.log("reading auth");
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
     const data = userSnap.data();
@@ -6718,7 +6738,7 @@ sendRetweet.onclick = async () => {
           return;
         }
 
-        dev("uploading video");
+        console.log("uploading video");
         const upload = await uploadToSupabase(file, uid, isPremium);
         media = upload.url;
         mediaType = "video";
@@ -6769,8 +6789,13 @@ sendRetweet.onclick = async () => {
 
     const editUntil = new Date(Date.now() + 15 * 60 * 1000);
 
-    dev("detecting language")
-    const detectedLanguage = await detectLanguage(text);
+    console.log("detecting language")
+    let detectedLanguage = "english";
+    try {
+      detectedLanguage = await detectLanguage(text);
+    } catch {
+      console.log("detecting language failed, but no problem");
+    }
 
     const muteNotif = document.getElementById("rtmute").checked;
     const noPrivateReply = !document.getElementById("rtprivateOK").checked;
@@ -6807,7 +6832,7 @@ sendRetweet.onclick = async () => {
 
     let postref, postsnap;
 
-    dev("reading quoted post");
+    console.log("reading quoted post");
     if (isCommentRetweet) {
       if (window.communityID) {
         postref = doc(db, "communities", window.communityID, "posts", originalId, "comments", commentId);
@@ -6843,7 +6868,7 @@ sendRetweet.onclick = async () => {
       if (postdata.uid != auth.currentUser.uid) {
         const tweetUserRef = doc(db, "users", postdata.uid);
 
-        dev("reading quoted post's author");
+        console.log("reading quoted post's author");
         const tweetUserSnap = await tx.get(tweetUserRef);
         let tweetUserData;
         if (tweetUserSnap.exists()) tweetUserData = tweetUserSnap.data();
@@ -6853,7 +6878,7 @@ sendRetweet.onclick = async () => {
         }
       }
 
-      dev("posting quote");
+      console.log("posting quote");
       if (TWEETOWNERSUSPENDED === false) {
         if (window.communityID) {
           let communityPayload = {
@@ -6926,7 +6951,7 @@ sendRetweet.onclick = async () => {
 
       let communitySnap;
       if (window.communityID) {
-        dev("reading community");
+        console.log("reading community");
         communitySnap = await getDoc(doc(db, "communities", window.communityID));
       }
       const communityName = communitySnap?.exists() ?
@@ -7039,7 +7064,7 @@ sendRetweet.onclick = async () => {
       const isPremium = premiumExpiry && premiumExpiry > now;
       const cooldownDuration = isPremium ? 1 * 60 * 1000 : 5 * 60 * 1000;
 
-      dev("updating documents")
+      console.log("updating documents")
       await runTransaction(db, async (tx) => {
         if ((window.communityID && postedToMain) || !window.communityID) {
           tx.update(userRef, {

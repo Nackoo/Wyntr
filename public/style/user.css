@@ -135,6 +135,10 @@
   color: white;
 }
 
+#my-status {
+  cursor: pointer;
+}
+
 #user-status,
 #my-status {
   background: rgba(19,19,19,0.5);
@@ -2297,4 +2301,8 @@ p:not(#user-description):not(#my-description):not(#hover-bio):not(#community-hov
 #extra {
   display: flex;
   align-items: center;
+}
+
+#following1 .skeleton-card:first-child {
+  margin-top: 20px !important
 }

@@ -476,9 +476,9 @@
 
           <br><br><br><br><br><br><br><br><br><br><br>
 
-          <div class="container1" style="margin-top:15px;">
-            <span>Status</span>
-            <input style="border:none;padding:0;" type="text" id="status-edit">
+          <div style="display:flex;align-items:center;">
+            <span>your username is <span id="my-username-yeah" style="text-decoration: underline;font-weight:bold;"></span>.</span>
+            <button id="change-username" style="color:grey;background:none !important;text-decoration: underline;font-size:15px;">change your username</button>
           </div>
 
           <div class="container1">
@@ -689,28 +689,13 @@
               </select>
             </div>
 
-            <div style="display:flex;align-items:center;gap:5px;margin:5px 0;margin-top:0;">
-              <span style="color:grey">developer mode</span>
-              <div class="switch-row" style="margin-left:auto">
-                <input id="devmode" type="checkbox">
-                <label for="devmode" class="switch-label" aria-hidden="true">
-                  <span class="switch-track">
-                    <span class="switch-knob" aria-hidden="true"></span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
             <div style="display:flex;align-items:center;margin-bottom: 15px;margin-top:20px;">
               <h3 style="margin:0;">About your account</h3>
               <button class="close-btn" id="setD" style="margin-left: auto;  transform: rotate(-90deg); padding: 0px;"><img src="/image/leftArrow.svg" height="25"></button>
             </div>
 
             <div id="B" style="display: block;">
-              <div style="display:flex;gap:10px">
-                <button style="border-radius:10px;padding:10px;background:#db1d23;color:white" id="save-password-btn">add/change password for this account</button>
-                <button id="change-username" style="border-radius:10px;padding:10px;">change username</button>
-              </div>
+              <button style="border-radius:10px;padding:10px;background:#db1d23;color:white" id="save-password-btn">add/change password for this account</button>
             </div>
 
             <!--hr style="margin:0 -13px;margin-top:17px;margin-bottom:10px;"-->
@@ -1710,7 +1695,7 @@
               <div class="item-shop-img" style="background: url('https://media.tenor.com/gRNhbdpYwxcAAAAj/picardia-thumbsup.gif') no-repeat center / cover;filter: brightness(0.7)">
               </div>
               <h3 style="margin:0">Premium</h3>
-              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>500 WC</span></div>
+              <div style="color:grey;display:flex;align-items:center;gap:7px;"><img src="/image/coin.svg"> <span>500 credits</span></div>
               <div class="buy-btn">
                   <button id="buy-premium">Purchase</button>
               </div>

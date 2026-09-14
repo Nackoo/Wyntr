@@ -1,8 +1,8 @@
-import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, startAfter, increment, serverTimestamp, runTransaction, Timestamp, updateDoc } from "./firebase.js";
+import { db, collection, query, writeBatch, where, getDocs, orderBy, limit, auth, getDoc, doc, startAfter, increment, serverTimestamp, runTransaction, Timestamp, updateDoc, arrayUnion } from "./firebase.js";
 import { renderTweet, getUserData, loadComments, currentUserRole, waitForAuth } from './index.js';
 import { sendFollowNotification } from "./notification.js";
 import { homesvg, homefilled, searchsvg, searchfilled, tweetviewactive1 } from "./nonsense.js";
-import { escapeHTML, tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate, getSuspendedUntil } from "./texts.js";
+import { escapeHTML, tokenize, parseMentionsToLinks, formatNumber, info, log, confirmDialog, formatUTC8, formatDate, getSuspendedUntil, randomString } from "./texts.js";
 import { renderCommentViewer } from "./commentViewer.js";
 import { renderTweetViewer } from "./tweetViewer.js";
 import { openCommunity } from "./community.js"; 
@@ -11,6 +11,7 @@ import { loadFolderTweets } from "./highlight.js";
 import { discord } from "./moderation.js";
 import { initViews } from "./view_users.js";
 import { TWEETS_SKELETON, NO_ACCESS, USERS_SKELETON, BOOKMARKS_SKELETON } from "./element.js";
+import { upd } from "./cache.js";
 
 await waitForAuth();
 
@@ -648,12 +649,15 @@ async function getIfUserfollows(uid) {
   }
 }
 
+const userstatus = document.getElementById("user-status");
 function softblank() {
   document.getElementById("stardenburdenhardenbart").textContent = "user";
   document.getElementById("username").textContent = "username"
   document.getElementById("user-description").innerHTML = "loading description...";
   document.getElementById("user-name").textContent = "user";
-  document.getElementById("user-status").textContent = "i'm cold";
+  userstatus.textContent = "no status";
+  userstatus.style.color = "grey";
+  userstatus.style.fontStyle = "italic";
   document.getElementById("posts").textContent = "0";
   document.getElementById("followers").textContent = "0";
   document.getElementById("comCount").textContent = "0";
@@ -1249,7 +1253,19 @@ export async function openUserSubProfile(uid) {
     };
   }
 
-  document.getElementById("user-status").textContent = d.status || "i'm cold";
+  const showStatus = d.status && d.until?.toDate() >= new Date()
+  userstatus.textContent = showStatus
+    ? d.status
+    : "no status";
+
+  if (!showStatus) {
+    userstatus.style.color = "grey";
+    userstatus.style.fontStyle = "italic";
+  } else {
+    userstatus.style.color = "var(--color)";
+    userstatus.style.fontStyle = "normal";
+  }
+
   document.getElementById("user-name").textContent = d.displayName || "Unnamed";
   document.getElementById("username").textContent = `@${d.username}` || "unnamed";
   document.getElementById("user-pfp").style.background = `url(${base91ToImageSrc(d.photoURL) || "/image/default-avatar.png"}) no-repeat center /cover`;
@@ -1306,87 +1322,179 @@ export async function openUserSubProfile(uid) {
 
 async function loadIfFollow(uid) {
   const followBtn = document.getElementById("followBtn");
-  const myFollowingRef = doc(db, "users", auth.currentUser.uid, "following", uid);
-  const theirFollowersRef = doc(db, "users", uid, "followers", auth.currentUser.uid);
 
-    followBtn.onclick = async () => {
-      if (followBtn.disabled) return;
+  const myFollowingRef = doc(
+    db,
+    "users",
+    auth.currentUser.uid,
+    "following",
+    uid
+  );
 
-      followBtn.disabled = true;
-      followBtn.classList.add("disabled");
+  const theirFollowersRef = doc(
+    db,
+    "users",
+    uid,
+    "followers",
+    auth.currentUser.uid
+  );
 
-      function reset() {
-        followBtn.classList.remove("disabled");
-        followBtn.disabled = false;
-      }
+  const snap = await getDoc(myFollowingRef);
 
-      try {
-        const currentlyFollowing = snap.exists();
-        const theirAccount = await getDoc(doc(db, "users", uid));
+  let isFollowing = snap.exists();
 
-        if (currentlyFollowing) {
-          if (localStorage.getItem("disableConfirmation") != "true") {
-            const ok = await confirmDialog("Unfollow this user?", "Are you sure you want to unfollow this user?");
+  function updateButton() {
+    followBtn.textContent = isFollowing ? "Following" : "Follow";
 
-            if (!ok) {
-              reset();
-              return;
-            }
-          }
+    followBtn.style.cssText = isFollowing
+      ? `
+        padding: 10px 32px;
+        background: rgba(0,0,0,0.8);
+        border: 1px solid var(--color);
+        color: var(--color);
+        margin-right: 10px;
+        margin-bottom: -10px;
+      `
+      : `
+        padding: 10px 32px;
+        background: white;
+        color: black;
+        margin-right: 10px;
+        margin-bottom: -10px;
+        border: 1px solid black;
+      `;
+  }
 
-          const batch = writeBatch(db);
+  updateButton();
 
-          batch.delete(myFollowingRef);
-          batch.delete(theirFollowersRef);
+  followBtn.onclick = async () => {
+    if (followBtn.disabled) return;
 
-          batch.update(doc(db, "users", auth.currentUser.uid), {
+    followBtn.disabled = true;
+    followBtn.classList.add("disabled");
+
+    function reset() {
+      followBtn.classList.remove("disabled");
+      followBtn.disabled = false;
+    }
+
+    try {
+      if (isFollowing) {
+        if (localStorage.getItem("disableConfirmation") !== "true") {
+          const ok = await confirmDialog(
+            "Unfollow this user?",
+            "Are you sure you want to unfollow this user?"
+          );
+
+          if (!ok) return;
+        }
+
+        const theirAccount = await getDoc(
+          doc(db, "users", uid)
+        );
+
+        const batch = writeBatch(db);
+
+        batch.delete(myFollowingRef);
+        batch.delete(theirFollowersRef);
+
+        batch.update(
+          doc(db, "users", auth.currentUser.uid),
+          {
             following: increment(-1)
-          });
+          }
+        );
 
-          if (theirAccount.exists()) {
-            batch.update(doc(db, "users", uid), {
+        if (theirAccount.exists()) {
+          batch.update(
+            doc(db, "users", uid),
+            {
               followers: increment(-1)
-            });
+            }
+          );
+        }
+
+        await batch.commit();
+
+        isFollowing = false;
+
+        upd("add", uid);
+
+        log("green", "user unfollowed");
+
+        loading.classList.remove("show");
+
+        document
+          .querySelector(
+            `#followList .user-search-item[data-uid="${uid}"]`
+          )
+          ?.remove();
+
+        updateButton();
+
+      } else {
+        let followedUserData = null;
+
+        await runTransaction(db, async (transaction) => {
+          const currentUserRef = doc(
+            db,
+            "users",
+            auth.currentUser.uid
+          );
+
+          const targetUserRef = doc(
+            db,
+            "users",
+            uid
+          );
+
+          const [
+            currentUserSnap,
+            targetUserSnap
+          ] = await Promise.all([
+            transaction.get(currentUserRef),
+            transaction.get(targetUserRef)
+          ]);
+
+          if (
+            !currentUserSnap.exists() ||
+            !targetUserSnap.exists()
+          ) {
+            throw new Error("User account not found");
           }
 
-          await batch.commit();
+          const currentUserData = currentUserSnap.data();
+          const targetUserData = targetUserSnap.data();
 
-          followBtn.innerHTML = "";
-          followBtn.classList.remove("disabled");
-          followBtn.disabled = false;
+          /*
+            IMPORTANT:
 
-          log("green", `user unfollowed`);
-          loading.classList.remove("show");
-          await loadIfFollow(uid);
-          document.querySelector(`#followList .user-search-item[data-uid="${uid}"]`)?.remove();
-        } else {
-          await runTransaction(db, async (batch) => {
-            const currentUserRef = doc(db, "users", auth.currentUser.uid);
-            const targetUserRef = doc(db, "users", uid);
+            Don't call info(), reset(), log(),
+            upd(), or sendFollowNotification()
+            inside this transaction.
+          */
 
-            const [currentUserSnap, targetUserSnap] = await Promise.all([
-              batch.get(currentUserRef),
-              batch.get(targetUserRef)
-            ]);
-            const targetUserData = targetUserSnap.data();
-            const currentUserData = currentUserSnap.data();
+          if (
+            currentUserData.suspended === true &&
+            currentUserData.suspendedUntil > Timestamp.now()
+          ) {
+            throw new Error("CURRENT_USER_SUSPENDED");
+          }
 
-            if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
-              info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
-              reset();
-              return;
-            }
+          if (
+            targetUserData.suspended === true &&
+            targetUserData.suspendedUntil > Timestamp.now()
+          ) {
+            throw new Error("TARGET_USER_SUSPENDED");
+          }
 
-            if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
-              info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
-              reset();
-              return;
-            }
+          const status = currentUserData.cannotSeeFollows
+            ? "private"
+            : "public";
 
-            const status = currentUserData.cannotSeeFollows ?
-              "private" : "public"
-
-            batch.set(doc(db, "users", uid, "followers", auth.currentUser.uid), {
+          transaction.set(
+            theirFollowersRef,
+            {
               followedAt: serverTimestamp(),
               displayName: currentUserData.displayName,
               username: currentUserData.username,
@@ -1395,9 +1503,12 @@ async function loadIfFollow(uid) {
               description: currentUserData.description || null,
               status,
               followersCount: currentUserData.followers || 0
-            });
+            }
+          );
 
-            batch.set(doc(db, "users", auth.currentUser.uid, "following", uid), {
+          transaction.set(
+            myFollowingRef,
+            {
               followedAt: serverTimestamp(),
               displayName: targetUserData.displayName,
               username: targetUserData.username,
@@ -1405,33 +1516,67 @@ async function loadIfFollow(uid) {
               photoURL: targetUserData.photoURL,
               description: targetUserData.description || null,
               followersCount: targetUserData.followers || 0
-            });
+            }
+          );
 
-            batch.update(currentUserRef, {
-              following: increment(1)
-            });
-            batch.update(targetUserRef, {
-              followers: increment(1)
-            });      
-
-            sendFollowNotification(uid, currentUserData.username, currentUserData.photoURL);
-            log("green", `followed ${targetUserData.displayName || "them"}`);
+          transaction.update(currentUserRef, {
+            following: increment(1)
           });
 
-          followBtn.innerHTML = "";
+          transaction.update(targetUserRef, {
+            followers: increment(1)
+          });
 
-          reset();
-          await loadIfFollow(uid);
-        }
-      } catch (err) {
-        console.error("Follow action failed:", err);
+          followedUserData = {
+            displayName: targetUserData.displayName,
+            username: currentUserData.username,
+            photoURL: currentUserData.photoURL
+          };
+        });
+
+        isFollowing = true;
+
+        upd("add", uid);
+
+        sendFollowNotification(
+          uid,
+          followedUserData.username,
+          followedUserData.photoURL
+        );
+
+        log(
+          "green",
+          `followed ${followedUserData.displayName || "them"}`
+        );
+
+        updateButton();
+      }
+
+    } catch (err) {
+      console.error("Follow action failed:", err);
+
+      if (err.message === "CURRENT_USER_SUSPENDED") {
+        info(
+          "x",
+          "insufficient permission",
+          "You are temporarily suspended from using this platform. Please try again later"
+        );
+
+      } else if (err.message === "TARGET_USER_SUSPENDED") {
+        info(
+          "x",
+          "insufficient permission",
+          "This user is temporarily suspended from using this platform. Please try again later"
+        );
+
+      } else {
         log("red", "Something went wrong");
       }
-    };
 
-  const snap = await getDoc(myFollowingRef);
-  followBtn.textContent = snap.exists() ? "Following" : "Follow";
-  followBtn.style.cssText = snap.exists() ? "padding: 10px 32px; background:rgba(0,0,0,0.8);border:1px solid var(--color);color:var(--color);margin-right:10px;margin-bottom: -10px;" : "padding: 10px 32px;background:white;color:black;margin-right:10px;margin-bottom: -10px;border:1px solid black;";
+    } finally {
+      reset();
+    }
+  };
 }
 
 async function renderPinned(d, uid) {
@@ -1908,11 +2053,15 @@ async function setupMiniFollowBtn(btn, targetId) {
           btn.textContent = "Follow";
           btn.style.cssText = "background:white;color:black;margin-left:auto;padding:10px;height:35px;";
 
+          upd("add", targetId);
+
           log("green", `user unfollowed`);
           loading.classList.remove("show");
           setupMiniFollowBtn(btn, targetId);
           document.querySelector(`#followList .user-search-item[data-uid="${targetId}"]`)?.remove();
         } else {
+          let followedUserData = null;
+
           await runTransaction(db, async (batch) => {
             const currentUserRef = doc(db, "users", auth.currentUser.uid);
             const targetUserRef = doc(db, "users", targetId);
@@ -1920,66 +2069,99 @@ async function setupMiniFollowBtn(btn, targetId) {
             const [currentUserSnap, targetUserSnap] = await Promise.all([
               batch.get(currentUserRef),
               batch.get(targetUserRef)
-            ])
+            ]);
+
+            if (!currentUserSnap.exists() || !targetUserSnap.exists()) {
+              throw new Error("User not found");
+            }
+
             const currentUserData = currentUserSnap.data();
             const targetUserData = targetUserSnap.data();
 
-            if (currentUserData.suspended === true && currentUserData.suspendedUntil > Timestamp.now()) {
-              info("x", "insufficient permission", "You are temporarily suspended from using this platform. Please try again later");
-              reset();
-              return;
+            if (
+              currentUserData.suspended === true &&
+              currentUserData.suspendedUntil > Timestamp.now()
+            ) {
+              throw new Error("You are temporarily suspended");
             }
 
-            if (targetUserData.suspended === true && targetUserData.suspendedUntil > Timestamp.now()) {
-              info("x", "insufficient permission", "This user is temporarily suspended from using this platform. Please try again later");
-              reset();
-              return;
+            if (
+              targetUserData.suspended === true &&
+              targetUserData.suspendedUntil > Timestamp.now()
+            ) {
+              throw new Error("This user is temporarily suspended");
             }
 
-            const status = currentUserData.cannotSeeFollows ?
-              "private" : "public"
+            const status = currentUserData.cannotSeeFollows
+              ? "private"
+              : "public";
 
-            batch.set(doc(db, "users", targetId, "followers", auth.currentUser.uid), {
-              followedAt: serverTimestamp(),
-              displayName: currentUserData.displayName,
-              username: currentUserData.username,
-              name: currentUserData.displayName.toLowerCase(),
-              photoURL: currentUserData.photoURL,
-              description: currentUserData.description || null,
-              status,
-              followersCount: currentUserData.followers || 0
-            });
+            batch.set(
+              doc(db, "users", targetId, "followers", auth.currentUser.uid),
+              {
+                followedAt: serverTimestamp(),
+                displayName: currentUserData.displayName,
+                username: currentUserData.username,
+                name: currentUserData.displayName.toLowerCase(),
+                photoURL: currentUserData.photoURL,
+                description: currentUserData.description || null,
+                status,
+                followersCount: currentUserData.followers || 0
+              }
+            );
 
-            batch.set(doc(db, "users", auth.currentUser.uid, "following", targetId), {
-              followedAt: serverTimestamp(),
-              displayName: targetUserData.displayName,
-              username: targetUserData.username,
-              name: targetUserData.displayName.toLowerCase(),
-              photoURL: targetUserData.photoURL,
-              description: targetUserData.description || null,
-              followersCount: targetUserData.followers || 0
-            });
+            batch.set(
+              doc(db, "users", auth.currentUser.uid, "following", targetId),
+              {
+                followedAt: serverTimestamp(),
+                displayName: targetUserData.displayName,
+                username: targetUserData.username,
+                name: targetUserData.displayName.toLowerCase(),
+                photoURL: targetUserData.photoURL,
+                description: targetUserData.description || null,
+                followersCount: targetUserData.followers || 0
+              }
+            );
 
             batch.update(currentUserRef, {
               following: increment(1)
             });
+
             batch.update(targetUserRef, {
               followers: increment(1)
-            }); 
+            });
 
-            log("green", `followed ${targetUserData.displayName || "them"}`);
-            sendFollowNotification(targetId, currentUserData.username, currentUserData.photoURL);
+            followedUserData = {
+              displayName: targetUserData.displayName,
+              username: currentUserData.username,
+              photoURL: currentUserData.photoURL
+            };
           });
+
+          upd("add", targetId);
+
+          log(
+            "green",
+            `followed ${followedUserData.displayName || "them"}`
+          );
+
+          sendFollowNotification(
+            targetId,
+            followedUserData.username,
+            followedUserData.photoURL
+          );
 
           btn.textContent = "UnFoll";
 
-          if (window.followOverlayUid == auth.currentUser.uid && window.type === "following") {
-            btn.style.cssText = "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;"
+          if (
+            window.followOverlayUid === auth.currentUser.uid &&
+            window.type === "following"
+          ) {
+            btn.style.cssText =
+              "background:none;padding:9px;border:1px solid grey;color:grey;margin-left:auto;height:35px;";
           } else {
-            btn.style.cssText = "display:none";
+            btn.style.cssText = "display:none;";
           }
-        
-          setupMiniFollowBtn(btn, targetId);
         }
       } catch (err) {
         console.error("Follow toggle failed:", err);

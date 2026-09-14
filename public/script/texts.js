@@ -5,26 +5,6 @@ import { renderCard } from "./cardRenderer.js";
 
 const loading = document.getElementById("loadingOverlay");
 
-let timer = null;
-const observer = new MutationObserver(() => {
-  if (loading.classList.contains("show")) {
-    if (!timer) {
-      timer = setTimeout(() => {
-        log("grey", "we removed the loading for you, thought you were stuck there")
-        loading.classList.remove("show");
-        timer = null;
-      }, 20000);
-    }
-  } else {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  }
-});
-
-observer.observe(loading, { attributes: true, attributeFilter: ["class"] });
-
 function log(color, text) {
   const log = document.getElementById("log");
   let col = "grey";
@@ -84,7 +64,11 @@ function createEmojiOverlay(button) {
   document.body.appendChild(overlay);
 }
 
-function inputDialog(title, desc, extraElement, inputValue, red) {
+export function isNum(input) {
+  return /^\d+$/.test(input);
+}
+
+function inputDialog(title, desc, extraElement, inputValue, red, allowNull = false) {
   return new Promise(resolve => {
     if (loading.classList.contains("show")) {
       loading.classList.remove("show");
@@ -145,7 +129,7 @@ function inputDialog(title, desc, extraElement, inputValue, red) {
     ok.style.color = red ? "white" : "black";
     
     ok.onclick = () => {
-      if (!input.value) return log("red", "input cannot be blank");
+      if (!input.value && !allowNull) return log("red", "input cannot be blank");
       close(input.value.trim() || null)
     };
     cancel.onclick = () => close(null);
@@ -687,15 +671,6 @@ export function getSuspendedUntil(duration) {
   if (duration === "permanent") return null;
 
   return Timestamp.fromMillis(now + map[duration]);
-}
-
-export function dev(text) {
-  if (localStorage.getItem("developerMode") == "true") {
-    document.getElementById("replyLog").textContent = text;
-    document.getElementById("commentLog").textContent = text;
-    document.getElementById("wyntLog").textContent = text;
-    document.getElementById("quoteLog").textContent = text;
-  }
 }
 
 export { randomString, inputDialog, confirmDialog, log, info, tokenize, formatDate, linkify, applyReadMoreLogic, parseMentionsToLinks, escapeHTML, formatNumber, formatTime }

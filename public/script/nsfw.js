@@ -1,100 +1,89 @@
 const SIZE = 64;
-const SKIN_MIN_RATIO = 0.18;
-const NSFW_SCORE_THRESHOLD = 0.65;
-
-import { confirmDialog } from "./texts.js";
 
 const loading = document.getElementById("loadingOverlay");
 
-let nsfwModel = null;
-let tfReady = false;
-let nsfwReady = false;
+const NSFW_API_URL = "https://Nackoo-NSFWCLASSIFIER.hf.space";
 
-async function loadNSFW() {
-  if (nsfwModel) return nsfwModel;
-
-  if (!tfReady) {
-    await import("/lib/script/tf.min.js");
-
-    await tf.setBackend("cpu");      
-    await tf.ready();
-
-    tfReady = true;
-  }
-
-  if (!nsfwReady) {
-    await import("/lib/script/nsfwjs.min.js");
-    nsfwReady = true;
-  }
-
-  nsfwModel = await window.nsfwjs.load("/lib/nsfw/model.json");
-  console.log("NSFW deep model loaded");
-
-  return nsfwModel;
-}
-
-async function confirmHeavyScan() {
-  const ok = await confirmDialog("Deep scan required", "We must run a second model for this one to properly analyze it.\nDo you wish to proceed?");
-  return ok;
-}
-
-function nsfwFromPredictions(preds) {
+function nsfwFromPredictions(preds = []) {
   let porn = 0;
   let hentai = 0;
 
-  for (const p of preds) {
+  for (const p of preds || []) {
     if (p.className === "Porn") porn = p.probability;
     if (p.className === "Hentai") hentai = p.probability;
   }
 
-  console.log(preds);
-
   return porn >= 0.6 || hentai >= 0.6;
 }
 
-async function quickImageNSFWCheck(file) {
-  // Run fast heuristic first
-  const bitmap = await createImageBitmap(file, {
-    resizeWidth: SIZE,
-    resizeHeight: SIZE
-  });
+async function toJpegBlob(file, maxDim = 512) {
+  const bitmap = await createImageBitmap(file);
+
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
 
   const canvas = document.createElement("canvas");
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  canvas.width = w;
+  canvas.height = h;
 
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(bitmap, 0, 0, SIZE, SIZE);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  return new Promise(r => canvas.toBlob(r, "image/jpeg", 0.9));
+}
 
-  const quick = analyzeFrame(ctx.getImageData(0, 0, SIZE, SIZE));
+async function classifyRemote(blob, filename = "frame.jpg") {
+  try {
+    const fd = new FormData();
+    fd.append("image", blob, filename);
 
-  // If fast scan says SAFE → allow immediately
-  if (!quick.isNSFW) {
-    return {
-      ...quick,
-      finalNSFW: false,
-      stage: "quick"
-    };
+    const res = await fetch(`${NSFW_API_URL}/classify`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error(`NSFW API error: ${res.status}`);
+
+    const data = await res.json();
+    return Array.isArray(data.predictions) ? data.predictions : [];
+  } catch (error) {
+    console.warn("NSFW image classification failed; allowing image.", error);
+    return [];
   }
+}
 
-  // Ask user if we should run heavy model
-  const ok = await confirmHeavyScan();
-  if (!ok) {
-    return {
-      ...quick,
-      finalNSFW: true,
-      stage: "quick-blocked"
-    };
+async function classifyBatchRemote(blobs) {
+  try {
+    const fd = new FormData();
+    blobs.forEach((b, i) => fd.append("images", b, `frame${i}.jpg`));
+
+    const res = await fetch(`${NSFW_API_URL}/classify-batch`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error(`NSFW API error: ${res.status}`);
+
+    const data = await res.json();
+    return Array.isArray(data.results) ? data.results : [];
+  } catch (error) {
+    console.warn("NSFW video classification failed; allowing video.", error);
+    return [];
   }
+}
 
+async function quickImageNSFWCheck(file) {
   loading.classList.add("show");
-  // Run deep ML scan
-  const preds = await deepScanImage(file);
-  const deepNSFW = nsfwFromPredictions(preds);
 
-  loading.classList.remove("show");
+  let preds = [];
+  let deepNSFW = false;
+  try {
+    const jpegBlob = await toJpegBlob(file);
+    preds = await classifyRemote(jpegBlob, "image.jpg");
+    deepNSFW = nsfwFromPredictions(preds);
+  } catch (error) {
+    console.warn("NSFW image check failed; allowing upload.", error);
+    deepNSFW = false;
+    preds = [];
+  } finally {
+    loading.classList.remove("show");
+  }
+
   return {
-    ...quick,
+    skinRatio: 0,
+    score: 0,
+    isNSFW: deepNSFW,
     finalNSFW: deepNSFW,
     stage: deepNSFW ? "deep-blocked" : "deep-allowed",
     predictions: preds
@@ -111,95 +100,32 @@ async function quickVideoNSFWCheck(videoFile) {
   const duration = video.duration || 1;
   const times = [0.5, duration * 0.5, Math.max(duration - 0.5, 0)];
 
-  let votes = 0;
-  let skinSum = 0;
-  let blobSum = 0;
-  let curveSum = 0;
-  let scoreSum = 0;
+  loading.classList.add("show");
 
-  const frames = [];
+  let deepNSFW = false;
+  try {
+    const blobs = [];
+    for (const t of times) blobs.push(await grabVideoFrameBlob(video, t));
 
-  for (const t of times) {
-    const frame = await grabVideoFrame(video, t);
-    frames.push(frame);
-
-    const r = analyzeFrame(frame);
-
-    skinSum += r.skinRatio ?? 0;
-    blobSum += r.blobRatio ?? 0;
-    curveSum += r.curveScore ?? 0;
-    scoreSum += r.score ?? 0;
-
-    if (r.isNSFW) votes++;
+    const results = await classifyBatchRemote(blobs);
+    const deepVotes = (results || []).filter(nsfwFromPredictions).length;
+    deepNSFW = deepVotes >= 2;
+  } catch (error) {
+    console.warn("NSFW video check failed; allowing upload.", error);
+    deepNSFW = false;
+  } finally {
+    loading.classList.remove("show");
+    URL.revokeObjectURL(video.src);
   }
-
-  const n = times.length;
-  const quick = {
-    skinRatio: skinSum / n,
-    blobRatio: blobSum / n,
-    curveScore: curveSum / n,
-    score: scoreSum / n,
-    isNSFW: votes >= 2,
-    votes
-  };
-
-  // If fast scan says SAFE → allow
-  if (!quick.isNSFW) {
-    return {
-      ...quick,
-      finalNSFW: false,
-      stage: "quick"
-    };
-  }
-
-  // Ask user before deep scan
-  const ok = await confirmHeavyScan();
-  if (!ok) {
-    return {
-      ...quick,
-      finalNSFW: true,
-      stage: "quick-blocked"
-    };
-  }
-
-  // Deep scan frames
-  const model = await loadNSFW();
-  let deepVotes = 0;
-
-  for (const frame of frames) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 224;
-    canvas.height = 224;
-    canvas.getContext("2d").putImageData(frame, 0, 0);
-
-    const preds = await model.classify(canvas);
-    if (nsfwFromPredictions(preds)) deepVotes++;
-  }
-
-  const deepNSFW = deepVotes >= 2;
 
   return {
-    ...quick,
+    skinRatio: 0,
+    score: 0,
+    isNSFW: deepNSFW,
     finalNSFW: deepNSFW,
-    stage: deepNSFW ? "deep-blocked" : "deep-allowed"
+    stage: deepNSFW ? "deep-blocked" : "deep-allowed",
+    votes: 0
   };
-}
-
-async function deepScanImage(file) {
-  const model = await loadNSFW();
-
-  const bitmap = await createImageBitmap(file);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = 224;
-  canvas.height = 224;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, 224, 224);
-
-  const preds = await model.classify(canvas);
-
-  return preds;
 }
 
 async function grabVideoFrame(video, time) {
@@ -216,14 +142,23 @@ async function grabVideoFrame(video, time) {
   return ctx.getImageData(0, 0, SIZE, SIZE);
 }
 
+async function grabVideoFrameBlob(video, time, size = 224) {
+  video.currentTime = time;
+  await new Promise(r => video.onseeked = r);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  canvas.getContext("2d").drawImage(video, 0, 0, size, size);
+  return new Promise(r => canvas.toBlob(r, "image/jpeg", 0.9));
+}
+
 function isSkinPixel(r, g, b) {
   const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
   const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-  return (
-    cb >= 77 && cb <= 127 &&
-    cr >= 133 && cr <= 173
-  );
+  return cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173;
 }
 
 function analyzeFrame(imageData) {
@@ -231,21 +166,13 @@ function analyzeFrame(imageData) {
   const totalPixels = width * height;
 
   let skin = 0;
-
   for (let i = 0; i < data.length; i += 4) {
-    if (isSkinPixel(data[i], data[i+1], data[i+2])) {
-      skin++;
-    }
+    if (isSkinPixel(data[i], data[i + 1], data[i + 2])) skin++;
   }
 
   const skinRatio = skin / totalPixels;
 
-  return {
-    skinRatio,
-    score: skinRatio,
-    isNSFW: skinRatio > 0.08,   
-    skinMap: null
-  };
+  return { skinRatio, score: skinRatio, isNSFW: skinRatio > 0.08, skinMap: null };
 }
 
 function logNSFWResult(type, result) {
@@ -258,4 +185,4 @@ function logNSFWResult(type, result) {
   console.groupEnd();
 }
 
-export { quickVideoNSFWCheck, quickImageNSFWCheck, logNSFWResult }
+export { quickVideoNSFWCheck, quickImageNSFWCheck, logNSFWResult };

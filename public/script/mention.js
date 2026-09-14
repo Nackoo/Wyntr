@@ -1,5 +1,4 @@
 import { db, collection, query, getDocs, where, limit } from "./firebase.js";
-import { dev } from "./texts.js";
 
 export async function extractMentions(text) {
   const map = {};
@@ -15,9 +14,9 @@ export async function extractMentions(text) {
     uniqueHandles = uniqueHandles.slice(0, 10);
   }
 
-  dev("handling mentions");
   const promises = uniqueHandles.map(async (handle) => {
     map[handle] = null; 
+    console.log(`handling mention: ${handle}`);
 
     const q = query(
       collection(db, "users"), 

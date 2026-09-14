@@ -1,7 +1,7 @@
-import { db, auth, doc, getDoc, collection, query, where, getDocs, orderBy, limit, startAfter, deleteDoc, Timestamp, onSnapshot } from "./firebase.js";
+import { db, auth, doc, getDoc, collection, query, where, getDocs, orderBy, limit, startAfter, deleteDoc, Timestamp, onSnapshot, updateDoc } from "./firebase.js";
 import { renderTweet } from './index.js';
 import { youListActive } from "./nonsense.js"
-import { parseMentionsToLinks, formatNumber, tokenize } from "./texts.js"
+import { parseMentionsToLinks, formatNumber, tokenize, inputDialog, confirmDialog, info, isNum, log } from "./texts.js"
 import { base91ToImageSrc } from "./attachments.js";
 import { loadFolderTweets } from "./highlight.js";
 import { TWEETS_SKELETON } from "./element.js";
@@ -276,7 +276,65 @@ function init() {
     document.getElementById("my-followers").textContent = userData.followers || 0;
     document.getElementById("my-comCount").textContent = userData.communitiesCount || 0;
     document.getElementById("my-following").textContent = userData.following || 0;
-    document.getElementById("my-status").textContent = userData.status || "i'm cold";
+
+    const mystatus = document.getElementById("my-status");
+    const showStatus = userData.status && userData.until?.toDate() >= new Date()
+
+    mystatus.textContent = showStatus
+    ? userData.status
+    : "click to set a status";
+
+    if (!showStatus) {
+      mystatus.style.color = "grey";
+      mystatus.style.fontStyle = "italic";
+    } else {
+      mystatus.style.color = "var(--color)";
+      mystatus.style.fontStyle = "normal";
+    }
+
+    mystatus.onclick = async () => { 
+      const status = await inputDialog("set a new status", "", "", "", false, true);
+      if (!status) {
+        const confirm = await confirmDialog("delete status?", "are you sure you want to delete your status?");
+        if (!confirm) return;
+
+        const until = new Date(Date.now() - 6000000);
+        await updateDoc(doc(db, "users", uid), {
+          until
+        });
+
+        log("green", "status deleted");
+        loading.classList.remove("show");
+        mystatus.style.color = "grey";
+        mystatus.style.fontStyle = "italic";
+        mystatus.textContent = "click to set a status";
+        return;
+      } else if (status.length > 128) { 
+        info("x", "the maximum length is 128 characters", `please delete ${status.length - 128} characters left`);
+        return;
+      }
+
+      const duration = await inputDialog("set a duration (hours)", "");
+      const isnum = isNum(duration);
+
+      if (!isnum) {
+        info("x", "input must only contain a number", "please remove any characters beside number");
+        return;
+      }
+
+      const until = new Date(Date.now() + (60 * 60 * 1000 * Number(duration)));
+
+      await updateDoc(doc(db, "users", uid), {
+        status,
+        until
+      });
+
+      log("green", "status updated");
+      loading.classList.remove("show");
+      mystatus.style.color = "var(--color)";
+      mystatus.textContent = status;
+      mystatus.style.fontStyle = "normal";
+    }
 
     const name = data.displayName || auth.currentUser.displayName;
     document.getElementById("my-name").textContent = name;

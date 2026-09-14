@@ -1,6 +1,5 @@
 import { db, doc, collection, auth, runTransaction, increment, getDoc, updateDoc, setDoc, orderBy, startAfter, where, limit, getDocs, query } from "./firebase.js";
 import { getUserData, renderTweet } from "./index.js";
-import { log, dev } from "./texts.js";
 import { TWEETS_SKELETON } from "./element.js";
 import { initViews } from "./view_users.js";
 
@@ -26,13 +25,13 @@ export async function handleTags(text) {
   if (tags.length > 10) {
     throw new Error("Maximum 10 unique tags allowed");
   }
-  dev("handling tags: reading auth")
+  console.log("handling tags: reading auth")
   const d = await getUserData(auth.currentUser.uid);
 
-  dev("handling tags")
   await Promise.all(
     tags.map(async (tagName) => {
       const ref = doc(db, "tags", tagName);
+      console.log(`handling tag: ${tagName}`);
       const contributorsRef = doc(db, "tags", tagName, "contributors", auth.currentUser.uid);
 
       const [snap, contributorsSnap] = await Promise.all([
