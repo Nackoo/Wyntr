@@ -803,18 +803,13 @@ export async function openCommunity(communityId) {
   document.getElementById("skibidicome").classList.add("hidden");
 
   const comRef  = doc(db, "communities", communityId);
-  const memberRef = doc(db, "communities", communityId, "members", user.uid);
-
-  const [comSnap, memberSnap] = await Promise.all([
-    getDoc(comRef),
-    getDoc(memberRef)
-  ]);
+  const comSnap = await getDoc(comRef);
 
   if (!comSnap.exists()) return log("red", "Community not found");
   const cData = comSnap.data();
   window.cData = cData;
 
-  const isJoined = memberSnap.exists();
+  const isJoined = (cData.members || []).includes(user.uid);
   const isOwner = cData.creatorId === user.uid;
   const isAdmin = (cData.admin || []).includes(user.uid);
   const canModerate = isOwner || isAdmin;
@@ -1951,21 +1946,20 @@ window.openComMenu = async function (communityId) {
               btn.classList.add("disabled");
 
               const followingRef = doc(db, "users", docSnap.id, "following", auth.currentUser.uid);
-              const memberRef = doc(db, "communities", window.communityID, "members", docSnap.id);
               const banRef = doc(db, "communities", window.communityID, "bans", docSnap.id);
               const userRef = doc(db, "users", docSnap.id);
               const blockRef = doc(db, "users", docSnap.id, "blocks", auth.currentUser.uid);
               const comRef = doc(db, "communities", window.communityID);
 
-              const [memberSnap, banSnap, followingSnap, userSnap, blockSnap, comSnap] = await Promise.all([
-                getDoc(memberRef), getDoc(banRef), getDoc(followingRef), getDoc(userRef), getDoc(blockRef), getDoc(comRef)
+              const [banSnap, followingSnap, userSnap, blockSnap, comSnap] = await Promise.all([
+                getDoc(banRef), getDoc(followingRef), getDoc(userRef), getDoc(blockRef), getDoc(comRef)
               ]);
 
               let blockData = blockSnap.exists() ? blockSnap.data() : null;
               const userData = userSnap.data();
               const comData = comSnap.data();
 
-              if (memberSnap.exists()) {
+              if ((comData.members|| []).includes(docSnap.id)) {
                 log("red", "this user is already joined");
               } else if (blockSnap.exists() && ((blockData.blockUntil && blockData.blockUntil.toDate() > new Date()) || blockData.permanent === true)) {
                 log("red", "user grants no permission");
@@ -2138,13 +2132,9 @@ async function init() {
     const snap = await getDoc(doc(db, "communities", communityId));
     const data = snap.data();
 
-    if (data.private === true) {
-      loading.classList.remove("show");
-      const memberSnap = await getDoc(doc(db, "communities", communityId, "members", user.uid));
-      if (!memberSnap.exists()) {
-        info("x", "No access", "This community is a private community and you don't have permission to view this community.");
-        return;
-      }
+    if (data.private === true && !(data.members|| []).includes(user.uid)) {
+      info("x", "No access", "This community is a private community and you don't have permission to view this community.");
+      return;
     }
     loading.classList.remove("show");
     await openCommunity(communityId);

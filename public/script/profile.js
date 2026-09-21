@@ -413,7 +413,6 @@ async function loadTweets(uid, term = "") {
 
   let constraints = [
     where("uid", "==", uid),
-    where("archived", "!=", true),
     orderBy("createdAt", "desc")
   ];
 
