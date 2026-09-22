@@ -1557,7 +1557,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
           </div>
         `;
       } else {
-        if (d.banned === true) {
+        if (d.banned === true && currentUserRole != "admin") {
           retweetHTML = `
             <div class="quoted-comment actuallyATweet" data-id="${t.retweetOf || t.originalId}" data-community-id="${t.sharedFromCommunity || rt.communityId || null}">
               <div class="flex" style="gap:10px;align-items:center;margin-bottom:15px;margin-top:0px;">
@@ -1568,7 +1568,7 @@ async function renderTweet(t, tweetId, user, action = "prepend", container = doc
                 </span>
               </div>
               <div class="quoted-body">
-              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a user suspended for: ${d.bannedFor || "no reason stated"}</p>
+              <p style="background:var(--normal);border-radius:10px;border:var(--border);padding:10px;margin: 6px 0px 0;color:grey">This Wynt is from a suspended user.</p>
               </div>
             </div>
           `;
